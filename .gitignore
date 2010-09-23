@@ -1,0 +1,5 @@
+*.o
+*.a
+*.[568vq]
+[568vq].out
+minixfs
