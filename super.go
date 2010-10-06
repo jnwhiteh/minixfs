@@ -1,16 +1,11 @@
 package main
 
-type bit_t uint32
-type ino_t ulong
-type zone1_t uint16
-type dev_t short
-
 type super_block struct {
 	s_ninodes ino_t			// # of usable inodes on the minor device
 	s_nzones zone1_t		// total device size, including bit maps, etc.
 	s_imap_blocks short		// # of blocks used by inode bit map
 	s_zmap_blocks short		// # of blocks used by zone bit map
-	s_firstdatazone zone1_t	// number of first data zone
+	s_firstdatazone_old zone1_t	// number of first data zone
 	s_log_zone_size short	// log2 of blocks/zone
 	s_pad short				// try to avoid compiler-dependent padding
 	s_max_size off_t		// maximum file size on this device
@@ -31,6 +26,7 @@ type super_block struct {
 	s_isup *inode			// inode for root dir of mounted file system
 	s_imount *inode			// inode mounted on
 	s_inodes_per_block uint32	// precalculated from magic number
+	s_firstdatazone zone_t		// number of first data zone (big)
 	s_dev dev_t				// whose super block is this?
 	s_rd_only int			// set to 1 iff file sys mounted read only
 	s_native int			// set to 1 iff not byte swapped file system

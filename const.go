@@ -8,4 +8,8 @@ const (
 	SECTOR_SIZE		= 512
 	V2_INODE_SIZE	= 64	// manually calculated from d2_inode struct
 	INODE_MAX		= 65535
+	CHAR_BIT		= 8		// number of bits in a char
+	START_BLOCK		= 2		// starting block of FS (not counting SB)
+	SUPER_V2		= 0x2468 // magic # for V2 file system
+	STATIC_BLOCK_SIZE = 1024
 )

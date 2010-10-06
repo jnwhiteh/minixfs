@@ -1,8 +1,5 @@
 package main
 
-type nlink_t short
-type gid_t byte
-
 type inode struct {
 	i_mode mode_t		// file type, protection, er.
 	i_nlinks nlink_t	// how many links to this file

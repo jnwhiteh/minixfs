@@ -3,17 +3,12 @@ package main
 import "fmt"
 import "os"
 
-type short uint16
-type ushort int16
-type long int32
-type ulong uint32
-
-type mode_t ushort
-type uid_t short
-type off_t long
-type time_t ulong
-type zone_t uint32
-type block_t uint32
+// Notes:
+// 18:47 exch: with unsafe it gets a lil messy, but doable: var t T; slice := (*(*[1<<31 - 1]byte)(unsafe.Pointer(&t)))[0:sizeOfStruct]
+// 18:47 ronnyy has left IRC (Remote host closed the connection)
+// 18:47 jnwhiteh: exch: thanks, I'll make a note of that
+// 18:47 exch: note that this will not actually allocate 1<<31-1 bytes. it just a pointer. which makes it extra nice
+// 18:48 exch: incidentally 1<<31-1 is the largest possible size an array/slice can have
 
 type d2_inode struct {				// V2.x disk inode
 	d2_mode mode_t					// file type, protection, etc.
@@ -99,10 +94,87 @@ func main() {
 	zones := nrblocks
 
 	put_block(file, 0, zero)	// write the null boot block
-	write_superblock(file, zones, nrinodes)
+	write_superblock(file, zone_t(zones), ino_t(nrinodes), block_size, inodes_per_block)
 }
 
-func write_superblock(file *os.File, zones uint32, inodes uint32) {
+func bitmapsize(nr_bits bit_t, block_size uint) (int) {
+	bits_per_block := (int(block_size) / 2) * (2 / CHAR_BIT)
+	var nr_blocks int = int(nr_bits) / bits_per_block
+	// This is hardcoded, is actually usizeof(bitchunk_t) instead of 2
+	if bit_t(nr_blocks * bits_per_block) < nr_bits {
+		nr_blocks = nr_blocks + 1
+	}
+	return nr_blocks
+}
+
+func write_superblock(file *os.File, zones zone_t, inodes ino_t, block_size, inodes_per_block uint) {
+	var sup = new(super_block)
+	sup.s_ninodes = inodes
+	sup.s_nzones = 0
+	sup.s_zones = zones
+
+	BIGGERBLOCKS := "Please try a larger block size for an FS of this size.\n"
+	nb1 := bitmapsize(bit_t(1 + inodes), block_size)
+	sup.s_imap_blocks = short(nb1)
+	if int(sup.s_imap_blocks) != nb1 {
+		fmt.Fprintf(os.Stderr, "too many inode bitmap blocks. %s\n", BIGGERBLOCKS)
+		os.Exit(-1)
+	}
+	nb2 := bitmapsize(bit_t(zones), block_size)
+	if nb2 != int(sup.s_zmap_blocks) {
+		fmt.Fprintf(os.Stderr, "too many block bitmap blocks. %s\n", BIGGERBLOCKS)
+		os.Exit(-1)
+	}
+
+	// These are declared globally in the main tool
+	inode_offset := START_BLOCK + sup.s_imap_blocks + sup.s_zmap_blocks
+	inodeblks := (ulong(inodes) + ulong(inodes_per_block - 1)) / ulong(inodes_per_block)
+	initblks := long(inode_offset) + long(inodeblks)
+
+	nb3 := (initblks + (1 << 0) - 1) >> 0
+	sup.s_firstdatazone_old = zone1_t(nb3)
+	if nb3 >= long(zones) {
+		fmt.Fprintf(os.Stderr, "bit maps too large")
+		os.Exit(-1)
+	}
+	if nb3 != long(sup.s_firstdatazone_old) {
+		// The field is too small to store the value. Fortunately, the value
+		// can be computed from other fields. We set the on-disk field to zero
+		// to indicate that it must not be used. Eventually, we can always set
+		// the on-disk field to zero and stop using it.
+		sup.s_firstdatazone_old = 0
+	}
+	sup.s_firstdatazone = zone_t(nb3)
+	sup.s_log_zone_size = 0
+	v2sq := (block_size / 4) * (block_size / 4)
+	zo := V2_NR_DZONES + (block_size / 4) + v2sq
+	sup.s_magic = SUPER_V2
+	sup.s_max_size = off_t(zo * block_size)
+
+	//zone_size := 1 << 0	// number of blocks per zone
+
+	_, err := file.Seek(STATIC_BLOCK_SIZE, 0)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "write_superblock() couldn't seek\n")
+		os.Exit(-1)
+	}
+
+	buf := []byte(sup)
+
+	zero := make([]byte, STATIC_BLOCK_SIZE, STATIC_BLOCK_SIZE)
+
+	nwr, err := file.Write(buf)
+	if nwr != len(buf) || err != nil {
+		fmt.Fprintf(os.Stderr, "write_superblock() couldn't write: %d, %s\n", nwr, err.String())
+		os.Exit(-1)
+	}
+	if len(buf) < STATIC_BLOCK_SIZE {
+		left := STATIC_BLOCK_SIZE - len(buf)
+		nwr, err = file.Write(zero[0:left])
+		if nwr != left || err != nil {
+			fmt.Fprintf(os.Stderr, "error filling in rest of buffer: %d, %s\n", nwr, err.String())
+		}
+	}
 }
 
 func put_block(file *os.File, offset int64, data []byte) {
