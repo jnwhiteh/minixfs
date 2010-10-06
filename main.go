@@ -3,10 +3,15 @@ package main
 import "fmt"
 import "os"
 
-type mode_t uint16
-type uid_t int16
-type off_t uint32
-type time_t uint32
+type short uint16
+type ushort int16
+type long int32
+type ulong uint32
+
+type mode_t ushort
+type uid_t short
+type off_t long
+type time_t ulong
 type zone_t uint32
 type block_t uint32
 
