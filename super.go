@@ -4,6 +4,10 @@ import "fmt"
 import "os"
 import "encoding/binary"
 
+// ino_t		uint32
+// zone1_t 		uint16
+// zone_t		uint32
+
 type super_block struct {
 	Ninodes       uint32 // # of usable inodes on the minor device
 	Nzones        uint16 // total device size, including bit maps, etc.
