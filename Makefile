@@ -1,6 +1,6 @@
 include $(GOROOT)/src/Make.inc
 
-TARG=minixfs
+TARG=mkfs.minix3
 GOFILES=\
 	const.go\
 	inode.go\
