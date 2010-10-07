@@ -16,7 +16,7 @@ import "os"
 
 func main() {
 	// Open the existing disk image and perform some operations
-	file, err := os.Open("diskimage.mfs", os.O_RDONLY, 0)
+	file, err := os.Open("bootflop.mfs", os.O_RDONLY, 0)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to open disk image: %s\n", err.String())
 		os.Exit(-1)
@@ -29,7 +29,8 @@ func main() {
 	fmt.Printf("Firstdatazone: %d\n", sup.Firstdatazone)
 	fmt.Printf("Log_zone_size: %d\n", sup.Log_zone_size)
 	fmt.Printf("Max_size: %d\n", sup.Max_size)
-	fmt.Printf("Magic: %d\n", sup.Magic)
-	fmt.Printf("State: %d\n", sup.State)
 	fmt.Printf("Zones: %d\n", sup.Zones)
+	fmt.Printf("Magic: %d\n", sup.Magic)
+	fmt.Printf("Block_size: %d\n", sup.Block_size)
+	fmt.Printf("Disk_version: %d\n", sup.Disk_version)
 }
