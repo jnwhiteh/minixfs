@@ -1,39 +1,35 @@
 package main
 
+import "fmt"
+import "os"
+import "encoding/binary"
+
 type super_block struct {
-	s_ninodes ino_t			// # of usable inodes on the minor device
-	s_nzones zone1_t		// total device size, including bit maps, etc.
-	s_imap_blocks short		// # of blocks used by inode bit map
-	s_zmap_blocks short		// # of blocks used by zone bit map
-	s_firstdatazone_old zone1_t	// number of first data zone
-	s_log_zone_size short	// log2 of blocks/zone
-	s_pad short				// try to avoid compiler-dependent padding
-	s_max_size off_t		// maximum file size on this device
-	s_zones zone_t			// number of zones (replaces s_nzones in V2)
-	s_magic short			// magic number to recognize super-blocks
-
-	// The following items are valid on disk only for V3 and above
-
-	// The block size in bytes. Minimum MIN_BLOCK_SIZE, SECTOR_SIZE
-	// multiple. If V1 or V2 filesystem, this should be initialised
-	// to STATIC_BLOCK_SIZE. Maximum MAX_BLOCK_SIZE
-
-	s_pad2 short			// try to avoid compiler-dependent padding
-	s_block_size ushort		// block size in bytes
-	s_disk_version byte		// filesystem format sub-version
-
-	// The following items are only used when the super_block is in memory
-	s_isup *inode			// inode for root dir of mounted file system
-	s_imount *inode			// inode mounted on
-	s_inodes_per_block uint32	// precalculated from magic number
-	s_firstdatazone zone_t		// number of first data zone (big)
-	s_dev dev_t				// whose super block is this?
-	s_rd_only int			// set to 1 iff file sys mounted read only
-	s_native int			// set to 1 iff not byte swapped file system
-	s_version int			// file system version, zero means bad magic
-	s_ndzones int			// # of direct zones in an inode
-	s_nindirs int			// # of indirect zones per indirect block
-	s_isearch bit_t			// inodes below this bit number are in use
-	s_zsearch bit_t			// all zones below this bit number are in use
+	Ninodes uint16			// # of usable inodes on the minor device
+	Nzones uint16		// total device size, including bit maps, etc.
+	Imap_blocks uint16		// # of blocks used by inode bit map
+	Zmap_blocks uint16		// # of blocks used by zone bit map
+	Firstdatazone uint16	// number of first data zone
+	Log_zone_size uint16	// log2 of blocks/zone
+	Max_size uint32		// maximum file size on this device
+	Magic uint16			// magic number to recognize super-blocks
+	State uint16			// filesystem state
+	Zones uint32			// device size in blocks (v2)
+	Unused [4]uint32
 }
 
+// Read the superblock from the second 1024k block of the file
+func read_superblock(file *os.File) (*super_block) {
+	sup := new(super_block)
+	_, err := file.Seek(1024, 0)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to seek to superblock: %s\n", err.String())
+		os.Exit(-1)
+	}
+	err = binary.Read(file, binary.LittleEndian, sup)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to read binary blob into superblock: %s\n", err.String())
+		os.Exit(-1)
+	}
+	return sup
+}
