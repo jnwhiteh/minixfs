@@ -191,8 +191,10 @@ func create_superblock(blocks, inodes, block_size uint) *super_block {
 		os.Exit(-1)
 	}
 
-	initblks := inodes + inodes_per_block
-	nb = (initblks + (1 << ZONE_SHIFT) - 1) >> ZONE_SHIFT
+	inode_offset := START_BLOCK + sup.Imap_blocks + sup.Zmap_blocks
+	inodeblks := uint16((inodes + inodes_per_block - 1) / inodes_per_block)
+	initblks := inode_offset + inodeblks
+	nb = uint((initblks + (1 << ZONE_SHIFT) - 1) >> ZONE_SHIFT)
 	if nb >= zones {
 		ferr("bitmaps too large\n")
 		os.Exit(-1)
