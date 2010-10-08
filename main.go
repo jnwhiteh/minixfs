@@ -25,6 +25,14 @@ func ferr(f string, s ...interface{}) {
 	fmt.Fprintf(os.Stderr, f, s...)
 }
 
+func write(file *os.File, data []byte) {
+	n, err := file.Write(data)
+	if n != len(data) || err != nil {
+		ferr("Error writing block to file (%d bytes written): %s\n", n, err)
+		panic("blah")
+	}
+}
+
 // This command is used to create a new minix3-v3 filesystem with a root
 // directory owned by by the superuser (uid 0)
 
@@ -108,8 +116,40 @@ func main() {
 
 		n, err = file.Write(supr_block.Bytes())
 		if supr_block.Len() != STATIC_BLOCK_SIZE {
-			ferr("Error writing superblock\n")
+			ferr("Error writing superblock: %s\n", err)
 			os.Exit(-1)
+		}
+
+		// Create the rest of the filesystem.
+		imap_size := sup.Block_size * sup.Imap_blocks
+		imap := make([]byte, imap_size, imap_size)
+		write(file, imap)
+
+		zmap_size := sup.Block_size * sup.Imap_blocks
+		zmap := make([]byte, zmap_size, zmap_size)
+		write(file, zmap)
+
+		// Build up the inode blocks
+		inode_size := sup.Ninodes * V2_INODE_SIZE
+		if inode_size % uint32(sup.Block_size) != 0 {
+			ferr("Inodes do not fill block completely, failing.")
+			os.Exit(-1)
+		}
+
+		inodes := make([]byte, inode_size, inode_size)
+		write(file, inodes)
+
+		// Create the data blocks
+		inode_blocks := (sup.Ninodes * V2_INODE_SIZE) / uint32(sup.Block_size)
+		data_start_block := 1 + 1 + uint32(sup.Imap_blocks) + uint32(sup.Zmap_blocks) + inode_blocks
+
+		// This operates under the assumption that zones == blocks
+		data_block_size := sup.Zones - data_start_block
+		fmt.Printf("Data-block_size: %d\n", data_block_size)
+
+		data_block := make([]byte, sup.Block_size, sup.Block_size)
+		for i := uint32(0); i < data_block_size; i++ {
+			write(file, data_block)
 		}
 	}
 
