@@ -1,4 +1,4 @@
-package main
+package minixfs
 
 // mode_t		uint16
 // nlink_t		int16

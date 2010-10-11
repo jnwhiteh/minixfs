@@ -1,10 +1,14 @@
-include $(GOROOT)/src/Make.inc
+minixfs:
+	make -C pkg/minixfs && make -C pkg/minixfs install
 
-TARG=mkfs.minix3
-GOFILES=\
-	const.go\
-	inode.go\
-	main.go\
-	super.go\
+mkfs: minixfs
+	make -C cmd/mkfs
 
-include $(GOROOT)/src/Make.cmd
+all: minixfs mkfs
+
+clean:
+	make -C pkg/minixfs clean
+	make -C cmd/mkfs clean
+
+
+.PHONY: all clean mkfs minixfs

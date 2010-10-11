@@ -1,4 +1,4 @@
-package main
+package minixfs
 
 import "fmt"
 import "os"
@@ -9,7 +9,7 @@ import "encoding/binary"
 // zone_t		uint32
 // off_t		int32
 
-type super_block struct {
+type Super_block struct {
 	Ninodes           uint32 // # of usable inodes on the minor device
 	Nzones            uint16 // total device size, including bit maps, etc.
 	Imap_blocks       uint16 // # of blocks used by inode bit map
@@ -29,8 +29,8 @@ type super_block struct {
 }
 
 // Read the superblock from the second 1024k block of the file
-func read_superblock(file *os.File) *super_block {
-	sup := new(super_block)
+func Read_superblock(file *os.File) *Super_block {
+	sup := new(Super_block)
 	_, err := file.Seek(1024, 0)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to seek to superblock: %s\n", err.String())

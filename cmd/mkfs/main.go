@@ -1,5 +1,6 @@
 package main
 
+import "jnwhiteh/minixfs"
 import "bytes"
 import "encoding/binary"
 import "flag"
@@ -88,10 +89,10 @@ func main() {
 	}
 	defer file.Close()
 
-	var sup *super_block
+	var sup *minixfs.Super_block
 
 	if query {
-		sup = read_superblock(file)
+		sup = minixfs.Read_superblock(file)
 	} else {
 		// allocate the boot block
 		boot_block := make([]byte, STATIC_BLOCK_SIZE, STATIC_BLOCK_SIZE)
@@ -179,8 +180,8 @@ func bitmapsize(nr_bits uint, block_size uint) uint {
 	return nr_blocks
 }
 
-func create_superblock(blocks, inodes, block_size uint) *super_block {
-	sup := new(super_block)
+func create_superblock(blocks, inodes, block_size uint) *minixfs.Super_block {
+	sup := new(minixfs.Super_block)
 
 	inodes_per_block := block_size / V2_INODE_SIZE
 
