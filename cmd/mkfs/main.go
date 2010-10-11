@@ -133,7 +133,7 @@ func main() {
 
 		// Build up the inode blocks
 		inode_size := sup.Ninodes * V2_INODE_SIZE
-		if inode_size % uint32(sup.Block_size) != 0 {
+		if inode_size%uint32(sup.Block_size) != 0 {
 			ferr("Inodes do not fill block completely, failing.")
 			os.Exit(-1)
 		}
