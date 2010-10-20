@@ -2,5 +2,3 @@
 *.a
 *.[568vq]
 [568vq].out
-mkfs.minix3
-diskimage.mfs

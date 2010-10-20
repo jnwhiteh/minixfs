@@ -53,6 +53,10 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	return fs, nil
 }
 
+func (fs *FileSystem) GetMagic() (uint16) {
+	return fs.super.Magic
+}
+
 func (fs *FileSystem) GetInode(num uint) (*Inode, os.Error) {
 	// Check and see if the inode is already loaded in memory
 	if inode, ok := fs.inodes[num]; ok {
@@ -67,6 +71,8 @@ func (fs *FileSystem) GetInode(num uint) (*Inode, os.Error) {
 	// Load the inode from the disk and create in-memory version of it
 	offset := fs.super.Imap_blocks + fs.super.Zmap_blocks + 2
 	blockNum := ((num - 1) / fs.super.inodes_per_block) + uint(offset)
+	println("offset: ", offset)
+	println("blocknum: ", blockNum)
 
 	inode_block := new(InodeBlock_16)
 
@@ -90,6 +96,7 @@ func (fs *FileSystem) GetDataBlockFromZone(num uint) (uint) {
 
 func (fs *FileSystem) GetBlock(num uint, block interface{}) (os.Error) {
 	pos := int64(num * uint(fs.super.Block_size))
+	println("seeking to pos: ", pos)
 	newPos, err := fs.file.Seek(pos, 0)
 	if err != nil || pos != newPos {
 		return err

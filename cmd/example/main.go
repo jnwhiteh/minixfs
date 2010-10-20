@@ -4,10 +4,12 @@ import "jnwhiteh/minixfs"
 import "fmt"
 
 func main() {
-	fs, err := minixfs.OpenFileSystemFile("bootflop.img")
+	fs, err := minixfs.OpenFileSystemFile("hello.img")
 	if err != nil {
 		panic(err)
 	}
+
+	fmt.Printf("Magic of filesystem is: %d\n", fs.GetMagic())
 
 	root, err := fs.GetInode(1)
 	inode := root
@@ -40,7 +42,8 @@ func main() {
 	if err == nil {
 		panic(err)
 	}
-	for idx, entry := range dir_block.Data {
+	for idx := 0; idx < 4; idx++ {
+		entry := dir_block.Data[idx]
 		fmt.Printf("Directory entry: %d\n", idx)
 		fmt.Printf("Inode: %d\tName: %s\n", entry.Inum, entry.Name)
 	}
