@@ -9,7 +9,7 @@ import "encoding/binary"
 // zone_t		uint32
 // off_t		int32
 
-type Superblock struct {
+type disk_superblock struct {
 	Ninodes           uint32 // # of usable inodes on the minor device
 	Nzones            uint16 // total device size, including bit maps, etc.
 	Imap_blocks       uint16 // # of blocks used by inode bit map
@@ -26,6 +26,10 @@ type Superblock struct {
 	Pad2         uint16 // try to avoid compiler-dependent padding
 	Block_size   uint16 // block size in bytes
 	Disk_version byte   // filesystem format sub-version
+}
+
+type Superblock struct {
+	*disk_superblock
 }
 
 func bitmapsize(nr_bits uint, block_size uint) uint {

@@ -4,6 +4,7 @@ TARG=jnwhiteh/minixfs
 GOFILES=\
 		cache.go\
         const.go\
+		fs.go\
         inode.go\
         super.go
 

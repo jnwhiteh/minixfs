@@ -8,7 +8,7 @@ package minixfs
 // time_t		int32
 // zone_t		uint32
 
-type inode struct {
+type disk_inode struct {
 	Mode   uint16 // file type, protection, etc.
 	Nlinks int16  // how many links to this file. HACK!
 	Uid    int16  // user id of the file's owner
@@ -18,4 +18,8 @@ type inode struct {
 	Mtime  int32  // when was file data last changed
 	Ctime  int32  // when was inode data last changed
 	Zone   [10]uint32
+}
+
+type Inode struct {
+	*disk_inode
 }
