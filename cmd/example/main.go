@@ -38,7 +38,7 @@ func main() {
 	// 0 so we can just convert directly. 
 	dir_block := new(minixfs.DirectoryBlock_16)
 
-	err = fs.GetBlock(20, dir_block)
+	err = fs.GetBlock(uint(inode.Zone[0]), dir_block)
 	if err != nil {
 		panic(err)
 	}
