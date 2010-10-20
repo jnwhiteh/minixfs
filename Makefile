@@ -4,11 +4,17 @@ minixfs:
 mkfs: minixfs
 	make -C cmd/mkfs
 
-all: minixfs mkfs
+example: minixfs
+	make -C cmd/example
+
+example.run: minixfs example
+	cmd/example/example
+
+all: minixfs mkfs example
 
 clean:
 	make -C pkg/minixfs clean
 	make -C cmd/mkfs clean
+	make -C cmd/example clean
 
-
-.PHONY: all clean mkfs minixfs
+.PHONY: all clean mkfs example minixfs

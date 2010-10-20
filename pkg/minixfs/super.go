@@ -30,6 +30,7 @@ type disk_superblock struct {
 
 type Superblock struct {
 	*disk_superblock
+	inodes_per_block uint
 }
 
 func bitmapsize(nr_bits uint, block_size uint) uint {
@@ -46,16 +47,19 @@ func bitmapsize(nr_bits uint, block_size uint) uint {
 }
 
 // Read the superblock from the second 1024k block of the file
-func Read_superblock(file *os.File) (*Superblock, os.Error) {
-	sup := new(Superblock)
+func ReadSuperblock(file *os.File) (*Superblock, os.Error) {
+	sup_disk := new(disk_superblock)
 	_, err := file.Seek(1024, 0)
 	if err != nil {
 		return nil, err
 	}
-	err = binary.Read(file, binary.LittleEndian, sup)
+	err = binary.Read(file, binary.LittleEndian, sup_disk)
 	if err != nil {
 		return nil, err
 	}
+
+	ipb := sup_disk.Block_size / V2_INODE_SIZE
+	sup := &Superblock{sup_disk, uint(ipb)}
 	return sup, nil
 }
 

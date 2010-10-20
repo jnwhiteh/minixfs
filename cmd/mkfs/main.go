@@ -85,7 +85,7 @@ func main() {
 	var sup *minixfs.Superblock
 
 	if query {
-		sup, err = minixfs.Read_superblock(file)
+		sup, err = minixfs.ReadSuperblock(file)
 		if err != nil {
 			ferr("Error reading superblock from file '%s': %s\n", filename, err)
 			os.Exit(-1)

@@ -22,4 +22,7 @@ type disk_inode struct {
 
 type Inode struct {
 	*disk_inode
+	fs *FileSystem
+	count uint
+	inum uint
 }
