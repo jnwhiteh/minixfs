@@ -58,6 +58,10 @@ func (fs *FileSystem) GetMagic() (uint16) {
 }
 
 func (fs *FileSystem) GetInode(num uint) (*Inode, os.Error) {
+	if num == 0 {
+		return nil, os.NewError("Attempt to get invalid inode '0'")
+	}
+
 	// Check and see if the inode is already loaded in memory
 	if inode, ok := fs.inodes[num]; ok {
 		inode.count++
@@ -81,6 +85,7 @@ func (fs *FileSystem) GetInode(num uint) (*Inode, os.Error) {
 		return nil, err
 	}
 
+	// We have the full block, now get the correct inode entry 
 	inode_d := &inode_block.Data[num % fs.super.inodes_per_block]
 	inode := &Inode{inode_d, fs, 1, num}
 
@@ -95,7 +100,12 @@ func (fs *FileSystem) GetDataBlockFromZone(num uint) (uint) {
 }
 
 func (fs *FileSystem) GetBlock(num uint, block interface{}) (os.Error) {
-	pos := int64(num * uint(fs.super.Block_size))
+	if num <= 1 {
+		panic("TODO: Fix this")
+	}
+
+	// Adjust the file position according to two static blocks at start
+	pos := int64((num) * uint(fs.super.Block_size))
 	println("seeking to pos: ", pos)
 	newPos, err := fs.file.Seek(pos, 0)
 	if err != nil || pos != newPos {

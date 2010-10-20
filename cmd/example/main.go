@@ -11,7 +11,7 @@ func main() {
 
 	fmt.Printf("Magic of filesystem is: %d\n", fs.GetMagic())
 
-	root, err := fs.GetInode(1)
+	root, err := fs.GetInode(minixfs.ROOT_INODE_NUM)
 	inode := root
 
 	fmt.Printf("Mode: %d\n", inode.Mode)
