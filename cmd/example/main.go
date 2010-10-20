@@ -37,8 +37,8 @@ func main() {
 	// from the zone number to a block number. Luckily, the zone_shift is 
 	// 0 so we can just convert directly. 
 	dir_block := new(minixfs.DirectoryBlock_16)
-	block_num := fs.GetDataBlockFromZone(uint(inode.Zone[0]))
-	err = fs.GetBlock(block_num, dir_block)
+
+	err = fs.GetBlock(20, dir_block)
 	if err != nil {
 		panic(err)
 	}
