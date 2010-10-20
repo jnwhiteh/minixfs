@@ -125,6 +125,10 @@ func main() {
 		// Create the rest of the filesystem.
 		imap_size := sup.Block_size * sup.Imap_blocks
 		imap := make([]byte, imap_size, imap_size)
+
+		// inode 0 is reserved as an error state for disk full
+		// so turn the first bit on (not portable)
+		imap[0] = 128
 		write(file, imap)
 
 		zmap_size := sup.Block_size * sup.Imap_blocks
