@@ -39,7 +39,7 @@ func main() {
 	dir_block := new(minixfs.DirectoryBlock_16)
 	block_num := fs.GetDataBlockFromZone(uint(inode.Zone[0]))
 	err = fs.GetBlock(block_num, dir_block)
-	if err == nil {
+	if err != nil {
 		panic(err)
 	}
 	for idx := 0; idx < 4; idx++ {
