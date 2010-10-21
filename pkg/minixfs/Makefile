@@ -2,6 +2,7 @@ include $(GOROOT)/src/Make.inc
 
 TARG=jnwhiteh/minixfs
 GOFILES=\
+		bitmap.go\
 		cache.go\
         const.go\
 		fs.go\
