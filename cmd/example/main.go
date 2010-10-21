@@ -1,10 +1,17 @@
 package main
 
 import "jnwhiteh/minixfs"
+import "flag"
 import "fmt"
 
 func main() {
-	fs, err := minixfs.OpenFileSystemFile("hello.img")
+	var filename string
+	flag.StringVar(&filename, "file", "hello.img", "the image filename")
+
+	// Parse the flags from the commandline
+	flag.Parse()
+
+	fs, err := minixfs.OpenFileSystemFile(filename)
 	if err != nil {
 		panic(err)
 	}
