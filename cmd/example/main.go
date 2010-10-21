@@ -5,7 +5,9 @@ import "flag"
 import "fmt"
 
 func main() {
+	var inum uint
 	var filename string
+	flag.UintVar(&inum, "inode", minixfs.ROOT_INODE_NUM, "the inode to query")
 	flag.StringVar(&filename, "file", "hello.img", "the image filename")
 
 	// Parse the flags from the commandline
@@ -18,7 +20,7 @@ func main() {
 
 	fmt.Printf("Magic of filesystem is: %d\n", fs.GetMagic())
 
-	root, err := fs.GetInode(minixfs.ROOT_INODE_NUM)
+	root, err := fs.GetInode(inum)
 	inode := root
 
 	fmt.Printf("Mode: %d\n", inode.Mode)
