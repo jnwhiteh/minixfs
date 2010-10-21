@@ -17,4 +17,7 @@ clean:
 	make -C cmd/mkfs clean
 	make -C cmd/example clean
 
+test:
+	make -C pkg/minixfs test
+
 .PHONY: all clean mkfs example minixfs
