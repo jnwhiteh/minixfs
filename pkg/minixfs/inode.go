@@ -26,3 +26,15 @@ type Inode struct {
 	count uint
 	inum  uint
 }
+
+func (inode *Inode) GetType() uint16 {
+	return inode.Mode & I_TYPE
+}
+
+func (inode *Inode) IsDirectory() bool {
+	return inode.GetType() == I_DIRECTORY
+}
+
+func (inode *Inode) IsRegular() bool {
+	return inode.GetType() == I_REGULAR
+}
