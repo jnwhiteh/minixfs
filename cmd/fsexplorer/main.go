@@ -94,6 +94,36 @@ func repl(fs *minixfs.FileSystem) {
 					fmt.Printf("%s\t%d\t%s\n", mode, dirinode.Nlinks, dirent.Name)
 				}
 			}
+		case "cat":
+			dir_block := make([]minixfs.Directory, fs.GetBlockSize() / 64)
+			fs.GetBlock(uint(inode.Zone[0]), dir_block)
+
+			// Loop and find a file with the given name
+			filename := tokens[1]
+			fileinum := uint(0)
+
+			for _, dirent := range dir_block {
+				if dirent.Inum > 0 {
+					strend := bytes.IndexByte(dirent.Name[:], 0)
+					if strend == -1 {
+						strend = len(dirent.Name)-1
+					}
+					ename := string(dirent.Name[:strend])
+					if ename == filename {
+						fileinode, err := fs.GetInode(uint(dirent.Inum))
+						if err != nil {
+							fmt.Printf("Failed getting inode: %d\n", dirent.Inum)
+							break
+						}
+						if fileinode.IsRegular() {
+							fileinum = uint(dirent.Inum)
+							fmt.Printf("Found file %s at inode %d\n", filename, fileinum)
+							fmt.Printf("Contents:\n")
+							break
+						}
+					}
+				}
+			}
 		case "cdroot":
 			inum = uint(minixfs.ROOT_INODE_NUM)
 			inode, err = fs.GetInode(inum)
