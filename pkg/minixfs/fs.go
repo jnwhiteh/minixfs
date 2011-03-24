@@ -1,6 +1,7 @@
 package minixfs
 
 import "encoding/binary"
+//import "log"
 import "os"
 
 // This type encapsulates a minix file system, including the shared data
@@ -81,7 +82,7 @@ func (fs *FileSystem) GetInode(num uint) (*Inode, os.Error) {
 		return nil, err
 	}
 
-	// We have the full block, now get the correct inode entry 
+	// We have the full block, now get the correct inode entry
 	inode_d := &inode_block[(num-1)%fs.super.inodes_per_block]
 	inode := &Inode{inode_d, fs, 1, num}
 
@@ -102,7 +103,7 @@ func (fs *FileSystem) GetBlock(num uint, block interface{}) os.Error {
 
 	// Adjust the file position according to two static blocks at start
 	pos := int64((num) * uint(fs.super.Block_size))
-	println("seeking to pos: ", pos)
+	//log.Printf("seeking to pos: %d", pos)
 	newPos, err := fs.file.Seek(pos, 0)
 	if err != nil || pos != newPos {
 		return err
