@@ -105,25 +105,10 @@ func repl(filename string, fs *minixfs.FileSystem) {
 		case "?":
 			fmt.Println("Commands:")
 			fmt.Println("\t?\thelp")
-			fmt.Println("\tcd\tchange directory")
-			fmt.Println("\tpwd\tshow current directory")
-			fmt.Println("\tcdroot\tchange to root directory")
-			fmt.Println("\tls\tshow directory listing")
 			fmt.Println("\tcat\tshow file contents")
-		case "ls":
-			dir_block := make([]minixfs.Directory, fs.Block_size / 64)
-			fs.GetBlock(uint(inode.Zone[0]), dir_block)
-			for _, dirent := range dir_block {
-				if dirent.Inum > 0 {
-					dirinode, err := fs.GetInode(uint(dirent.Inum))
-					if err != nil {
-						fmt.Printf("Failed getting inode: %d\n", dirent.Inum)
-						break
-					}
-					mode := ModeString(dirinode)
-					fmt.Printf("%s\t%d\t%s\n", mode, dirinode.Nlinks, dirent.Name)
-				}
-			}
+			fmt.Println("\tcd\tchange directory")
+			fmt.Println("\tls\tshow directory listing")
+			fmt.Println("\tpwd\tshow current directory")
 		case "cat":
 			dir_block := make([]minixfs.Directory, fs.Block_size / 64)
 			fs.GetBlock(uint(inode.Zone[0]), dir_block)
@@ -157,13 +142,6 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			}
 
 			fmt.Printf("Could not find a file named '%s'\n", filename)
-		case "cdroot":
-			inum = uint(minixfs.ROOT_INODE_NUM)
-			inode, err = fs.GetInode(inum)
-			if err != nil {
-				log.Fatalf("Could not get root inode: %s", err)
-			}
-			pwd = pwd[0:0]
 		case "cd":
 			if len(tokens) < 2 {
 				fmt.Printf("Usage: cd dirname\n")
@@ -221,6 +199,20 @@ func repl(filename string, fs *minixfs.FileSystem) {
 					inode = newinode
 					inum = dirinum
 					continue
+			}
+		case "ls":
+			dir_block := make([]minixfs.Directory, fs.Block_size / 64)
+			fs.GetBlock(uint(inode.Zone[0]), dir_block)
+			for _, dirent := range dir_block {
+				if dirent.Inum > 0 {
+					dirinode, err := fs.GetInode(uint(dirent.Inum))
+					if err != nil {
+						fmt.Printf("Failed getting inode: %d\n", dirent.Inum)
+						break
+					}
+					mode := ModeString(dirinode)
+					fmt.Printf("%s\t%d\t%s\n", mode, dirinode.Nlinks, dirent.Name)
+				}
 			}
 		case "pwd":
 			fmt.Printf("Current directory is /%s\n", strings.Join(pwd, "/"))
