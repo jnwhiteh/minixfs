@@ -121,12 +121,12 @@ func (fs *FileSystem) GetBlock(num uint, block interface{}) os.Error {
 // Given an inode and a position within the corresponding file, locate the
 // block (not zone) number in which that position is to be found and return
 func (fs *FileSystem) GetFileBlock(inode *Inode, position uint32) uint32 {
-	scale := fs.super.Log_zone_size                     // for block-zone conversion
-	block_pos := position / uint32(fs.super.Block_size) // relative block # in file
-	zone := block_pos >> scale                          // position's zone
-	boff := block_pos - (zone << scale)                 // relative block in zone
-	dzones := uint32(V2_NR_DZONES)                           // number of direct zones
-	nr_indirects := fs.super.Block_size / V2_ZONE_NUM_SIZE  // number of indirect zones
+	scale := fs.super.Log_zone_size                        // for block-zone conversion
+	block_pos := position / uint32(fs.super.Block_size)    // relative block # in file
+	zone := block_pos >> scale                             // position's zone
+	boff := block_pos - (zone << scale)                    // relative block in zone
+	dzones := uint32(V2_NR_DZONES)                         // number of direct zones
+	nr_indirects := fs.super.Block_size / V2_ZONE_NUM_SIZE // number of indirect zones
 
 	// Is the position to be found in the inode itself?
 	if zone < dzones {
@@ -153,7 +153,7 @@ func (fs *FileSystem) GetFileBlock(inode *Inode, position uint32) uint32 {
 		}
 		excess = excess - uint32(nr_indirects) // single indirect doesn't count
 		b := z << scale
-		dindb := make([]uint32, fs.Block_size / 4) // number of pointers in indirect block
+		dindb := make([]uint32, fs.Block_size/4) // number of pointers in indirect block
 		err := fs.GetBlock(uint(b), dindb)
 		if err != nil {
 			log.Printf("Could not fetch doubly-indirect block: %d - %s", b, err)
@@ -168,8 +168,8 @@ func (fs *FileSystem) GetFileBlock(inode *Inode, position uint32) uint32 {
 		return NO_BLOCK
 	}
 
-	b := z << scale // b is block number for single indirect
-	indb := make([]uint32, fs.Block_size / 4) // number of pointers in indirect block
+	b := z << scale                         // b is block number for single indirect
+	indb := make([]uint32, fs.Block_size/4) // number of pointers in indirect block
 	err := fs.GetBlock(uint(b), indb)
 	if err != nil {
 		log.Printf("Could not fetch indirect block: %d - %s", b, err)

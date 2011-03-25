@@ -1,7 +1,7 @@
 package minixfs
 
 const (
-    // #define BITCHUNK_BITS   (sizeof(bitchunk_t) * CHAR_BIT)
+	// #define BITCHUNK_BITS   (sizeof(bitchunk_t) * CHAR_BIT)
 	FS_BITCHUNK_BITS = Sizeof_bitchunk_t * CHAR_BIT
 )
 
@@ -14,4 +14,3 @@ func FS_BITS_PER_BLOCK(b int) int {
 func FS_BITMAP_CHUNKS(b int) int {
 	return b / Sizeof_bitchunk_t
 }
-

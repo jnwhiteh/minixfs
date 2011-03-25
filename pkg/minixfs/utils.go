@@ -61,7 +61,7 @@ package minixfs
 // }
 
 // Allocate a free inode on the given FileSystem and return a pointer to it.
-func (fs *FileSystem) AllocInode(mode uint16) (*Inode) {
+func (fs *FileSystem) AllocInode(mode uint16) *Inode {
 	// Acquire an inode from the bit map
 	return nil
 }

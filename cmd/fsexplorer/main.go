@@ -13,20 +13,32 @@ import "jnwhiteh/minixfs"
 
 var l_ifmt = []byte("0pcCd?dB-?l?s???")
 
-func ModeString(inode *minixfs.Inode) ([]byte) {
+func ModeString(inode *minixfs.Inode) []byte {
 	// Start with a default, which we overwrite
 	rwx := []byte("drwxr-x--x")
 
 	// This is a dirty hack we inherit from Minix3 to map and file type
 	// into a letter for display in ls -l
-	rwx[0] = l_ifmt[((inode.Mode) >> 12) & 0xF]
+	rwx[0] = l_ifmt[((inode.Mode)>>12)&0xF]
 
 	mode := inode.Mode & minixfs.RWX_MODES
 	index := 1
 	for {
-		if mode & minixfs.R_BIT > 0 { rwx[index+0] = 'r' } else { rwx[index+0] = '-' }
-		if mode & minixfs.W_BIT > 0 { rwx[index+1] = 'w' } else { rwx[index+1] = '-' }
-		if mode & minixfs.X_BIT > 0 { rwx[index+2] = 'x' } else { rwx[index+2] = '-' }
+		if mode&minixfs.R_BIT > 0 {
+			rwx[index+0] = 'r'
+		} else {
+			rwx[index+0] = '-'
+		}
+		if mode&minixfs.W_BIT > 0 {
+			rwx[index+1] = 'w'
+		} else {
+			rwx[index+1] = '-'
+		}
+		if mode&minixfs.X_BIT > 0 {
+			rwx[index+2] = 'x'
+		} else {
+			rwx[index+2] = '-'
+		}
 		mode = mode >> 3
 		index = index + 3
 		if index > 7 {
@@ -34,10 +46,14 @@ func ModeString(inode *minixfs.Inode) ([]byte) {
 		}
 	}
 
-	canexec := inode.Mode & minixfs.X_BIT > 0
+	canexec := inode.Mode&minixfs.X_BIT > 0
 
-	if inode.Mode & minixfs.I_SET_UID_BIT > 0 && canexec { rwx[3] = 's' }
-	if inode.Mode & minixfs.I_SET_GID_BIT > 0 && canexec { rwx[6] = 's' }
+	if inode.Mode&minixfs.I_SET_UID_BIT > 0 && canexec {
+		rwx[3] = 's'
+	}
+	if inode.Mode&minixfs.I_SET_GID_BIT > 0 && canexec {
+		rwx[6] = 's'
+	}
 
 	// TODO: Handle sticky bit
 	return rwx
@@ -57,7 +73,7 @@ func PrintFile(fs *minixfs.FileSystem, inode *minixfs.Inode) {
 			fmt.Printf("Failed to get data block: %d - %s\n", blocknum, err)
 			break
 		}
-		if filesize - position >= blocksize {
+		if filesize-position >= blocksize {
 			fmt.Printf("%s", block)
 		} else {
 			fmt.Printf("%s", block[:filesize-position])
@@ -67,7 +83,7 @@ func PrintFile(fs *minixfs.FileSystem, inode *minixfs.Inode) {
 	fmt.Printf("\n")
 }
 
-func mkdir(fs *minixfs.FileSystem, inode *minixfs.Inode, tokens []string) (os.Error) {
+func mkdir(fs *minixfs.FileSystem, inode *minixfs.Inode, tokens []string) os.Error {
 	// Since the new directory has to have a pointer to the parent, ensure that
 	// we can add another link without overflowing Nlinks.
 	if inode.Nlinks >= math.MaxUint16 {
@@ -95,7 +111,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 	buf := bufio.NewReader(os.Stdin)
 
 	for {
-		repl:
+	repl:
 
 		// Print the prompt
 		fmt.Printf("/%s> ", strings.Join(pwd, "/"))
@@ -122,7 +138,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			fmt.Println("\tmkdir\tcreate a new directory")
 			fmt.Println("\tpwd\tshow current directory")
 		case "cat":
-			dir_block := make([]minixfs.Directory, fs.Block_size / 64)
+			dir_block := make([]minixfs.Directory, fs.Block_size/64)
 			fs.GetBlock(uint(inode.Zone[0]), dir_block)
 
 			// Loop and find a file with the given name
@@ -133,7 +149,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 				if dirent.Inum > 0 {
 					strend := bytes.IndexByte(dirent.Name[:], 0)
 					if strend == -1 {
-						strend = len(dirent.Name)-1
+						strend = len(dirent.Name) - 1
 					}
 					ename := string(dirent.Name[:strend])
 					if ename == filename {
@@ -160,7 +176,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 				continue
 			}
 
-			dir_block := make([]minixfs.Directory, fs.Block_size / 64)
+			dir_block := make([]minixfs.Directory, fs.Block_size/64)
 			fs.GetBlock(uint(inode.Zone[0]), dir_block)
 
 			// Search through the directory entries and find one that
@@ -173,7 +189,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 				if dirent.Inum > 0 {
 					strend := bytes.IndexByte(dirent.Name[:], 0)
 					if strend == -1 {
-						strend = len(dirent.Name)-1
+						strend = len(dirent.Name) - 1
 					}
 					ename := string(dirent.Name[:strend])
 					if ename == dirname {
@@ -197,23 +213,23 @@ func repl(filename string, fs *minixfs.FileSystem) {
 				// This would change us to the same directory, do nothing
 				continue
 			} else {
-					newinode, err := fs.GetInode(dirinum)
-					if err != nil {
-						fmt.Printf("Failed to load inode %d: %s\n", dirinum, err)
-						continue
-					}
-
-					if dirname == ".." {
-						pwd = pwd[:len(pwd)-1]
-					} else {
-						pwd = append(pwd, tokens[1])
-					}
-					inode = newinode
-					inum = dirinum
+				newinode, err := fs.GetInode(dirinum)
+				if err != nil {
+					fmt.Printf("Failed to load inode %d: %s\n", dirinum, err)
 					continue
+				}
+
+				if dirname == ".." {
+					pwd = pwd[:len(pwd)-1]
+				} else {
+					pwd = append(pwd, tokens[1])
+				}
+				inode = newinode
+				inum = dirinum
+				continue
 			}
 		case "ls":
-			dir_block := make([]minixfs.Directory, fs.Block_size / 64)
+			dir_block := make([]minixfs.Directory, fs.Block_size/64)
 			fs.GetBlock(uint(inode.Zone[0]), dir_block)
 			for _, dirent := range dir_block {
 				if dirent.Inum > 0 {
@@ -251,4 +267,3 @@ func main() {
 
 	repl(filename, fs)
 }
-
