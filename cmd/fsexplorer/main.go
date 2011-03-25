@@ -5,6 +5,7 @@ import "bytes"
 import "flag"
 import "fmt"
 import "log"
+import "math"
 import "os"
 import "strings"
 
@@ -66,6 +67,16 @@ func PrintFile(fs *minixfs.FileSystem, inode *minixfs.Inode) {
 	fmt.Printf("\n")
 }
 
+func mkdir(fs *minixfs.FileSystem, inode *minixfs.Inode, tokens []string) (os.Error) {
+	// Since the new directory has to have a pointer to the parent, ensure that
+	// we can add another link without overflowing Nlinks.
+	if inode.Nlinks >= math.MaxUint16 {
+		// We cannot add another link to this inode, so fail.
+		return os.NewError("Cannot add an extra link to parent directory")
+	}
+	return nil
+}
+
 func repl(filename string, fs *minixfs.FileSystem) {
 	fmt.Println("Welcome to the minixfs explorer!")
 	fmt.Printf("Attached to %s\n", filename)
@@ -108,6 +119,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			fmt.Println("\tcat\tshow file contents")
 			fmt.Println("\tcd\tchange directory")
 			fmt.Println("\tls\tshow directory listing")
+			fmt.Println("\tmkdir\tcreate a new directory")
 			fmt.Println("\tpwd\tshow current directory")
 		case "cat":
 			dir_block := make([]minixfs.Directory, fs.Block_size / 64)
@@ -214,6 +226,8 @@ func repl(filename string, fs *minixfs.FileSystem) {
 					fmt.Printf("%s\t%d\t%s\n", mode, dirinode.Nlinks, dirent.Name)
 				}
 			}
+		case "mkdir":
+			mkdir(fs, inode, tokens)
 		case "pwd":
 			fmt.Printf("Current directory is /%s\n", strings.Join(pwd, "/"))
 		default:
