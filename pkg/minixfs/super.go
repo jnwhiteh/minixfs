@@ -8,6 +8,7 @@ import "encoding/binary"
 // zone1_t 		uint16
 // zone_t		uint32
 // off_t		int32
+// bit_t        uint32
 
 type disk_superblock struct {
 	Ninodes           uint32 // # of usable inodes on the minor device

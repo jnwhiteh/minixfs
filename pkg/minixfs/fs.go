@@ -6,7 +6,7 @@ import "os"
 
 // This type encapsulates a minix file system, including the shared data
 // structures associated with the file system. It abstracts away from the
-// file system residing on disk
+// file system residing on disk.
 
 type FileSystem struct {
 	file   *os.File        // the actual file backing the file system

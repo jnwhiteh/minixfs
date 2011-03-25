@@ -13,8 +13,12 @@ const (
 	V2_ZONE_NUM_SIZE = 4 // the number of bytes in a zone_t (uint32)
 	ZONE_SHIFT       = 0 // unused, but leaving in for clarity
 
+	IMAP = 0 // operations are on the inode bitmap
+	ZMAP = 1 // operations are on the zone bitmap
+
 	NO_ZONE  = uint32(0)
 	NO_BLOCK = uint32(0)
+	NO_BIT   = uint32(0)
 
 	I_TYPE          = 0170000 // bit mask for type of inode
 	I_UNIX_SOCKET   = 0140000 // unix domain socket
