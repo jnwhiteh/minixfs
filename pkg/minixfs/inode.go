@@ -1,13 +1,5 @@
 package minixfs
 
-// mode_t		uint16
-// nlink_t		int16
-// uid_t		int16
-// gid_t		char
-// off_t		int32
-// time_t		int32
-// zone_t		uint32
-
 type disk_inode struct {
 	Mode   uint16 // file type, protection, etc.
 	Nlinks uint16 // how many links to this file. HACK!
