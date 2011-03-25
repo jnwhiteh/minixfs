@@ -1,7 +1,6 @@
 package minixfs
 
 import "encoding/binary"
-//import "log"
 import "os"
 
 // This type encapsulates a minix file system, including the shared data
@@ -119,20 +118,22 @@ func (fs *FileSystem) GetBlock(num uint, block interface{}) os.Error {
 
 // Given an inode and a position within the corresponding file, locate the
 // block (not zone) number in which that position is to be found and return
-func (fs *FileSystem) GetFileBlock(inode *Inode, position int32) uint32 {
-	scale := fs.super.Log_zone_size                    // for block-zone conversion
-	block_pos := position / int32(fs.super.Block_size) // relative block # in file
-	zone := block_pos >> scale                         // position's zone
-	//boff := block_pos - (zone << scale)                // relative block in zone
-	dzones := V2_NR_DZONES // number of direct zones
+func (fs *FileSystem) GetFileBlock(inode *Inode, position uint32) uint32 {
+	scale := fs.super.Log_zone_size                     // for block-zone conversion
+	block_pos := position / uint32(fs.super.Block_size) // relative block # in file
+	zone := block_pos >> scale                          // position's zone
+	boff := block_pos - (zone << scale)                 // relative block in zone
+	dzones := V2_NR_DZONES                              // number of direct zones
 	//nr_indirects := fs.super.Block_size / V2_ZONE_NUM_SIZE  // number of indirect zones
 
 	// Is the position to be found in the inode itself?
-	if int(zone) < dzones {
+	if zone < uint32(dzones) {
 		z := inode.Zone[zone]
 		if z == NO_ZONE {
 			return NO_BLOCK
 		}
+		b := (z << scale) + boff
+		return b
 	}
 
 	return NO_BLOCK
