@@ -1,6 +1,7 @@
 package minixfs
 
 import "encoding/binary"
+import "log"
 import "os"
 
 // This type encapsulates a minix file system, including the shared data
@@ -124,11 +125,11 @@ func (fs *FileSystem) GetFileBlock(inode *Inode, position uint32) uint32 {
 	block_pos := position / uint32(fs.super.Block_size) // relative block # in file
 	zone := block_pos >> scale                          // position's zone
 	boff := block_pos - (zone << scale)                 // relative block in zone
-	dzones := V2_NR_DZONES                              // number of direct zones
-	//nr_indirects := fs.super.Block_size / V2_ZONE_NUM_SIZE  // number of indirect zones
+	dzones := uint32(V2_NR_DZONES)                           // number of direct zones
+	nr_indirects := fs.super.Block_size / V2_ZONE_NUM_SIZE  // number of indirect zones
 
 	// Is the position to be found in the inode itself?
-	if zone < uint32(dzones) {
+	if zone < dzones {
 		z := inode.Zone[zone]
 		if z == NO_ZONE {
 			return NO_BLOCK
@@ -137,22 +138,35 @@ func (fs *FileSystem) GetFileBlock(inode *Inode, position uint32) uint32 {
 		return b
 	}
 
-	return NO_BLOCK
-	/*
-		// It is not in the inode, so must be single or double indirect
-		excess := zone - dzones
+	// It is not in the inode, so must be single or double indirect
+	var z uint32
+	var excess uint32 = zone - dzones
 
-		if excess < nr_indirects {
-			// position can be located via the single indirect block
-			z := inode.Zone[dzones]
-		} else {
-			// position can be located via the double indirect block
-			if z = inode.Zone[dzones+1] == NO_ZONE {
-				return NO_BLOCK
-			}
-			excess = excess - nr_indirects // single indirect doesn't count
-			b := z << scale
-			// TODO: Finish this (page 979)
-		}
-	*/
+	if excess < uint32(nr_indirects) {
+		// 'position' can be located via the single indirect block
+		z = inode.Zone[dzones]
+	} else {
+		return NO_BLOCK
+	}
+
+	// 'z' is zone num for single indirect block; 'excess' is index into it
+	if z == NO_ZONE {
+		return NO_BLOCK
+	}
+
+	b := z << scale // b is block number for single indirect
+	indb := make([]uint32, fs.Block_size / 4) // number of pointers in indirect block
+	err := fs.GetBlock(uint(b), indb)
+	if err != nil {
+		log.Printf("Could not fetch indirect block: %d - %s", b, err)
+		return NO_BLOCK
+	}
+
+	log.Printf("Getting position %d, have excess: %d", position, excess)
+	z = indb[excess]
+	if z == NO_ZONE {
+		return NO_BLOCK
+	}
+	b = (z << scale) + boff
+	return b
 }
