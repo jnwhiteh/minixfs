@@ -146,7 +146,21 @@ func (fs *FileSystem) GetFileBlock(inode *Inode, position uint32) uint32 {
 		// 'position' can be located via the single indirect block
 		z = inode.Zone[dzones]
 	} else {
-		return NO_BLOCK
+		// 'position' can be located via the double indirect block
+		z = inode.Zone[dzones+1]
+		if z == NO_ZONE {
+			return NO_BLOCK
+		}
+		excess = excess - uint32(nr_indirects) // single indirect doesn't count
+		b := z << scale
+		dindb := make([]uint32, fs.Block_size / 4) // number of pointers in indirect block
+		err := fs.GetBlock(uint(b), dindb)
+		if err != nil {
+			log.Printf("Could not fetch doubly-indirect block: %d - %s", b, err)
+		}
+		index := excess / uint32(nr_indirects)
+		z = dindb[index]
+		excess = excess % uint32(nr_indirects)
 	}
 
 	// 'z' is zone num for single indirect block; 'excess' is index into it
