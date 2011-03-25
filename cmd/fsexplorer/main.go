@@ -118,7 +118,24 @@ func repl(fs *minixfs.FileSystem) {
 						if fileinode.IsRegular() {
 							fileinum = uint(dirent.Inum)
 							fmt.Printf("Found file %s at inode %d\n", filename, fileinum)
+							pos0block := fs.GetFileBlock(fileinode, 0)
+							filesize := fileinode.Size
+							// Read the first block only, up to filesize
+							block := make([]uint8, fs.GetBlockSize())
+							err := fs.GetBlock(uint(pos0block), block)
+							if err != nil {
+								fmt.Printf("Failed to get data block %d: %s\n", pos0block, err)
+							}
+
+							fmt.Printf("Got %d bytes in block\n", len(block))
 							fmt.Printf("Contents:\n")
+							if int(filesize) >= len(block) {
+								// print the whole block
+								fmt.Printf("%s", block)
+							} else {
+								// print filesize
+								fmt.Printf("%s", block[:filesize])
+							}
 							break
 						}
 					}
