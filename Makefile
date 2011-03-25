@@ -10,7 +10,10 @@ example: minixfs
 example.run: minixfs example
 	cmd/example/example
 
-all: minixfs mkfs example
+fsexplorer: minixfs
+	make -C cmd/fsexplorer
+
+all: minixfs mkfs example fsexplorer
 
 clean:
 	make -C pkg/minixfs clean
