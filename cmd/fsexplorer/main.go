@@ -63,6 +63,7 @@ func PrintFile(fs *minixfs.FileSystem, inode *minixfs.Inode) {
 		}
 		position = position + blocksize
 	}
+	fmt.Printf("\n")
 }
 
 func repl(filename string, fs *minixfs.FileSystem) {
@@ -83,6 +84,8 @@ func repl(filename string, fs *minixfs.FileSystem) {
 	buf := bufio.NewReader(os.Stdin)
 
 	for {
+		repl:
+
 		// Print the prompt
 		fmt.Printf("/%s> ", strings.Join(pwd, "/"))
 
@@ -145,12 +148,15 @@ func repl(filename string, fs *minixfs.FileSystem) {
 						if fileinode.IsRegular() {
 							fileinum = uint(dirent.Inum)
 							fmt.Printf("Found file %s at inode %d\n", filename, fileinum)
+							fmt.Printf("Contents:\n")
 							PrintFile(fs, fileinode)
-							break
+							goto repl
 						}
 					}
 				}
 			}
+
+			fmt.Printf("Could not find a file named '%s'\n", filename)
 		case "cdroot":
 			inum = uint(minixfs.ROOT_INODE_NUM)
 			inode, err = fs.GetInode(inum)
