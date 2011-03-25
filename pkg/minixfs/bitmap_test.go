@@ -1,29 +1,30 @@
 package minixfs
 
+import "math"
 import "rand"
 import "testing"
 import "time"
 
-func GetRandomBitmap(num_bits int) (Bitmap, []uint8) {
+func GetRandomBitmap(num_bits int) (Bitmap, []uint16) {
 	rand.Seed(time.Nanoseconds())
 
-	num_ints := num_bits / 8
-	arr := make([]uint8, num_ints)
+	num_ints := num_bits / 16
+	arr := make([]uint16, num_ints)
 	for idx := 0; idx < num_ints; idx++ {
-		arr[idx] = uint8(rand.Int())
+		arr[idx] = uint16(rand.Int())
 	}
 	return Bitmap(arr), arr
 }
 
 func TestGetBit(test *testing.T) {
-	bmap, arr := GetRandomBitmap(32768)
+	bmap, arr := GetRandomBitmap(math.MaxUint16)
 
 	// Intel is little-endian, so the first bit we test will be the least significant
 	// bit, i.e bit 0 is the first bit of the first uint8
 	for i, num := range arr {
-		for mask := uint8(1); mask <= 8; mask++ {
+		for mask := uint16(1); mask <= 16; mask++ {
 			// Calculate the 'bit number'
-			bnum := uint(i*8) + uint(mask-1)
+			bnum := uint(i*16) + uint(mask-1)
 			bit := num&mask > 0
 			result, err := bmap.GetBit(bnum)
 			if err != nil {
@@ -37,7 +38,7 @@ func TestGetBit(test *testing.T) {
 }
 
 func TestSetBit(test *testing.T) {
-	bmap, _ := GetRandomBitmap(32768)
+	bmap, _ := GetRandomBitmap(math.MaxUint16)
 	for i := uint(0); i < bmap.GetNumBits(); i++ {
 		err := bmap.SetBit(i)
 		if err != nil {
@@ -58,7 +59,7 @@ func TestSetBit(test *testing.T) {
 }
 
 func TestClrBit(test *testing.T) {
-	bmap, _ := GetRandomBitmap(32768)
+	bmap, _ := GetRandomBitmap(math.MaxUint16)
 	for i := uint(0); i < bmap.GetNumBits(); i++ {
 		err := bmap.ClrBit(i)
 		if err != nil {
