@@ -11,6 +11,11 @@ type FileSystem struct {
 	file   *os.File        // the actual file backing the file system
 	super  *Superblock     // the superblock for the associated file system
 	inodes map[uint]*Inode // a map containing the inodes for the open files
+
+	// Information imported from the superblock
+	Magic         uint16 // magic number to recognize super-blocks
+	Block_size    uint16 // block size in bytes
+	Log_zone_size uint16 // log2 of blocks/zone
 }
 
 type Directory struct {
@@ -38,15 +43,11 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	fs.super = super
 	fs.inodes = make(map[uint]*Inode)
 
+	fs.Magic = super.Magic
+	fs.Block_size = super.Block_size
+	fs.Log_zone_size = super.Log_zone_size
+
 	return fs, nil
-}
-
-func (fs *FileSystem) GetMagic() uint16 {
-	return fs.super.Magic
-}
-
-func (fs *FileSystem) GetBlockSize() uint16 {
-	return fs.super.Block_size
 }
 
 // Retrieve an Inode from disk/cache given an Inode number. The 0th Inode

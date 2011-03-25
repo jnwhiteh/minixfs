@@ -42,29 +42,35 @@ func ModeString(inode *minixfs.Inode) ([]byte) {
 	return rwx
 }
 
+// Fetch the file for a given inode block-by-block, printing the data
 func PrintFile(fs *minixfs.FileSystem, inode *minixfs.Inode) {
-	pos0block := fs.GetFileBlock(inode, 0)
-	filesize := inode.Size
-	// Read the first block only, up to filesize
-	block := make([]uint8, fs.GetBlockSize())
-	err := fs.GetBlock(uint(pos0block), block)
-	if err != nil {
-		fmt.Printf("Failed to get data block %d: %s\n", pos0block, err)
-	}
+	blocksize := uint32(fs.Block_size)
+	filesize := uint32(inode.Size)
+	position := uint32(0)
+	block := make([]uint8, fs.Block_size)
 
-	fmt.Printf("Got %d bytes in block\n", len(block))
-	fmt.Printf("Contents:\n")
-	if int(filesize) >= len(block) {
-		// print the whole block
-		fmt.Printf("%s", block)
-	} else {
-		// print filesize
-		fmt.Printf("%s", block[:filesize])
+	for position < filesize {
+		blocknum := fs.GetFileBlock(inode, position)
+		err := fs.GetBlock(uint(blocknum), block)
+		if err != nil {
+			fmt.Printf("Failed to get data block: %d - %s\n", blocknum, err)
+			break
+		}
+		if filesize - position >= blocksize {
+			fmt.Printf("%s", block)
+		} else {
+			fmt.Printf("%s", block[:filesize-position])
+		}
+		position = position + blocksize
 	}
 }
 
-func repl(fs *minixfs.FileSystem) {
+func repl(filename string, fs *minixfs.FileSystem) {
 	fmt.Println("Welcome to the minixfs explorer!")
+	fmt.Printf("Attached to %s\n", filename)
+	fmt.Printf("Magic number is 0x%x\n", fs.Magic)
+	fmt.Printf("Block size: %d\n", fs.Block_size)
+	fmt.Printf("Zone shift: %d\n", fs.Log_zone_size)
 	fmt.Println("Enter '?' for a list of commands.")
 
 	inum := uint(minixfs.ROOT_INODE_NUM)
@@ -102,7 +108,7 @@ func repl(fs *minixfs.FileSystem) {
 			fmt.Println("\tls\tshow directory listing")
 			fmt.Println("\tcat\tshow file contents")
 		case "ls":
-			dir_block := make([]minixfs.Directory, fs.GetBlockSize() / 64)
+			dir_block := make([]minixfs.Directory, fs.Block_size / 64)
 			fs.GetBlock(uint(inode.Zone[0]), dir_block)
 			for _, dirent := range dir_block {
 				if dirent.Inum > 0 {
@@ -116,7 +122,7 @@ func repl(fs *minixfs.FileSystem) {
 				}
 			}
 		case "cat":
-			dir_block := make([]minixfs.Directory, fs.GetBlockSize() / 64)
+			dir_block := make([]minixfs.Directory, fs.Block_size / 64)
 			fs.GetBlock(uint(inode.Zone[0]), dir_block)
 
 			// Loop and find a file with the given name
@@ -158,7 +164,7 @@ func repl(fs *minixfs.FileSystem) {
 				continue
 			}
 
-			dir_block := make([]minixfs.Directory, fs.GetBlockSize() / 64)
+			dir_block := make([]minixfs.Directory, fs.Block_size / 64)
 			fs.GetBlock(uint(inode.Zone[0]), dir_block)
 
 			// Search through the directory entries and find one that
@@ -231,6 +237,6 @@ func main() {
 		log.Fatalf("Error opening file system: %s", err)
 	}
 
-	repl(fs)
+	repl(filename, fs)
 }
 
