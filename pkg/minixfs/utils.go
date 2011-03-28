@@ -46,18 +46,13 @@ func (fs *FileSystem) AllocBit(bmap uint, origin uint) (uint) {
 
 		// Iterate over the words in a block
 		for i := word; i < uint(len(bmapb)); i++ {
-			log.Printf("Looking in block %d and word %d", block, i)
 			num := bmapb[i]
-
-			log.Printf("Word %d is %0b", i, num)
 
 			// Does this word contain a free bit?
 			if num == math.MaxUint16 {
 				// No bits free, move to next word
 				continue
 			}
-
-			log.Printf("%d and %d were different", num, math.MaxUint16)
 
 			// Find and allocate the free bit
 			var bit uint
@@ -73,7 +68,6 @@ func (fs *FileSystem) AllocBit(bmap uint, origin uint) (uint) {
 			}
 
 			// Allocate and return bit number
-			log.Printf("Before: %d, After: %d", num, num | (1 << bit))
 			num = num | (1 << bit)
 			bmapb[i] = num
 
@@ -96,39 +90,40 @@ func (fs *FileSystem) AllocBit(bmap uint, origin uint) (uint) {
 	return NO_BIT
 }
 
-// Allocate a free inode on the given FileSystem and return a pointer to it.
-func (fs *FileSystem) AllocInode(mode uint16) *Inode {
-	// Acquire an inode from the bit map
-	b := fs.AllocBit(IMAP, fs.super.I_Search)
-	if b == NO_BIT {
-		log.Printf("Out of i-nodes on device")
-		return nil
+// Deallocate an inode/zone in the bitmap, freeing it up for re-use
+func (fs *FileSystem) FreeBit(bmap uint, bit_returned uint) {
+	var start_block uint // first bit block
+
+	if bmap == IMAP {
+		start_block = START_BLOCK
+	} else {
+		start_block = START_BLOCK + fs.super.Imap_blocks
 	}
 
-	fs.super.I_Search = b
+	block := bit_returned / FS_BITS_PER_BLOCK(fs.Block_size)
+	word := (bit_returned % FS_BITS_PER_BLOCK(fs.Block_size)) / FS_BITCHUNK_BITS
 
-	// Try to acquire a slot in the inode table
-	inode, err := fs.GetInode(b)
+	bit := bit_returned % FS_BITCHUNK_BITS
+	mask := uint16(1) << bit
+
+	bmapb := make([]uint16, FS_BITMAP_CHUNKS(fs.Block_size))
+	err := fs.GetBlock(start_block + block, bmapb)
 	if err != nil {
-		log.Printf("Failed to get inode: %d", b)
-		return nil
+		log.Printf("Unable to fetch bitmap block %d - %s", block, err)
+		return
 	}
 
-	inode.Mode = mode
-	inode.Nlinks = 0
-	inode.Uid = 0 // TODO: Must get the current uid
-	inode.Gid = 0 // TODO: Must get the current gid
-
-	fs.WipeInode(inode)
-	return inode
-}
-
-func (fs *FileSystem) WipeInode(inode *Inode) {
-	inode.Size = 0
-	// TODO: Update ATIME, CTIME, MTIME
-	// TODO: Make this dirty so its written back out
-	inode.Zone = *new([10]uint32)
-	for i := 0; i < 10; i++ {
-		inode.Zone[i] = NO_ZONE
+	k := bmapb[word]
+	if (k & mask) == 0 {
+		if bmap == IMAP {
+			panic("tried to free unused inode")
+		} else if bmap == ZMAP {
+			panic("tried to free unused block")
+		}
 	}
+
+	k = k & (^ mask)
+	bmapb[word] = k
+	fs.PutBlock(start_block + block, bmapb)
 }
+
