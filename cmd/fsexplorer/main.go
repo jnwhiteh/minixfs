@@ -137,6 +137,10 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			fmt.Println("\tls\tshow directory listing")
 			fmt.Println("\tmkdir\tcreate a new directory")
 			fmt.Println("\tpwd\tshow current directory")
+			fmt.Println("\talloc_bit_i\tallocate an inode bit")
+		case "alloc_bit_i":
+			b := fs.AllocBit(minixfs.IMAP, 0)
+			fmt.Printf("Allocated inode %d\n", b)
 		case "cat":
 			dir_block := make([]minixfs.Directory, fs.Block_size/64)
 			fs.GetBlock(uint(inode.Zone[0]), dir_block)
