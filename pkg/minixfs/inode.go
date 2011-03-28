@@ -60,6 +60,14 @@ func (fs *FileSystem) AllocInode(mode uint16) *Inode {
 	return inode
 }
 
+// Return an inode to the pool of free inodes
+func (fs *FileSystem) FreeInode(inode *Inode) {
+	fs.FreeBit(IMAP, inode.inum)
+	if inode.inum < fs.super.I_Search {
+		fs.super.I_Search = inode.inum
+	}
+}
+
 func (fs *FileSystem) WipeInode(inode *Inode) {
 	inode.Size = 0
 	// TODO: Update ATIME, CTIME, MTIME
