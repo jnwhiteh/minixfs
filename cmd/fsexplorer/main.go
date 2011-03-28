@@ -7,6 +7,7 @@ import "fmt"
 import "log"
 import "math"
 import "os"
+import "strconv"
 import "strings"
 
 import "jnwhiteh/minixfs"
@@ -137,10 +138,30 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			fmt.Println("\tls\tshow directory listing")
 			fmt.Println("\tmkdir\tcreate a new directory")
 			fmt.Println("\tpwd\tshow current directory")
-			fmt.Println("\talloc_bit_i\tallocate an inode bit")
-		case "alloc_bit_i":
-			b := fs.AllocBit(minixfs.IMAP, 0)
-			fmt.Printf("Allocated inode %d\n", b)
+			fmt.Println("\talloc_bit\tallocate an inode/zone bit")
+			fmt.Println("\tfree_bit\tfree an inode/zone bit")
+		case "alloc_bit":
+			usage := false
+			which := uint(0)
+			if len(tokens) != 2 {
+				usage = true
+			} else {
+				if tokens[1] == "imap" {
+					which = minixfs.IMAP
+				} else if tokens[1] == "zmap" {
+					which = minixfs.ZMAP
+				} else {
+					usage = true
+				}
+			}
+
+			if usage {
+				fmt.Println("Usage: alloc_bit [zone|imap]")
+				continue
+			}
+
+			b := fs.AllocBit(which, 0)
+			fmt.Printf("Allocated %s bit number %d\n", tokens[1], b)
 		case "cat":
 			dir_block := make([]minixfs.Directory, fs.Block_size/64)
 			fs.GetBlock(uint(inode.Zone[0]), dir_block)
@@ -176,7 +197,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			fmt.Printf("Could not find a file named '%s'\n", filename)
 		case "cd":
 			if len(tokens) < 2 {
-				fmt.Printf("Usage: cd dirname\n")
+				fmt.Println("Usage: cd dirname")
 				continue
 			}
 
@@ -232,6 +253,36 @@ func repl(filename string, fs *minixfs.FileSystem) {
 				inum = dirinum
 				continue
 			}
+		case "free_bit":
+			usage := false
+			which := uint(0)
+			bit := uint(0)
+
+			if len(tokens) != 3 {
+				usage = true
+			} else {
+				if tokens[1] == "imap" {
+					which = minixfs.IMAP
+				} else if tokens[1] == "zmap" {
+					which = minixfs.ZMAP
+				} else {
+					usage = true
+				}
+
+				var err os.Error
+				bit, err = strconv.Atoui(tokens[2])
+				if err != nil {
+					usage = true
+				}
+			}
+
+			if usage {
+				fmt.Println("Usage: free_bit <zone|imap> <bitnum>")
+				continue
+			}
+
+			fs.FreeBit(which, bit)
+			fmt.Printf("Freed %s bit number %d\n", tokens[1], bit)
 		case "ls":
 			dir_block := make([]minixfs.Directory, fs.Block_size/64)
 			fs.GetBlock(uint(inode.Zone[0]), dir_block)
