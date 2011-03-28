@@ -44,6 +44,8 @@ type Superblock struct {
 
 	Block_size   uint // block size in bytes
 	Disk_version byte // filesystem format sub-version
+
+	I_Search uint // when searching for an unused inode, start at this bit
 }
 
 func bitmapsize(nr_bits uint, block_size uint) uint {

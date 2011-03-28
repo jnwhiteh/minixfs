@@ -15,5 +15,5 @@ type zone_t uint32
 type zone1_t uint16
 
 const (
-	Sizeof_bitchunk_t = unsafe.Sizeof(*new(bitchunk_t))
+	Sizeof_bitchunk_t = uint(unsafe.Sizeof(*new(bitchunk_t)))
 )

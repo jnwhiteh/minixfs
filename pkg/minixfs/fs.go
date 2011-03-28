@@ -117,6 +117,25 @@ func (fs *FileSystem) GetBlock(num uint, block interface{}) os.Error {
 	return nil
 }
 
+func (fs *FileSystem) PutBlock(num uint, block interface{}) os.Error {
+	if num <= 1 {
+		panic("TODO: Fix this")
+	}
+
+	pos := int64((num) * uint(fs.super.Block_size))
+	newPos, err := fs.file.Seek(pos, 0)
+	if err != nil || pos != newPos {
+		return err
+	}
+
+	err = binary.Write(fs.file, binary.LittleEndian, block)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Given an inode and a position within the corresponding file, locate the
 // block (not zone) number in which that position is to be found and return
 func (fs *FileSystem) GetFileBlock(inode *Inode, position uint) uint {
