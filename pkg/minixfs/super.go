@@ -24,8 +24,26 @@ type disk_superblock struct {
 }
 
 type Superblock struct {
-	*disk_superblock
+	diskblock        *disk_superblock
 	inodes_per_block uint
+
+	// The following are all copies of the data stored in the disk_superblock
+	// but normnalised to use uint/int directly rather than use the sized
+	// versions. This is done to simplify the code and remove the need for
+	// excessive casting when making calculations.
+	Ninodes           uint // # of usable inodes on the minor device
+	Nzones            uint // total device size, including bit maps, etc.
+	Imap_blocks       uint // # of blocks used by inode bit map
+	Zmap_blocks       uint // # of blocks used by zone bit map
+	Firstdatazone_old uint // number of first data zone
+	Log_zone_size     uint // log2 of blocks/zone
+	Pad               uint // try to avoid compiler-dependent padding
+	Max_size          uint // maximum file size on this device
+	Zones             uint // number of zones (replaces s_nzones in V2+)
+	Magic             uint // magic number to recognize super-blocks
+
+	Block_size   uint // block size in bytes
+	Disk_version byte // filesystem format sub-version
 }
 
 func bitmapsize(nr_bits uint, block_size uint) uint {
@@ -54,7 +72,22 @@ func ReadSuperblock(file *os.File) (*Superblock, os.Error) {
 	}
 
 	ipb := sup_disk.Block_size / V2_INODE_SIZE
-	sup := &Superblock{sup_disk, uint(ipb)}
+	sup := &Superblock{
+		diskblock:         sup_disk,
+		inodes_per_block:  uint(ipb),
+		Ninodes:           uint(sup_disk.Ninodes),
+		Nzones:            uint(sup_disk.Nzones),
+		Imap_blocks:       uint(sup_disk.Imap_blocks),
+		Zmap_blocks:       uint(sup_disk.Zmap_blocks),
+		Firstdatazone_old: uint(sup_disk.Firstdatazone_old),
+		Log_zone_size:     uint(sup_disk.Log_zone_size),
+		Pad:               uint(sup_disk.Pad),
+		Max_size:          uint(sup_disk.Max_size),
+		Zones:             uint(sup_disk.Zones),
+		Magic:             uint(sup_disk.Magic),
+		Block_size:        uint(sup_disk.Block_size),
+		Disk_version:      sup_disk.Disk_version,
+	}
 	return sup, nil
 }
 
@@ -84,37 +117,37 @@ func NewSuperblock(blocks, inodes, block_size uint) (*Superblock, os.Error) {
 
 	zones := blocks >> ZONE_SHIFT
 
-	sup.Ninodes = uint32(inodes)
+	sup.Ninodes = uint(inodes)
 	if uint(sup.Ninodes) != inodes {
 		return nil, os.NewError("Inode count is too high, need fewer inodes")
 	}
 
 	sup.Nzones = 0
-	sup.Zones = uint32(zones)
+	sup.Zones = uint(zones)
 
 	// Perform a check here to see if we need a larger block size
 	// for a filesystem of the given size. This is accomplished
 	// by checking overflow when assigned to the struct
 	nb := bitmapsize(1+inodes, block_size)
-	sup.Imap_blocks = uint16(nb)
+	sup.Imap_blocks = uint(nb)
 	if uint(sup.Imap_blocks) != nb {
 		return nil, os.NewError("Too many inode bitmap blocks, please try a larger block size")
 	}
 
 	nb = bitmapsize(zones, block_size)
-	sup.Zmap_blocks = uint16(nb)
+	sup.Zmap_blocks = uint(nb)
 	if uint(sup.Imap_blocks) != nb {
 		return nil, os.NewError("Too many zone bitmap blocks, please try a larger block size")
 	}
 
 	inode_offset := START_BLOCK + sup.Imap_blocks + sup.Zmap_blocks
-	inodeblks := uint16((inodes + inodes_per_block - 1) / inodes_per_block)
+	inodeblks := uint((inodes + inodes_per_block - 1) / inodes_per_block)
 	initblks := inode_offset + inodeblks
 	nb = uint((initblks + (1 << ZONE_SHIFT) - 1) >> ZONE_SHIFT)
 	if nb >= zones {
 		return nil, os.NewError("Bitmaps are too large")
 	}
-	sup.Firstdatazone_old = uint16(nb)
+	sup.Firstdatazone_old = uint(nb)
 	if uint(sup.Firstdatazone_old) != nb {
 		// The field is too small to store the value. Fortunately, the value
 		// can be computed from other fields. We set the on-disk field to zero
@@ -129,14 +162,14 @@ func NewSuperblock(blocks, inodes, block_size uint) (*Superblock, os.Error) {
 	zo := V2_NR_DZONES + v2indirect + v2sq
 
 	sup.Magic = SUPER_V3
-	sup.Block_size = uint16(block_size)
+	sup.Block_size = uint(block_size)
 	if uint(sup.Block_size) != block_size {
 		return nil, os.NewError("Block size is too large, please choose a smaller one")
 	}
 	if math.MaxUint32/block_size < zo {
 		sup.Max_size = math.MaxInt32
 	} else {
-		sup.Max_size = int32(zo * block_size)
+		sup.Max_size = uint(zo * block_size)
 		if uint(sup.Max_size) != (zo * block_size) {
 			return nil, os.NewError("Maximum file size is too large")
 		}

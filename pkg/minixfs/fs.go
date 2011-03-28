@@ -13,10 +13,9 @@ type FileSystem struct {
 	super  *Superblock     // the superblock for the associated file system
 	inodes map[uint]*Inode // a map containing the inodes for the open files
 
-	// Information imported from the superblock
-	Magic         uint16 // magic number to recognize super-blocks
-	Block_size    uint16 // block size in bytes
-	Log_zone_size uint16 // log2 of blocks/zone
+	Magic         uint // magic number to recognize super-blocks
+	Block_size    uint // block size in bytes
+	Log_zone_size uint // log2 of blocks/zone
 }
 
 type Directory struct {
@@ -120,17 +119,17 @@ func (fs *FileSystem) GetBlock(num uint, block interface{}) os.Error {
 
 // Given an inode and a position within the corresponding file, locate the
 // block (not zone) number in which that position is to be found and return
-func (fs *FileSystem) GetFileBlock(inode *Inode, position uint32) uint32 {
+func (fs *FileSystem) GetFileBlock(inode *Inode, position uint) uint {
 	scale := fs.super.Log_zone_size                        // for block-zone conversion
-	block_pos := position / uint32(fs.super.Block_size)    // relative block # in file
+	block_pos := position / fs.super.Block_size            // relative block # in file
 	zone := block_pos >> scale                             // position's zone
 	boff := block_pos - (zone << scale)                    // relative block in zone
-	dzones := uint32(V2_NR_DZONES)                         // number of direct zones
+	dzones := uint(V2_NR_DZONES)                           // number of direct zones
 	nr_indirects := fs.super.Block_size / V2_ZONE_NUM_SIZE // number of indirect zones
 
 	// Is the position to be found in the inode itself?
 	if zone < dzones {
-		z := inode.Zone[zone]
+		z := uint(inode.Zone[zone])
 		if z == NO_ZONE {
 			return NO_BLOCK
 		}
@@ -139,28 +138,28 @@ func (fs *FileSystem) GetFileBlock(inode *Inode, position uint32) uint32 {
 	}
 
 	// It is not in the inode, so must be single or double indirect
-	var z uint32
-	var excess uint32 = zone - dzones
+	var z uint
+	var excess uint = zone - dzones
 
-	if excess < uint32(nr_indirects) {
+	if excess < nr_indirects {
 		// 'position' can be located via the single indirect block
-		z = inode.Zone[dzones]
+		z = uint(inode.Zone[dzones])
 	} else {
 		// 'position' can be located via the double indirect block
-		z = inode.Zone[dzones+1]
+		z = uint(inode.Zone[dzones+1])
 		if z == NO_ZONE {
 			return NO_BLOCK
 		}
-		excess = excess - uint32(nr_indirects) // single indirect doesn't count
+		excess = excess - nr_indirects // single indirect doesn't count
 		b := z << scale
 		dindb := make([]uint32, fs.Block_size/4) // number of pointers in indirect block
 		err := fs.GetBlock(uint(b), dindb)
 		if err != nil {
 			log.Printf("Could not fetch doubly-indirect block: %d - %s", b, err)
 		}
-		index := excess / uint32(nr_indirects)
-		z = dindb[index]
-		excess = excess % uint32(nr_indirects)
+		index := excess / nr_indirects
+		z = uint(dindb[index])
+		excess = excess % nr_indirects
 	}
 
 	// 'z' is zone num for single indirect block; 'excess' is index into it
@@ -177,7 +176,7 @@ func (fs *FileSystem) GetFileBlock(inode *Inode, position uint32) uint32 {
 	}
 
 	log.Printf("Getting position %d, have excess: %d", position, excess)
-	z = indb[excess]
+	z = uint(indb[excess])
 	if z == NO_ZONE {
 		return NO_BLOCK
 	}

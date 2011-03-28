@@ -61,14 +61,14 @@ func ModeString(inode *minixfs.Inode) []byte {
 
 // Fetch the file for a given inode block-by-block, printing the data
 func PrintFile(fs *minixfs.FileSystem, inode *minixfs.Inode) {
-	blocksize := uint32(fs.Block_size)
-	filesize := uint32(inode.Size)
-	position := uint32(0)
+	blocksize := fs.Block_size
+	filesize := uint(inode.Size)
+	position := uint(0)
 	block := make([]uint8, fs.Block_size)
 
 	for position < filesize {
 		blocknum := fs.GetFileBlock(inode, position)
-		err := fs.GetBlock(uint(blocknum), block)
+		err := fs.GetBlock(blocknum, block)
 		if err != nil {
 			fmt.Printf("Failed to get data block: %d - %s\n", blocknum, err)
 			break

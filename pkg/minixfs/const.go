@@ -16,9 +16,9 @@ const (
 	IMAP = 0 // operations are on the inode bitmap
 	ZMAP = 1 // operations are on the zone bitmap
 
-	NO_ZONE  = uint32(0)
-	NO_BLOCK = uint32(0)
-	NO_BIT   = uint32(0)
+	NO_ZONE  = 0
+	NO_BLOCK = 0
+	NO_BIT   = 0
 
 	I_TYPE          = 0170000 // bit mask for type of inode
 	I_UNIX_SOCKET   = 0140000 // unix domain socket
