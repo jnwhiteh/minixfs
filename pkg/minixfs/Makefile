@@ -7,7 +7,9 @@ GOFILES=\
 		const.go \
 		fs.go \
 		macros.go \
+		open.go \
 		inode.go \
+		path.go \
 		super.go \
 		types.go \
 

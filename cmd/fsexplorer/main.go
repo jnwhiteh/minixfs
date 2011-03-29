@@ -84,10 +84,10 @@ func PrintFile(fs *minixfs.FileSystem, inode *minixfs.Inode) {
 	fmt.Printf("\n")
 }
 
-func mkdir(fs *minixfs.FileSystem, inode *minixfs.Inode, tokens []string) os.Error {
+func mkdir(fs *minixfs.FileSystem, tokens []string) os.Error {
 	// Since the new directory has to have a pointer to the parent, ensure that
 	// we can add another link without overflowing Nlinks.
-	if inode.Nlinks >= math.MaxUint16 {
+	if fs.WorkDir.Nlinks >= math.MaxUint16 {
 		// We cannot add another link to this inode, so fail.
 		return os.NewError("Cannot add an extra link to parent directory")
 	}
@@ -101,12 +101,6 @@ func repl(filename string, fs *minixfs.FileSystem) {
 	fmt.Printf("Block size: %d\n", fs.Block_size)
 	fmt.Printf("Zone shift: %d\n", fs.Log_zone_size)
 	fmt.Println("Enter '?' for a list of commands.")
-
-	inum := uint(minixfs.ROOT_INODE_NUM)
-	inode, err := fs.GetInode(inum)
-	if err != nil {
-		log.Fatalf("Could not get root inode: %s", err)
-	}
 
 	pwd := []string{}
 	buf := bufio.NewReader(os.Stdin)
@@ -164,7 +158,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			fmt.Printf("Allocated %s bit number %d\n", tokens[1], b)
 		case "cat":
 			dir_block := make([]minixfs.Directory, fs.Block_size/64)
-			fs.GetBlock(uint(inode.Zone[0]), dir_block)
+			fs.GetBlock(uint(fs.WorkDir.Zone[0]), dir_block)
 
 			// Loop and find a file with the given name
 			filename := tokens[1]
@@ -202,7 +196,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			}
 
 			dir_block := make([]minixfs.Directory, fs.Block_size/64)
-			fs.GetBlock(uint(inode.Zone[0]), dir_block)
+			fs.GetBlock(uint(fs.WorkDir.Zone[0]), dir_block)
 
 			// Search through the directory entries and find one that
 			// matches dirname
@@ -234,7 +228,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 
 			if dirinum == 0 {
 				fmt.Printf("Did not find a directory matching '%s'\n", dirname)
-			} else if dirinum == inum {
+			} else if dirinum == fs.WorkDir.Inum() {
 				// This would change us to the same directory, do nothing
 				continue
 			} else {
@@ -249,8 +243,9 @@ func repl(filename string, fs *minixfs.FileSystem) {
 				} else {
 					pwd = append(pwd, tokens[1])
 				}
-				inode = newinode
-				inum = dirinum
+
+				// Change the fs work directory to the current directory
+				fs.WorkDir = newinode
 				continue
 			}
 		case "free_bit":
@@ -285,7 +280,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			fmt.Printf("Freed %s bit number %d\n", tokens[1], bit)
 		case "ls":
 			dir_block := make([]minixfs.Directory, fs.Block_size/64)
-			fs.GetBlock(uint(inode.Zone[0]), dir_block)
+			fs.GetBlock(uint(fs.WorkDir.Zone[0]), dir_block)
 			for _, dirent := range dir_block {
 				if dirent.Inum > 0 {
 					dirinode, err := fs.GetInode(uint(dirent.Inum))
@@ -298,7 +293,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 				}
 			}
 		case "mkdir":
-			mkdir(fs, inode, tokens)
+			mkdir(fs, tokens)
 		case "pwd":
 			fmt.Printf("Current directory is /%s\n", strings.Join(pwd, "/"))
 		default:

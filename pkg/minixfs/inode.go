@@ -33,6 +33,10 @@ func (inode *Inode) IsRegular() bool {
 	return inode.GetType() == I_REGULAR
 }
 
+func (inode *Inode) Inum() uint {
+	return inode.inum
+}
+
 // Allocate a free inode on the given FileSystem and return a pointer to it.
 func (fs *FileSystem) AllocInode(mode uint16) *Inode {
 	// Acquire an inode from the bit map
