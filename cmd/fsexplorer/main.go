@@ -159,7 +159,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			blocknum := uint(fs.WorkDir.Zone[0])
 			dir_block, err := fs.GetDirectoryBlock(blocknum)
 			if err != nil {
-				fmt.Printf("Failed getting directory block: %d\n", blocknum)
+				fmt.Printf("Failed getting directory block: %d - %s\n", blocknum, err)
 			}
 
 			// Loop and find a file with the given name
@@ -200,7 +200,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			blocknum := uint(fs.WorkDir.Zone[0])
 			dir_block, err := fs.GetDirectoryBlock(blocknum)
 			if err != nil {
-				fmt.Printf("Failed getting directory block: %d\n", blocknum)
+				fmt.Printf("Failed getting directory block: %d - %s\n", blocknum, err)
 			}
 
 			// Search through the directory entries and find one that
@@ -287,7 +287,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			blocknum := uint(fs.WorkDir.Zone[0])
 			dir_block, err := fs.GetDirectoryBlock(blocknum)
 			if err != nil {
-				fmt.Printf("Failed getting directory block: %d\n", blocknum)
+				fmt.Printf("Failed getting directory block: %d - %s\n", blocknum, err)
 			}
 
 			for _, dirent := range dir_block.Data {

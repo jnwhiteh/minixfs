@@ -56,13 +56,11 @@ func (fs *FileSystem) GetPartialDataBlock(num uint) (*PartialDataBlock, os.Error
 
 // TODO: Refactor this to use rw_block
 func (fs *FileSystem) GetBlock(num uint, block Block) (os.Error) {
-	if num <= 1 {
+	if num <= 0 {
 		return os.NewError("Invalid block requested")
 	}
 
-	// Adjust the file position according to two static blocks at start
 	pos := int64((num) * uint(fs.super.Block_size))
-	//log.Printf("seeking to pos: %d", pos)
 	newPos, err := fs.file.Seek(pos, 0)
 	if err != nil || pos != newPos {
 		return err
@@ -106,9 +104,31 @@ func (fs *FileSystem) GetBlock(num uint, block Block) (os.Error) {
 
 // Return a block to the list of available blocks.
 func (fs *FileSystem) PutBlock(block Block, block_type int) os.Error {
-	num := block.blockNum()
 
-	if block.isDirty() {
+	// Get the block number and dirty flag
+	var num uint
+	var dirty bool
+	if bp, ok := block.(*InodeBlock); ok {
+		num = bp.buf.num
+		dirty = bp.buf.dirty
+	} else if bp, ok := block.(*DirectoryBlock); ok {
+		num = bp.buf.num
+		dirty = bp.buf.dirty
+	} else if bp, ok := block.(*IndirectBlock); ok {
+		num = bp.buf.num
+		dirty = bp.buf.dirty
+	} else if bp, ok := block.(*MapBlock); ok {
+		num = bp.buf.num
+		dirty = bp.buf.dirty
+	} else if bp, ok := block.(*FullDataBlock); ok {
+		num = bp.buf.num
+		dirty = bp.buf.dirty
+	} else if bp, ok := block.(*PartialDataBlock); ok {
+		num = bp.buf.num
+		dirty = bp.buf.dirty
+	}
+
+	if dirty {
 		pos := int64((num) * uint(fs.super.Block_size))
 		newPos, err := fs.file.Seek(pos, 0)
 		if err != nil || pos != newPos {
@@ -118,33 +138,22 @@ func (fs *FileSystem) PutBlock(block Block, block_type int) os.Error {
 		// Do a type assertion and perform the actual I/O.
 		if bp, ok := block.(*InodeBlock); ok {
 			err = binary.Write(fs.file, binary.LittleEndian, bp.Data)
-			bp.buf.num = num
-			bp.buf.dirty = false
 		} else if bp, ok := block.(*DirectoryBlock); ok {
 			err = binary.Write(fs.file, binary.LittleEndian, bp.Data)
-			bp.buf.num = num
-			bp.buf.dirty = false
 		} else if bp, ok := block.(*IndirectBlock); ok {
 			err = binary.Write(fs.file, binary.LittleEndian, bp.Data)
-			bp.buf.num = num
-			bp.buf.dirty = false
 		} else if bp, ok := block.(*MapBlock); ok {
 			err = binary.Write(fs.file, binary.LittleEndian, bp.Data)
-			bp.buf.num = num
-			bp.buf.dirty = false
 		} else if bp, ok := block.(*FullDataBlock); ok {
 			err = binary.Write(fs.file, binary.LittleEndian, bp.Data)
-			bp.buf.num = num
-			bp.buf.dirty = false
 		} else if bp, ok := block.(*PartialDataBlock); ok {
 			err = binary.Write(fs.file, binary.LittleEndian, bp.Data)
-			bp.buf.num = num
-			bp.buf.dirty = false
 		}
-	} else {
-		// decrement the count, handle cache stuff here
-	}
 
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

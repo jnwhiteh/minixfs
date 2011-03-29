@@ -1,10 +1,7 @@
 package minixfs
 
 type Block interface {
-	setBlockNum(uint) // set the block number
-	setDirty(bool)    // set the dirty flag
-	isDirty() bool    // returns the dirty flag
-	blockNum() uint   // returns the block number
+	isBlockType()
 }
 
 // TODO: Unepxort the 'data' member
@@ -39,38 +36,12 @@ type PartialDataBlock struct {
 	buf  *Buf
 }
 
-// Implement the setBlockNum method for each block type
-func (b *InodeBlock) setBlockNum(num uint)       { b.buf.num = num }
-func (b *DirectoryBlock) setBlockNum(num uint)   { b.buf.num = num }
-func (b *IndirectBlock) setBlockNum(num uint)    { b.buf.num = num }
-func (b *MapBlock) setBlockNum(num uint)         { b.buf.num = num }
-func (b *FullDataBlock) setBlockNum(num uint)    { b.buf.num = num }
-func (b *PartialDataBlock) setBlockNum(num uint) { b.buf.num = num }
-
-// Implement the setDirty method for each block type
-func (b *InodeBlock) setDirty(dirty bool)       { b.buf.dirty = dirty }
-func (b *DirectoryBlock) setDirty(dirty bool)   { b.buf.dirty = dirty }
-func (b *IndirectBlock) setDirty(dirty bool)    { b.buf.dirty = dirty }
-func (b *MapBlock) setDirty(dirty bool)         { b.buf.dirty = dirty }
-func (b *FullDataBlock) setDirty(dirty bool)    { b.buf.dirty = dirty }
-func (b *PartialDataBlock) setDirty(dirty bool) { b.buf.dirty = dirty }
-
-// Implement the isDirty method for each block type
-func (b *InodeBlock) isDirty() bool       { return b.buf.dirty }
-func (b *DirectoryBlock) isDirty() bool   { return b.buf.dirty }
-func (b *IndirectBlock) isDirty() bool    { return b.buf.dirty }
-func (b *MapBlock) isDirty() bool         { return b.buf.dirty }
-func (b *FullDataBlock) isDirty() bool    { return b.buf.dirty }
-func (b *PartialDataBlock) isDirty() bool { return b.buf.dirty }
-
-// Implement the blockNum method for each block type
-func (b *InodeBlock) blockNum() uint       { return b.buf.num }
-func (b *DirectoryBlock) blockNum() uint   { return b.buf.num }
-func (b *IndirectBlock) blockNum() uint    { return b.buf.num }
-func (b *MapBlock) blockNum() uint         { return b.buf.num }
-func (b *FullDataBlock) blockNum() uint    { return b.buf.num }
-func (b *PartialDataBlock) blockNum() uint { return b.buf.num }
-
+func (b *InodeBlock) isBlockType() {}
+func (b *DirectoryBlock) isBlockType() {}
+func (b *IndirectBlock) isBlockType() {}
+func (b *MapBlock) isBlockType() {}
+func (b *FullDataBlock) isBlockType() {}
+func (b *PartialDataBlock) isBlockType() {}
 
 // Ensure each block type implements the Block interface
 var _ Block = &InodeBlock{nil, nil}

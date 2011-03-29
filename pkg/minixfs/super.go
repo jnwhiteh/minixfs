@@ -244,7 +244,7 @@ func (fs *FileSystem) AllocBit(bmap uint, origin uint) (uint) {
 			num = num | (1 << bit)
 			bp.Data[i] = num
 
-			bp.setDirty(true)
+			bp.buf.dirty = true
 			fs.PutBlock(bp, MAP_BLOCK)
 			return b
 		}
