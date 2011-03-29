@@ -16,6 +16,10 @@ type FileSystem struct {
 	Magic         uint // magic number to recognize super-blocks
 	Block_size    uint // block size in bytes
 	Log_zone_size uint // log2 of blocks/zone
+
+	// TODO: These should be contained in a process table, not in the FileSystem
+	RootDir *Inode
+	WorkDir *Inode
 }
 
 type Directory struct {
@@ -46,6 +50,14 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	fs.Magic = super.Magic
 	fs.Block_size = super.Block_size
 	fs.Log_zone_size = super.Log_zone_size
+
+	fs.RootDir, err = fs.GetInode(ROOT_INODE_NUM)
+	if err != nil {
+		log.Printf("Unable to fetch root inode: %s", err)
+		return nil, err
+	}
+
+	fs.WorkDir = fs.RootDir
 
 	return fs, nil
 }
