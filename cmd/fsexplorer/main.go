@@ -65,19 +65,18 @@ func PrintFile(fs *minixfs.FileSystem, inode *minixfs.Inode) {
 	blocksize := fs.Block_size
 	filesize := uint(inode.Size)
 	position := uint(0)
-	block := make([]uint8, fs.Block_size)
 
 	for position < filesize {
-		blocknum := fs.GetFileBlock(inode, position)
-		err := fs.GetBlock(blocknum, block)
+		blocknum := fs.ReadMap(inode, position)
+		block, err := fs.GetFullDataBlock(blocknum)
 		if err != nil {
 			fmt.Printf("Failed to get data block: %d - %s\n", blocknum, err)
 			break
 		}
 		if filesize-position >= blocksize {
-			fmt.Printf("%s", block)
+			fmt.Printf("%s", block.Data)
 		} else {
-			fmt.Printf("%s", block[:filesize-position])
+			fmt.Printf("%s", block.Data[:filesize-position])
 		}
 		position = position + blocksize
 	}
@@ -157,14 +156,17 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			b := fs.AllocBit(which, 0)
 			fmt.Printf("Allocated %s bit number %d\n", tokens[1], b)
 		case "cat":
-			dir_block := make([]minixfs.Directory, fs.Block_size/64)
-			fs.GetBlock(uint(fs.WorkDir.Zone[0]), dir_block)
+			blocknum := uint(fs.WorkDir.Zone[0])
+			dir_block, err := fs.GetDirectoryBlock(blocknum)
+			if err != nil {
+				fmt.Printf("Failed getting directory block: %d\n", blocknum)
+			}
 
 			// Loop and find a file with the given name
 			filename := tokens[1]
 			fileinum := uint(0)
 
-			for _, dirent := range dir_block {
+			for _, dirent := range dir_block.Data {
 				if dirent.Inum > 0 {
 					strend := bytes.IndexByte(dirent.Name[:], 0)
 					if strend == -1 {
@@ -195,8 +197,11 @@ func repl(filename string, fs *minixfs.FileSystem) {
 				continue
 			}
 
-			dir_block := make([]minixfs.Directory, fs.Block_size/64)
-			fs.GetBlock(uint(fs.WorkDir.Zone[0]), dir_block)
+			blocknum := uint(fs.WorkDir.Zone[0])
+			dir_block, err := fs.GetDirectoryBlock(blocknum)
+			if err != nil {
+				fmt.Printf("Failed getting directory block: %d\n", blocknum)
+			}
 
 			// Search through the directory entries and find one that
 			// matches dirname
@@ -204,7 +209,7 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			dirname := tokens[1]
 			dirinum := uint(0)
 
-			for _, dirent := range dir_block {
+			for _, dirent := range dir_block.Data {
 				if dirent.Inum > 0 {
 					strend := bytes.IndexByte(dirent.Name[:], 0)
 					if strend == -1 {
@@ -279,9 +284,13 @@ func repl(filename string, fs *minixfs.FileSystem) {
 			fs.FreeBit(which, bit)
 			fmt.Printf("Freed %s bit number %d\n", tokens[1], bit)
 		case "ls":
-			dir_block := make([]minixfs.Directory, fs.Block_size/64)
-			fs.GetBlock(uint(fs.WorkDir.Zone[0]), dir_block)
-			for _, dirent := range dir_block {
+			blocknum := uint(fs.WorkDir.Zone[0])
+			dir_block, err := fs.GetDirectoryBlock(blocknum)
+			if err != nil {
+				fmt.Printf("Failed getting directory block: %d\n", blocknum)
+			}
+
+			for _, dirent := range dir_block.Data {
 				if dirent.Inum > 0 {
 					dirinode, err := fs.GetInode(uint(dirent.Inum))
 					if err != nil {
