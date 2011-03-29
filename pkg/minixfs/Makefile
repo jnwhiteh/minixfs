@@ -10,6 +10,5 @@ GOFILES=\
 		inode.go \
 		super.go \
 		types.go \
-		utils.go \
 
 include $(GOROOT)/src/Make.pkg
