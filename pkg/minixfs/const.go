@@ -20,6 +20,17 @@ const (
 	NO_BLOCK = 0
 	NO_BIT   = 0
 
+	// When a block is released, the type of usage is passed to put_block()
+	WRITE_IMMED = 0100 // block should be written to disk now
+	ONE_SHOT    = 0200 // set if block not likely to be needed soon
+
+	INODE_BLOCK        = 0 // inode block
+	DIRECTORY_BLOCK    = 1 // directory block
+	INDIRECT_BLOCK     = 2 // pointer block
+	MAP_BLOCK          = 3 // bit map
+	FULL_DATA_BLOCK    = 5 // data, fully used
+	PARTIAL_DATA_BLOCK = 6 // data, partly used
+
 	I_TYPE          = 0170000 // bit mask for type of inode
 	I_UNIX_SOCKET   = 0140000 // unix domain socket
 	I_SYMBOLIC_LINK = 0120000 // file is a symbolic link

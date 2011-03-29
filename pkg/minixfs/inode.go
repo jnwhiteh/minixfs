@@ -1,6 +1,7 @@
 package minixfs
 
 import "log"
+import "os"
 
 type disk_inode struct {
 	Mode   uint16 // file type, protection, etc.
@@ -19,6 +20,7 @@ type Inode struct {
 	fs    *FileSystem
 	count uint
 	inum  uint
+	dirty bool
 }
 
 func (inode *Inode) GetType() uint16 {
@@ -35,6 +37,50 @@ func (inode *Inode) IsRegular() bool {
 
 func (inode *Inode) Inum() uint {
 	return inode.inum
+}
+
+// Retrieve an Inode from disk/cache given an Inode number. The 0th Inode
+// is reserved and unallocatable, so we return an error when it is requested
+// The root inode on the disk is ROOT_INODE_NUM, and should be located 64
+// bytes into the first block following the bitmaps.
+
+func (fs *FileSystem) GetInode(num uint) (*Inode, os.Error) {
+	if num == 0 {
+		return nil, os.NewError("Invalid inode number")
+	}
+
+	// Check and see if the inode is already loaded in memory
+	if inode, ok := fs.inodes[num]; ok {
+		inode.count++
+		return inode, nil
+	}
+
+	if len(fs.inodes) >= NR_INODES {
+		return nil, os.NewError("Too many open inodes")
+	}
+
+	// For a 4096 block size, inodes 0-63 reside in the first block
+	block_offset := fs.super.Imap_blocks + fs.super.Zmap_blocks + 2
+	block_num := ((num - 1) / fs.super.inodes_per_block) + uint(block_offset)
+
+	// Load the inode from the disk and create in-memory version of it
+	inode_block, err := fs.GetInodeBlock(block_num)
+	if err != nil {
+		return nil, err
+	}
+
+	// We have the full block, now get the correct inode entry
+	inode_d := &inode_block.Data[(num-1)%fs.super.inodes_per_block]
+	inode := &Inode{
+		disk_inode: inode_d,
+		fs: fs,
+		count: 1,
+		inum: num,
+		dirty: false,
+	}
+	fs.inodes[num] = inode
+
+	return inode, nil
 }
 
 // Allocate a free inode on the given FileSystem and return a pointer to it.
@@ -75,9 +121,41 @@ func (fs *FileSystem) FreeInode(inode *Inode) {
 func (fs *FileSystem) WipeInode(inode *Inode) {
 	inode.Size = 0
 	// TODO: Update ATIME, CTIME, MTIME
-	// TODO: Make this dirty so its written back out
+	inode.dirty = true
 	inode.Zone = *new([10]uint32)
 	for i := 0; i < 10; i++ {
 		inode.Zone[i] = NO_ZONE
+	}
+}
+
+func (fs *FileSystem) DupInode(inode *Inode) {
+	inode.count++
+}
+
+// The caller is no longer using this inode. If no one else is using it
+// either write it back to the disk immediately. If it has no links,
+// truncate it and return it to the pool of available inodes.
+func (fs *FileSystem) PutInode(rip *Inode) {
+	if rip == nil {
+		return
+	}
+	rip.count--
+	if rip.count == 0 { // means no one is using it now
+		if rip.Nlinks == 0 { // free the inode
+			fs.Truncate(rip) // return all the disk blocks
+			rip.Mode = I_NOT_ALLOC
+			rip.dirty = true
+			fs.FreeInode(rip)
+		} else {
+			// TODO: Handle the pipe case here
+			// if rip.pipe == true {
+			//   truncate(rip)
+			// }
+		}
+		// rip.pipe = false
+		if rip.dirty {
+			// TODO: Implement RWInode, which will write the inode block back
+			//fs.RWInode(rip, WRITING)
+		}
 	}
 }

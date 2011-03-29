@@ -208,19 +208,18 @@ func (fs *FileSystem) AllocBit(bmap uint, origin uint) (uint) {
 
 	// Iterate over all blocks plus one, because we start in the middle
 	bcount := bit_blocks + 1
-	bmapb := make([]uint16, FS_BITMAP_CHUNKS(fs.Block_size))
 	//wlim := FS_BITMAP_CHUNKS(fs.Block_size)
 
 	for {
-		err := fs.GetBlock(start_block + block, bmapb)
+		bp, err := fs.GetMapBlock(start_block + block)
 		if err != nil {
 			log.Printf("Unable to fetch bitmap block %d - %s", block, err)
 			return NO_BIT
 		}
 
 		// Iterate over the words in a block
-		for i := word; i < uint(len(bmapb)); i++ {
-			num := bmapb[i]
+		for i := word; i < uint(len(bp.Data)); i++ {
+			num := bp.Data[i]
 
 			// Does this word contain a free bit?
 			if num == math.MaxUint16 {
@@ -243,13 +242,14 @@ func (fs *FileSystem) AllocBit(bmap uint, origin uint) (uint) {
 
 			// Allocate and return bit number
 			num = num | (1 << bit)
-			bmapb[i] = num
+			bp.Data[i] = num
 
-			// TODO: Make this block dirty
-			fs.PutBlock(start_block + block, bmapb)
+			bp.setDirty(true)
+			fs.PutBlock(bp, MAP_BLOCK)
 			return b
 		}
 
+		fs.PutBlock(bp, MAP_BLOCK)
 		block = block + 1
 		if (block) >= bit_blocks {
 			block = 0
@@ -280,14 +280,13 @@ func (fs *FileSystem) FreeBit(bmap uint, bit_returned uint) {
 	bit := bit_returned % FS_BITCHUNK_BITS
 	mask := uint16(1) << bit
 
-	bmapb := make([]uint16, FS_BITMAP_CHUNKS(fs.Block_size))
-	err := fs.GetBlock(start_block + block, bmapb)
+	bp, err := fs.GetMapBlock(start_block + block)
 	if err != nil {
 		log.Printf("Unable to fetch bitmap block %d - %s", block, err)
 		return
 	}
 
-	k := bmapb[word]
+	k := bp.Data[word]
 	if (k & mask) == 0 {
 		if bmap == IMAP {
 			panic("tried to free unused inode")
@@ -297,6 +296,7 @@ func (fs *FileSystem) FreeBit(bmap uint, bit_returned uint) {
 	}
 
 	k = k & (^ mask)
-	bmapb[word] = k
-	fs.PutBlock(start_block + block, bmapb)
+	bp.Data[word] = k
+	bp.buf.dirty = true
+	fs.PutBlock(bp, MAP_BLOCK)
 }

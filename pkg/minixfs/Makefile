@@ -2,14 +2,17 @@ include $(GOROOT)/src/Make.inc
 
 TARG=jnwhiteh/minixfs
 GOFILES=\
+		blocks.go \
 		bitmap.go \
 		cache.go \
 		const.go \
 		fs.go \
+		link.go \
 		macros.go \
 		open.go \
 		inode.go \
 		path.go \
+		read.go \
 		super.go \
 		types.go \
 
