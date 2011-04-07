@@ -32,7 +32,7 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	var fs *FileSystem = new(FileSystem)
 
 	// open the file, but do not close it
-	file, err := os.Open(filename, os.O_RDWR, 0)
+	file, err := os.OpenFile(filename, os.O_RDWR, 0)
 
 	if err != nil {
 		return nil, err
