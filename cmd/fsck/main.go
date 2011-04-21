@@ -15,7 +15,8 @@ var filename *string = flag.String("file", "minix3root.img", "the disk image to 
 var help *bool = flag.Bool("help", false, "print usage information")
 var listing *bool = flag.Bool("listing", false, "show a listing")
 
-var firstlist bool // has the listing header been printed?
+var firstlist bool   // has the listing header been printed?
+var firstcnterr bool // has the count error header been printed?
 
 var fsck_device string // the name of the disk image
 var dev *os.File       // the 'device' we are operating on
@@ -43,7 +44,7 @@ type stack struct {
 	presence byte
 }
 
-var ftop = new(stack)
+var ftop *stack = nil
 
 const (
 	OFFSET_SUPER_BLOCK = 1024
@@ -245,6 +246,7 @@ func printrec(sp *stack) {
 		fmt.Print("/")
 		printname(sp.dir.Name)
 	}
+
 }
 
 func printpath(mode int, nlcr bool) {
@@ -327,12 +329,12 @@ func list(ino int, ip *disk_inode) {
 	printperm(ip.Mode, 6, I_SET_UID_BIT, "s")
 	printperm(ip.Mode, 3, I_SET_GID_BIT, "s")
 	printperm(ip.Mode, 0, STICKY_BIT, "t")
-	fmt.Printf(" %3d", ip.Nlinks)
+	fmt.Printf(" %3d ", ip.Nlinks)
 	switch ip.Mode & I_TYPE {
 	case I_CHAR_SPECIAL, I_BLOCK_SPECIAL:
 		fmt.Printf("  %2x,%2x ", ip.Zone[0]>>MAJOR&0xFF, ip.Zone[0]>>MINOR&0xFF)
 	default:
-		fmt.Printf("%7d ", ip.Size)
+		fmt.Printf("%7v ", ip.Size)
 	}
 	printpath(0, true)
 }
@@ -863,6 +865,98 @@ func strcmp(b []byte, s string) bool {
 	return false
 }
 
+// Check if the given (correct) bitmap is identical with the one that is on
+// the disk. If not, ask if the disk should be repaired.
+func chkmap(cmap, dmap []bitchunk_t, bit, blkno, nblk int, mtype string) {
+	var nerr int
+	var report bool
+	var phys int = 0
+
+	fmt.Printf("Checking %s map\n", mtype)
+	loadbitmap(dmap, blkno, nblk)
+
+	// the size of bitmaps should be the same
+	for i := 0; i < len(cmap); i++ {
+		if cmap[i] != dmap[i] {
+			chkword(uint32(cmap[i]), uint32(dmap[i]), bit, mtype, &nerr, &report, phys)
+		}
+		bit += 8 * Sizeof_bitchunk_t
+		phys += 8 * Sizeof_bitchunk_t
+	}
+
+	//if ((!repair || automatic) && !report) printf("etc. ");
+	if nerr > MAXPRINT || nerr > 10 {
+		fmt.Printf("%d errors found. ", nerr)
+	}
+	if nerr != 0 && yes("install a new map") {
+		dumpbitmap(cmap, blkno, nblk)
+	}
+	if nerr > 0 {
+		fmt.Printf("\n")
+	}
+}
+
+func chkword(w1, w2 uint32, bit int, mtype string, n *int, report *bool, phys int) {
+	for (w1 | w2) > 0 {
+		// TODO: Code that stops reporting has been removed, it doesn't
+		// make sense for our current use.
+		if *report {
+			if ((w1 & 1) > 0) && !((w2 & 1) > 0) {
+				fmt.Printf("%s %d is missing\n", mtype, bit)
+			} else if !((w1 & 1) > 0) && ((w2 & 1) > 0) {
+				fmt.Printf("%s %d is not free\n", mtype, bit)
+			}
+		}
+
+		// This is the loop increment code
+		w1 >>= 1
+		w2 >>= 1
+		bit++
+		phys++
+	}
+}
+
+func counterror(ino int) {
+	inode := new(disk_inode)
+
+	if firstcnterr {
+		fmt.Printf("INODE NLINK COUNT\n")
+		firstcnterr = false
+	}
+	devread(inoblock(ino), inooff(ino), inode, INODE_SIZE)
+	count[ino] += int(inode.Nlinks)
+	fmt.Printf("%5d %5d %5d", ino, inode.Nlinks, count[ino])
+	if yes(" adjust") {
+		inode.Nlinks = uint16(count[ino])
+		if inode.Nlinks == 0 {
+			log.Fatal("internal error (counterror)")
+			inode.Mode = I_NOT_ALLOC
+			clrbit(imap, ino)
+		}
+		devwrite(inoblock(ino), inooff(ino), inode, INODE_SIZE)
+	}
+}
+
+func chkcount() {
+	for ino, c := range count {
+		if c != 0 {
+			counterror(ino)
+		}
+	}
+	if !firstcnterr {
+		fmt.Printf("\n")
+	}
+}
+
+// Load a bitmap from disk
+func loadbitmap(bitmap []bitchunk_t, bno, nblk int) {
+	devread(bno, 0, bitmap, len(bitmap))
+}
+
+func dumpbitmap(bitmap []bitchunk_t, bno, nblk int) {
+	panic("NYI: dumpbitmap")
+}
+
 // Read bytes from the image starting at block 'block' into 'buf'
 // TODO: The 'size' argument is completely ignored here, and probably should
 // not be.
@@ -891,10 +985,10 @@ func devwrite(block int, offset int, buf interface{}, size int) {
 
 // Print a string with either a singular or plural pronoun
 func pr(s string, n int, singular, plural string) {
-	if n > 1 {
-		fmt.Printf(s, n, plural)
-	} else {
+	if n == 1 {
 		fmt.Printf(s, n, singular)
+	} else {
+		fmt.Printf(s, n, plural)
 	}
 }
 
@@ -940,8 +1034,21 @@ func chkdev(filename string) {
 
 	getcount()
 	chktree()
+	var N_IMAP int = int(sb.Imap_blocks)
+	var N_ZMAP int = int(sb.Zmap_blocks)
+	var BLK_ZMAP int = BLK_IMAP + N_IMAP
+
+	chkmap(zmap, spec_zmap, FIRST()-1, BLK_ZMAP, N_ZMAP, "zone")
+	chkcount()
+	chkmap(imap, spec_imap, 0, BLK_IMAP, N_IMAP, "inode")
+
+	// chkilist()
 
 	printtotal()
+
+	// putbitmaps()
+	// freecount()
+	// devclose()
 }
 
 func main() {

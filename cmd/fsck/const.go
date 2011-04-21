@@ -64,4 +64,6 @@ const (
 
 	__MINIX_PATH_MAX = 255
 	PATH_MAX         = __MINIX_PATH_MAX
+
+	MAXPRINT = 80
 )
