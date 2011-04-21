@@ -8,13 +8,14 @@ type block_t uint32
 type zone_t uint32
 
 const (
-	Sizeof_zone_t = unsafe.Sizeof(*new(zone_t))
-	Sizeof_block_nr = unsafe.Sizeof(*new(block_nr))
+	Sizeof_zone_t     = unsafe.Sizeof(*new(zone_t))
+	Sizeof_block_nr   = unsafe.Sizeof(*new(block_nr))
 	Sizeof_bitchunk_t = unsafe.Sizeof(*new(bitchunk_t))
-	CHAR_BIT       = 8  // number of bits in a char
-	FS_BITCHUNK_BITS = Sizeof_bitchunk_t * CHAR_BIT
-	BITMASK = (1 << BITSHIFT) - 1
+	CHAR_BIT          = 8 // number of bits in a char
+	FS_BITCHUNK_BITS  = Sizeof_bitchunk_t * CHAR_BIT
+	BITMASK           = (1 << BITSHIFT) - 1
 )
+
 func FS_BITS_PER_BLOCK(b int) int {
 	return FS_BITMAP_CHUNKS(b) * FS_BITCHUNK_BITS
 }
@@ -28,7 +29,7 @@ func V2_INDIRECTS() int {
 }
 
 func MAX_ZONES(b int) int {
-	return V2_NR_DZONES + V2_INDIRECTS() + V2_INDIRECTS() * V2_INDIRECTS()
+	return V2_NR_DZONES + V2_INDIRECTS() + V2_INDIRECTS()*V2_INDIRECTS()
 }
 
 func bitmapsize(nr_bits int, block_size int) int {
@@ -44,7 +45,7 @@ func WORDOFBIT(b int) int {
 }
 
 func POWEROFBIT(b int) int {
-	return (1 << uint(b & BITMASK))
+	return (1 << uint(b&BITMASK))
 }
 
 func setbit(w []bitchunk_t, b int) {

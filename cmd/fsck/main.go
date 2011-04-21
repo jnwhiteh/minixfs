@@ -18,12 +18,12 @@ var listing *bool = flag.Bool("listing", false, "show a listing")
 var firstlist bool // has the listing header been printed?
 
 var fsck_device string // the name of the disk image
-var dev *os.File // the 'device' we are operating on
-var sb *superblock // the superblock of the device
-var fs_version int // the version of the filesystem
-var block_size int // the block size of the device
-var rwbuf []byte // a buffer for reading and writing
-var nullbuf []byte // a zeroed buffer
+var dev *os.File       // the 'device' we are operating on
+var sb *superblock     // the superblock of the device
+var fs_version int     // the version of the filesystem
+var block_size int     // the block size of the device
+var rwbuf []byte       // a buffer for reading and writing
+var nullbuf []byte     // a zeroed buffer
 
 var imap []bitchunk_t
 var zmap []bitchunk_t
@@ -37,8 +37,8 @@ var nfreezone int
 var ztype map[int]int
 
 type stack struct {
-	dir *Directory
-	next *stack
+	dir      *Directory
+	next     *stack
 	presence byte
 }
 
@@ -104,14 +104,24 @@ func getsuper() {
 		log.Fatal("bad magic number in super block")
 	}
 
-	if sb.Ninodes <= 0 { log.Fatal("no inodes") }
-	if sb.Zones <= 0 { log.Fatal("no zones") }
-	if sb.Imap_blocks <= 0 { log.Fatal("no imap") }
-	if sb.Zmap_blocks <= 0 { log.Fatal("no zmap") }
+	if sb.Ninodes <= 0 {
+		log.Fatal("no inodes")
+	}
+	if sb.Zones <= 0 {
+		log.Fatal("no zones")
+	}
+	if sb.Imap_blocks <= 0 {
+		log.Fatal("no imap")
+	}
+	if sb.Zmap_blocks <= 0 {
+		log.Fatal("no zmap")
+	}
 	if sb.Firstdatazone_old != 0 && sb.Firstdatazone_old <= 4 {
 		log.Fatal("first data zone too small")
 	}
-	if sb.Log_zone_size < 0 { log.Fatal("zone size < block size") }
+	if sb.Log_zone_size < 0 {
+		log.Fatal("zone size < block size")
+	}
 	if sb.Max_size <= 0 {
 		log.Printf("warning: invalid max file size: %ld", sb.Max_size)
 		sb.Max_size = math.MaxInt32
@@ -120,18 +130,18 @@ func getsuper() {
 
 // chksuper checks the super block for reasonable contents
 func chksuper() {
-	n := bitmapsize(int(sb.Ninodes) + 1, block_size)
+	n := bitmapsize(int(sb.Ninodes)+1, block_size)
 	if sb.Magic != SUPER_V2 && sb.Magic != SUPER_V3 {
 		log.Fatal("bad magic number in super block")
 	}
 	if int(sb.Imap_blocks) < n {
 		log.Printf("need %d blocks for inode bitmap; only have %d",
-				   n, sb.Imap_blocks)
+			n, sb.Imap_blocks)
 		log.Fatalf("too few imap blocks")
 	}
 	if int(sb.Imap_blocks) != n {
 		log.Printf("warning: expected %d imap_blocks instead of %d",
-				   n, sb.Imap_blocks)
+			n, sb.Imap_blocks)
 	}
 	n = bitmapsize(int(sb.Zones), block_size)
 	if int(sb.Zmap_blocks) < n {
@@ -139,9 +149,9 @@ func chksuper() {
 	}
 	if int(sb.Zmap_blocks) != n {
 		log.Printf("warning: expected %d zmap_blocks instead of %d",
-				   n, sb.Zmap_blocks)
+			n, sb.Zmap_blocks)
 	}
-	if int(sb.Log_zone_size) >= 8 * Sizeof_block_nr {
+	if int(sb.Log_zone_size) >= 8*Sizeof_block_nr {
 		log.Fatalf("log_zone_size too large")
 	}
 	if sb.Log_zone_size > 8 {
@@ -150,7 +160,7 @@ func chksuper() {
 
 	// Compute the first data zone
 	INODES_PER_BLOCK := int(sb.Block_size) / V2_INODE_SIZE
-	N_ILIST := (int(sb.Ninodes) + INODES_PER_BLOCK-1) / INODES_PER_BLOCK
+	N_ILIST := (int(sb.Ninodes) + INODES_PER_BLOCK - 1) / INODES_PER_BLOCK
 	SCALE := 1 << sb.Log_zone_size
 
 	sb.Firstdatazone = (BLK_ILIST() + N_ILIST + SCALE - 1) >> sb.Log_zone_size
@@ -169,7 +179,7 @@ func chksuper() {
 	}
 
 	maxsize := MAX_FILE_POS
-	if ((maxsize - 1) >> sb.Log_zone_size) / block_size >= MAX_ZONES(block_size) {
+	if ((maxsize-1)>>sb.Log_zone_size)/block_size >= MAX_ZONES(block_size) {
 		maxsize = (MAX_ZONES(block_size) * block_size) << sb.Log_zone_size
 		if maxsize <= 0 {
 			maxsize = math.MaxInt32
@@ -242,7 +252,7 @@ func printpath(mode int, nlcr bool) {
 	} else {
 		printrec(ftop)
 	}
-	switch (mode) {
+	switch mode {
 	case 1:
 		fmt.Printf(" (ino = %v, ", ftop.dir.Inum)
 	case 2:
@@ -267,7 +277,7 @@ func descendtree(dp *Directory) bool {
 		printpath(0, true)
 	}
 	visited := bitset(imap, ino)
-	if (!visited || *listing) {
+	if !visited || *listing {
 		devread(inoblock(ino), inooff(ino), inode, INODE_SIZE)
 		if *listing {
 			list(ino, inode)
@@ -294,23 +304,31 @@ func list(ino int, ip *disk_inode) {
 		fmt.Printf(" inode permission link   size name\n")
 	}
 	fmt.Printf("%6d ", ino)
-	switch (ip.Mode & I_TYPE) {
-	case I_REGULAR: fmt.Print("-")
-	case I_DIRECTORY: fmt.Print("d")
-	case I_CHAR_SPECIAL: fmt.Print("c")
-	case I_BLOCK_SPECIAL: fmt.Print("b")
-	case I_NAMED_PIPE: fmt.Print("p")
-	case I_UNIX_SOCKET: fmt.Print("s")
-	case I_SYMBOLIC_LINK: fmt.Print("s")
-	default: fmt.Printf("?")
+	switch ip.Mode & I_TYPE {
+	case I_REGULAR:
+		fmt.Print("-")
+	case I_DIRECTORY:
+		fmt.Print("d")
+	case I_CHAR_SPECIAL:
+		fmt.Print("c")
+	case I_BLOCK_SPECIAL:
+		fmt.Print("b")
+	case I_NAMED_PIPE:
+		fmt.Print("p")
+	case I_UNIX_SOCKET:
+		fmt.Print("s")
+	case I_SYMBOLIC_LINK:
+		fmt.Print("s")
+	default:
+		fmt.Printf("?")
 	}
 	printperm(ip.Mode, 6, I_SET_UID_BIT, "s")
 	printperm(ip.Mode, 3, I_SET_GID_BIT, "s")
 	printperm(ip.Mode, 0, STICKY_BIT, "t")
 	fmt.Printf(" %3d", ip.Nlinks)
-	switch (ip.Mode & I_TYPE) {
+	switch ip.Mode & I_TYPE {
 	case I_CHAR_SPECIAL, I_BLOCK_SPECIAL:
-		fmt.Printf("  %2x,%2x ", ip.Zone[0] >> MAJOR & 0xFF, ip.Zone[0] >> MINOR & 0xFF)
+		fmt.Printf("  %2x,%2x ", ip.Zone[0]>>MAJOR&0xFF, ip.Zone[0]>>MINOR&0xFF)
 	default:
 		fmt.Printf("%7d ", ip.Size)
 	}
@@ -318,12 +336,12 @@ func list(ino int, ip *disk_inode) {
 }
 
 func printperm(mode uint16, shift uint, special int, overlay string) {
-	if (mode >> shift) & R_BIT > 0{
+	if (mode>>shift)&R_BIT > 0 {
 		fmt.Print("r")
 	} else {
 		fmt.Print("-")
 	}
-	if (mode >> shift) & W_BIT > 0{
+	if (mode>>shift)&W_BIT > 0 {
 		fmt.Print("w")
 	} else {
 		fmt.Print("-")
@@ -331,7 +349,7 @@ func printperm(mode uint16, shift uint, special int, overlay string) {
 	if (mode & uint16(special)) > 0 {
 		fmt.Print(overlay)
 	} else {
-		if (mode >> shift) & X_BIT > 0{
+		if (mode>>shift)&X_BIT > 0 {
 			fmt.Print("x")
 		} else {
 			fmt.Print("-")
@@ -340,7 +358,7 @@ func printperm(mode uint16, shift uint, special int, overlay string) {
 }
 
 func chkinode(ino int, ip *disk_inode) bool {
-	if ino == ROOT_INODE && (ip.Mode & I_TYPE) != I_DIRECTORY {
+	if ino == ROOT_INODE && (ip.Mode&I_TYPE) != I_DIRECTORY {
 		fmt.Printf("root inode is not a directory ")
 		fmt.Printf("(ino = %v, mode = %o)\n", ino, ip.Mode)
 		log.Fatal("")
@@ -388,7 +406,7 @@ func chkfile(ino int, ip *disk_inode) bool {
 	i = V2_NR_DZONES
 	level = 1
 	for i < V2_NR_DZONES {
-		ok = ok && chkzones(ino, ip, &pos, ip.Zone[i:i+1],level)
+		ok = ok && chkzones(ino, ip, &pos, ip.Zone[i:i+1], level)
 		i++
 		level++
 	}
@@ -400,12 +418,12 @@ func chkdirectory(ino int, ip *disk_inode) bool {
 
 	setbit(dirmap, ino)
 	ok = chkfile(ino, ip)
-	if !(ftop.presence & DOT > 0) {
+	if !(ftop.presence&DOT > 0) {
 		fmt.Printf(". missing in ")
 		printpath(2, true)
 		ok = false
 	}
-	if !(ftop.presence & DOTDOT > 0){
+	if !(ftop.presence&DOTDOT > 0) {
 		fmt.Printf(".. missing in ")
 		printpath(2, true)
 		ok = false
@@ -420,10 +438,10 @@ func chkzones(ino int, ip *disk_inode, pos *int, zlist []uint32, level int) bool
 	for i := 0; i < len(zlist); i++ {
 		if zlist[i] == NO_ZONE {
 			*pos += jump(level)
-		} else if (!markzone(int(zlist[i]), level, *pos)) {
+		} else if !markzone(int(zlist[i]), level, *pos) {
 			*pos += jump(level)
 			ok = false
-		} else if (!zonechk(ino, ip, pos, int(zlist[i]), level)) {
+		} else if !zonechk(ino, ip, pos, int(zlist[i]), level) {
 			ok = false
 		}
 	}
@@ -479,10 +497,10 @@ func errzone(mess string, zno, level, pos int) {
 
 func zonechk(ino int, ip *disk_inode, pos *int, zno, level int) bool {
 	if level == 0 {
-		if (ip.Mode & I_TYPE) == I_DIRECTORY && !chkdirzone(ino, ip, *pos, zno) {
+		if (ip.Mode&I_TYPE) == I_DIRECTORY && !chkdirzone(ino, ip, *pos, zno) {
 			return false
 		}
-		if (ip.Mode & I_TYPE) == I_SYMBOLIC_LINK && chksymlinkzone(ino, ip, *pos, zno) {
+		if (ip.Mode&I_TYPE) == I_SYMBOLIC_LINK && chksymlinkzone(ino, ip, *pos, zno) {
 			return false
 		}
 		*pos += ZONE_SIZE()
@@ -527,7 +545,7 @@ func devread(block, offset int, buf interface{}, size int) {
 
 func chkdev(filename string) {
 	fsck_device = filename
-	initvars() // initialize state
+	initvars()        // initialize state
 	devopen(filename) // open the device
 	getsuper()
 
@@ -544,7 +562,7 @@ func chkdev(filename string) {
 
 	getbitmaps()
 
-	fillbitmap(spec_imap, 1, int(sb.Ninodes + 1), []string{})
+	fillbitmap(spec_imap, 1, int(sb.Ninodes+1), []string{})
 	fillbitmap(spec_zmap, sb.Firstdatazone, int(sb.Zones), []string{})
 
 	getcount()
@@ -558,7 +576,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if ((1 << BITSHIFT) != 8 * Sizeof_bitchunk_t) {
+	if (1 << BITSHIFT) != 8*Sizeof_bitchunk_t {
 		log.Fatalf("Fsck was compiled with the wrong BITSHIFT!")
 	}
 

@@ -9,17 +9,17 @@ const (
 
 	ROOT_INODE = 1
 
-	V2_INODE_SIZE = 64
-	V2_NR_DZONES = 7
+	V2_INODE_SIZE    = 64
+	V2_NR_DZONES     = 7
 	V2_ZONE_NUM_SIZE = Sizeof_zone_t
 
 	MAX_FILE_POS = 0x7FFFFFFF // largest legal file offset
 
 	_MIN_BLOCK_SIZE = 1024 // the minimum block size
 
-	BITSHIFT = 5
-	NAME_MAX = DIRSIZ
-	DIRSIZ = 60
+	BITSHIFT   = 5
+	NAME_MAX   = DIRSIZ
+	DIRSIZ     = 60
 	INODE_SIZE = V2_INODE_SIZE
 
 	I_TYPE          = 0170000 // bit mask for type of inode
@@ -39,13 +39,13 @@ const (
 	W_BIT           = 0000002 // rWx protection bit
 	X_BIT           = 0000001 // rwX protection bit
 	I_NOT_ALLOC     = 0000000 // this inode is free
-	STICKY_BIT     = 01000
+	STICKY_BIT      = 01000
 
 	MAJOR = 8
 	MINOR = 0
 
-	DOT = 1
+	DOT    = 1
 	DOTDOT = 2
 
-	NO_ZONE  = 0
+	NO_ZONE = 0
 )
