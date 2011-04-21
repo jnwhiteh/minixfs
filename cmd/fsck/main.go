@@ -33,6 +33,7 @@ var dirmap []bitchunk_t
 var count map[int]int
 
 var nfreeinode, nregular, ndirectory, nblkspec, ncharspec, nbadinode int
+var nsock, npipe, nsyml int
 var nfreezone int
 var ztype map[int]int
 
@@ -233,7 +234,7 @@ func printname(s [60]byte) {
 		} else if !isprint(s[i]) {
 			fmt.Print('?')
 		} else {
-			fmt.Print(s[i])
+			fmt.Printf("%c", s[i])
 		}
 	}
 }
@@ -276,13 +277,14 @@ func descendtree(dp *Directory) bool {
 		fmt.Printf("found inode %v: ", ino)
 		printpath(0, true)
 	}
+
 	visited := bitset(imap, ino)
 	if !visited || *listing {
 		devread(inoblock(ino), inooff(ino), inode, INODE_SIZE)
 		if *listing {
 			list(ino, inode)
 		}
-		if !visited && !chkinode(ino, inode) {
+		if !visited && !chkinode(ino, inode) { // this triggers the chk* functions
 			setbit(spec_imap, ino)
 			if yes("remove") {
 				count[ino] += int(inode.Nlinks) - 1
@@ -365,7 +367,7 @@ func chkinode(ino int, ip *disk_inode) bool {
 	}
 	if ip.Nlinks == 0 {
 		fmt.Printf("link count zero of ")
-		printpath(2, false)
+		printpath(2, true)
 		return true
 	}
 	nfreeinode--
@@ -392,8 +394,29 @@ func chkmode(ino int, ip *disk_inode) bool {
 	case I_DIRECTORY:
 		ndirectory++
 		return chkdirectory(ino, ip)
+	case I_BLOCK_SPECIAL:
+		nblkspec++
+		return chkspecial(ino, ip)
+	case I_CHAR_SPECIAL:
+		ncharspec++
+		return chkspecial(ino, ip)
+	case I_NAMED_PIPE:
+		npipe++
+		return chkfile(ino, ip)
+	case I_UNIX_SOCKET:
+		nsock++
+		return chkfile(ino, ip)
+	case I_SYMBOLIC_LINK:
+		nsyml++
+		return chklink(ino, ip)
 	}
-	return true
+
+	// default case
+	nbadinode++
+	fmt.Printf("bad mode of ")
+	printpath(1, false)
+	fmt.Printf("mode = %o)", ip.Mode)
+	return false
 }
 
 func chkfile(ino int, ip *disk_inode) bool {
@@ -402,10 +425,10 @@ func chkfile(ino int, ip *disk_inode) bool {
 	var level int
 	pos := 0
 
-	ok = chkzones(ino, ip, &pos, ip.Zone[:], 0)
+	ok = chkzones(ino, ip, &pos, ip.Zone[0:V2_NR_DZONES], 0)
 	i = V2_NR_DZONES
 	level = 1
-	for i < V2_NR_DZONES {
+	for i < V2_NR_TZONES { // all zones, not just direct
 		ok = ok && chkzones(ino, ip, &pos, ip.Zone[i:i+1], level)
 		i++
 		level++
@@ -446,6 +469,44 @@ func chkzones(ino int, ip *disk_inode, pos *int, zlist []uint32, level int) bool
 		}
 	}
 
+	return ok
+}
+
+func chkspecial(ino int, ip *disk_inode) bool {
+	ok := true
+	if ip.Zone[0] == NO_DEV {
+		fmt.Printf("illegal device number %d for special file ", ip.Zone[0])
+		printpath(2, true)
+		ok = false
+	}
+
+	// File system will not use the remaining "zone numbers", but 1.6.11++ will
+	// panic if they are nonzero, since this should not happen.
+	for i := 1; i < NR_ZONE_NUMS; i++ {
+		if ip.Zone[i] != NO_ZONE {
+			fmt.Printf("nonzero zone number %d for special file ", ip.Zone[i])
+			printpath(2, true)
+			ok = false
+		}
+	}
+
+	return ok
+}
+
+// Check the validity of a symbolic link
+func chklink(ino int, ip *disk_inode) bool {
+	var ok bool
+
+	ok = chkfile(ino, ip)
+	if ip.Size <= 0 || int(ip.Size) > block_size {
+		if ip.Size == 0 {
+			fmt.Printf("empty symbolic link ")
+		} else {
+			fmt.Printf("symbolic link too large (size %d) ", ip.Size)
+		}
+		printpath(2, true)
+		ok = false
+	}
 	return ok
 }
 
@@ -509,27 +570,307 @@ func zonechk(ino int, ip *disk_inode, pos *int, zno, level int) bool {
 	return chkindzone(ino, ip, pos, zno, level)
 }
 
+// Check a zone of a directory by checking all of the entries in the zone.
+// This function has been simplified from the original version to remove
+// complicated logic.
 func chkdirzone(ino int, ip *disk_inode, pos, zno int) bool {
-	return false
+	block := ztob(zno)
+	offset := 0
+	size := 0 // the 'size' of the directory
+	dirblk := new(Directory)
+	dp := dirblk // alias
+	var dirty bool
+	numentries := SCALE() * (NR_DIR_ENTRIES(block_size) / CDIRECT) // number of entries
+
+	for i := numentries; i > 0; i-- {
+		devread(block, offset, dirblk, DIR_ENTRY_SIZE) // read a directory entry
+		dirty = false
+
+		if dp.Inum != NO_ENTRY && !chkentry(ino, pos, dp) {
+			dirty = true
+		}
+
+		pos += DIR_ENTRY_SIZE
+		if dp.Inum != NO_ENTRY {
+			size = pos
+		}
+		if dirty {
+			// TODO: This will not work.
+			devwrite(block, offset, dp, DIRCHUNK)
+		}
+		offset += DIR_ENTRY_SIZE
+	}
+
+	if size > int(ip.Size) {
+		fmt.Printf("size not updated of directory ")
+		printpath(2, false)
+		if yes(". extend") {
+			setbit(spec_imap, ino)
+			ip.Size = int32(size)
+			devwrite(inoblock(ino), inooff(ino), ip, INODE_SIZE)
+		}
+	}
+
+	return true
 }
 
+func chkentry(ino int, pos int, dp *Directory) bool {
+	if dp.Inum < ROOT_INODE || dp.Inum > sb.Ninodes {
+		fmt.Printf("bad inode found in directory ")
+		printpath(1, false)
+		fmt.Printf("ino found = %d, ", dp.Inum)
+		fmt.Printf("name = '")
+		printname(dp.Name)
+		fmt.Printf("')")
+		if yes(". remove entry") {
+			// How do we remove this entry?
+			return false
+		}
+		return true
+	}
+	if count[int(dp.Inum)] == math.MaxInt16 {
+		fmt.Printf("too many links to ino %d\n", dp.Inum)
+		fmt.Printf("discovoered at entry '")
+		printname(dp.Name)
+		fmt.Printf("' in directory ")
+		printpath(0, true)
+		if remove(dp) {
+			return false
+		}
+	}
+	count[int(dp.Inum)]++
+	if strcmp(dp.Name[:], ".") {
+		ftop.presence |= DOT
+		return chkdots(ino, pos, dp, ino)
+	}
+	if strcmp(dp.Name[:], "..") {
+		ftop.presence |= DOTDOT
+		var x int
+		if ino == ROOT_INODE {
+			x = ino
+		} else {
+			x = int(ftop.next.dir.Inum)
+		}
+		return chkdots(ino, pos, dp, x)
+	}
+	if !chkname(ino, dp) {
+		return false
+	}
+	if bitset(dirmap, int(dp.Inum)) {
+		fmt.Printf("link to directory discovered in ")
+		printpath(1, false)
+		fmt.Printf("name = '")
+		printname(dp.Name)
+		fmt.Printf("', dir ino = %d)", dp.Inum)
+		return !remove(dp)
+	}
+	return descendtree(dp)
+}
+
+// TODO: Implement
 func chksymlinkzone(ino int, ip *disk_inode, pos, zno int) bool {
-	return false
+	if int(ip.Size) > PATH_MAX {
+		log.Fatalf("chksymlinkzone: fsck program inconsistency")
+	}
+
+	target := make([]byte, ip.Size)
+	block := ztob(zno)
+	devread(block, 0, target, int(ip.Size))
+	slen := strlen(target)
+	if slen != int(ip.Size) {
+		fmt.Printf("bad size in symbolic link (%d instead of %d) ",
+			ip.Size, slen)
+		printpath(2, false)
+		if yes(". update") {
+			setbit(spec_imap, ino)
+			ip.Size = int32(slen)
+			devwrite(inoblock(ino), inooff(ino), ip, INODE_SIZE)
+		}
+	}
+	return true
 }
 
+func strlen(b []byte) int {
+	for idx, c := range b {
+		if c == 0 {
+			return idx
+		}
+	}
+
+	return len(b)
+}
+
+// Check an indirect zone by checking all of its entries.
 func chkindzone(ino int, ip *disk_inode, pos *int, zno, level int) bool {
-	return false
+	indirect := make([]uint32, CINDIR)
+	n := V2_INDIRECTS() / CINDIR
+	block := ztob(zno)
+	offset := 0
+
+	for {
+		devread(block, offset, indirect, CINDIR*4) // size
+		if !chkzones(ino, ip, pos, indirect, level-1) {
+			return false
+		}
+		offset += (CINDIR * 4)
+		n--
+		if !(n > 0 && *pos < int(ip.Size)) {
+			break
+		}
+	}
+
+	return true
+}
+
+func chkdots(ino int, pos int, dp *Directory, exp int) bool {
+	if int(dp.Inum) != exp {
+		printable_name := make_printable_name(dp.Name)
+		fmt.Printf("bad %s in ", printable_name)
+		printpath(1, false)
+		fmt.Printf("%s is linked to %d ", printable_name, dp.Inum)
+		fmt.Printf("instead of %d)", exp)
+		setbit(spec_imap, ino)
+		setbit(spec_imap, int(dp.Inum))
+		setbit(spec_imap, exp)
+		if yes(". repair") {
+			count[int(dp.Inum)]--
+			dp.Inum = uint32(exp)
+			count[exp]++
+			return false
+		}
+	} else {
+		var x int
+		if dp.Name[1] > 0 {
+			x = DIR_ENTRY_SIZE
+		} else {
+			x = 0
+		}
+		if pos != x {
+			printable_name := make_printable_name(dp.Name)
+			fmt.Printf("warning: %s has offset %d in ", printable_name, pos)
+			printpath(1, false)
+			fmt.Printf("%s is linked to %u)\n", printable_name, dp.Inum)
+			setbit(spec_imap, ino)
+			setbit(spec_imap, int(dp.Inum))
+			setbit(spec_imap, exp)
+		}
+	}
+	return true
+}
+
+func chkname(ino int, dp *Directory) bool {
+	if dp.Name[0] == 0 {
+		fmt.Printf("null name found in ")
+		printpath(0, false)
+		setbit(spec_imap, ino)
+		if remove(dp) {
+			return false
+		}
+	}
+
+	// Check each character of the name
+	for _, c := range dp.Name {
+		if c == 0 {
+			break
+		}
+		if c == '/' {
+			fmt.Printf("found a '/' in entry of directory ")
+			printpath(1, false)
+			setbit(spec_imap, ino)
+			fmt.Printf("entry = '")
+			printname(dp.Name)
+			fmt.Printf("')")
+			if remove(dp) {
+				return false
+			}
+			break
+		}
+	}
+	return true
 }
 
 func yes(s string) bool {
 	return false
 }
 
+func make_printable_name(src [60]byte) string {
+	dst := ""
+	for i := 0; i > 60; i++ {
+		c := src[i]
+
+		if c == 0 {
+			break
+		}
+
+		if isprint(c) && c != '\\' {
+			dst = dst + string(c)
+		} else {
+			dst = dst + "\\"
+			switch c {
+			case '\\':
+				dst = dst + "\\"
+			case '\b':
+				dst = dst + "\b"
+			case '\f':
+				dst = dst + "\f"
+			case '\n':
+				dst = dst + "\n"
+			case '\r':
+				dst = dst + "\r"
+			case '\t':
+				dst = dst + "\t"
+			default:
+				dst = dst + "0" + string((c>>6)&03)
+				dst = dst + "0" + string((c>>3)&07)
+				dst = dst + "0" + string(c&07)
+			}
+		}
+	}
+	return dst
+}
+
+// Remove an entry from a directory if okay with the user.
+func remove(dp *Directory) bool {
+	setbit(spec_imap, int(dp.Inum))
+	if yes(". remove entry") {
+		count[int(dp.Inum)]--
+		// remove this entry, zero it out?
+		return true
+	}
+	return false
+}
+
+// Check and see if the byte slice 'b' contains 's' followed by a '\0'. The
+// name of this function is obviously misleading, but I've retained it to
+// make the port slighly easier.
+func strcmp(b []byte, s string) bool {
+	if len(b) < len(s) {
+		return false
+	}
+	// Test each character in 's' to make sure it is in 'b'
+	for i := 0; i < len(s); i++ {
+		if b[i] != s[i] {
+			return false
+		}
+	}
+	if len(s) == len(b) {
+		return true
+	} else {
+		if b[len(s)] == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // Read bytes from the image starting at block 'block' into 'buf'
+// TODO: The 'size' argument is completely ignored here, and probably should
+// not be.
 func devread(block, offset int, buf interface{}, size int) {
 	if block_size == 0 {
 		log.Fatal("devread() with unknown block size")
 	}
+
 	if offset >= block_size {
 		block += offset / block_size
 		offset %= block_size
@@ -541,6 +882,38 @@ func devread(block, offset int, buf interface{}, size int) {
 		log.Fatalf("could not seek to position %d: %s", pos, err)
 	}
 	binary.Read(dev, binary.LittleEndian, buf)
+}
+
+func devwrite(block int, offset int, buf interface{}, size int) {
+	panic("devwrite happened")
+	// nop
+}
+
+// Print a string with either a singular or plural pronoun
+func pr(s string, n int, singular, plural string) {
+	if n > 1 {
+		fmt.Printf(s, n, plural)
+	} else {
+		fmt.Printf(s, n, singular)
+	}
+}
+
+func printtotal() {
+	fmt.Printf("blocksize = %5d        ", block_size)
+	fmt.Printf("zonesize  = %5d\n", ZONE_SIZE())
+	fmt.Printf("\n")
+	pr("%8d    Regular file%s\n", nregular, "", "s")
+	pr("%8d    Director%s\n", ndirectory, "y", "ies")
+	pr("%8d    Block special file%s\n", nblkspec, "", "s")
+	pr("%8d    Character special file%s\n", ncharspec, "", "s")
+	if nbadinode != 0 {
+		pr("%6d    Bad inode%s\n", nbadinode, "", "s")
+	}
+	pr("%8d    Free inode%s\n", nfreeinode, "", "s")
+	pr("%8d    Named pipe%s\n", npipe, "", "s")
+	pr("%8d    Unix socket%s\n", nsock, "", "s")
+	pr("%8d    Symbolic link%s\n", nsyml, "", "s")
+	pr("%8d    Free zone%s\n", nfreezone, "", "s")
 }
 
 func chkdev(filename string) {
@@ -567,6 +940,8 @@ func chkdev(filename string) {
 
 	getcount()
 	chktree()
+
+	printtotal()
 }
 
 func main() {

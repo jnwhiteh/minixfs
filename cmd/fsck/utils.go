@@ -11,6 +11,7 @@ const (
 	Sizeof_zone_t     = unsafe.Sizeof(*new(zone_t))
 	Sizeof_block_nr   = unsafe.Sizeof(*new(block_nr))
 	Sizeof_bitchunk_t = unsafe.Sizeof(*new(bitchunk_t))
+	Sizeof_Directory  = unsafe.Sizeof(*new(Directory))
 	CHAR_BIT          = 8 // number of bits in a char
 	FS_BITCHUNK_BITS  = Sizeof_bitchunk_t * CHAR_BIT
 	BITMASK           = (1 << BITSHIFT) - 1
@@ -73,8 +74,11 @@ func inoblock(inn int) int {
 	return (((inn - 1) * INODE_SIZE) / block_size) + BLK_ILIST()
 }
 
+// Calculate the offset of a given inode within a block, i.e.
+// inode 70 will be at offset 384 (in block 2, but that is not
+// a factor in this function.
 func inooff(inn int) int {
-	return ((inn - 1) * INODE_SIZE) / block_size
+	return ((inn - 1) * INODE_SIZE) % block_size
 }
 
 func ZONE_SIZE() int {
@@ -87,4 +91,12 @@ func ztob(z int) int {
 
 func FIRST() int {
 	return sb.Firstdatazone
+}
+
+func SCALE() int {
+	return ztob(1)
+}
+
+func NR_DIR_ENTRIES(b int) int {
+	return b / DIR_ENTRY_SIZE
 }

@@ -11,7 +11,10 @@ const (
 
 	V2_INODE_SIZE    = 64
 	V2_NR_DZONES     = 7
+	V2_NR_TZONES     = 10
 	V2_ZONE_NUM_SIZE = Sizeof_zone_t
+
+	NR_ZONE_NUMS = V2_NR_TZONES
 
 	MAX_FILE_POS = 0x7FFFFFFF // largest legal file offset
 
@@ -21,6 +24,8 @@ const (
 	NAME_MAX   = DIRSIZ
 	DIRSIZ     = 60
 	INODE_SIZE = V2_INODE_SIZE
+
+	DIR_ENTRY_SIZE = 64 // sizeof(Directory)
 
 	I_TYPE          = 0170000 // bit mask for type of inode
 	I_UNIX_SOCKET   = 0140000 // unix domain socket
@@ -47,5 +52,16 @@ const (
 	DOT    = 1
 	DOTDOT = 2
 
-	NO_ZONE = 0
+	NO_DEV   = 0
+	NO_ZONE  = 0
+	NO_ENTRY = 0 // no directory entry
+
+	CDIRECT  = 1   // number of directory entries read at a time
+	CINDIR   = 128 // number of indirect zno's read at a time
+	DIRCHUNK = CDIRECT * DIR_ENTRY_SIZE
+
+	BLK_IMAP = 2
+
+	__MINIX_PATH_MAX = 255
+	PATH_MAX         = __MINIX_PATH_MAX
 )
