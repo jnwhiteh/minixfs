@@ -13,7 +13,8 @@ import "os"
 var repair *bool = flag.Bool("repair", false, "repair the filesystem")
 var filename *string = flag.String("file", "minix3root.img", "the disk image to check")
 var help *bool = flag.Bool("help", false, "print usage information")
-var listing *bool = flag.Bool("listing", false, "show a listing")
+var listing *bool = flag.Bool("l", false, "show a listing")
+var listsuper *bool = flag.Bool("s", false, "list the superblock")
 
 var firstlist bool   // has the listing header been printed?
 var firstcnterr bool // has the count error header been printed?
@@ -64,8 +65,16 @@ func devopen(filename string) {
 	}
 }
 
+func devclose() {
+	err := dev.Close()
+	if err != nil {
+		log.Fatalf("close")
+	}
+}
+
 func initvars() {
 	firstlist = true
+	firstcnterr = true
 	ztype = make(map[int]int)
 }
 
@@ -92,7 +101,9 @@ func getsuper() {
 		log.Fatalf("couldn't read super block: %s", err)
 	}
 
-	lsuper() // list the information contained in the superblock
+	if *listsuper {
+		lsuper() // list the information contained in the superblock
+	}
 	if sb.Magic == SUPER_MAGIC {
 		log.Fatalf("Cannot handle V1 filesystems")
 	}
@@ -125,7 +136,7 @@ func getsuper() {
 		log.Fatal("zone size < block size")
 	}
 	if sb.Max_size <= 0 {
-		log.Printf("warning: invalid max file size: %ld", sb.Max_size)
+		log.Printf("warning: invalid max file size: %ld\n", sb.Max_size)
 		sb.Max_size = math.MaxInt32
 	}
 }
@@ -322,7 +333,7 @@ func list(ino int, ip *disk_inode) {
 	case I_UNIX_SOCKET:
 		fmt.Print("s")
 	case I_SYMBOLIC_LINK:
-		fmt.Print("s")
+		fmt.Print("l")
 	default:
 		fmt.Printf("?")
 	}
@@ -948,6 +959,28 @@ func chkcount() {
 	}
 }
 
+func chkilist() {
+	var ino int = 1
+	var mode mode_t
+	fmt.Printf("Checking inode list\n")
+	for {
+		if !bitset(imap, ino) {
+			devread(inoblock(ino), inooff(ino), &mode, Sizeof_mode_t)
+			if mode != I_NOT_ALLOC {
+				fmt.Printf("mode inode %d not cleared", ino)
+				if yes(". clear") {
+					devwrite(inoblock(ino), inooff(ino), new(disk_inode), INODE_SIZE)
+				}
+			}
+		}
+		ino++
+		if !(ino <= int(sb.Ninodes) && ino != 0) {
+			break
+		}
+	}
+	fmt.Printf("\n")
+}
+
 // Load a bitmap from disk
 func loadbitmap(bitmap []bitchunk_t, bno, nblk int) {
 	devread(bno, 0, bitmap, len(bitmap))
@@ -955,6 +988,13 @@ func loadbitmap(bitmap []bitchunk_t, bno, nblk int) {
 
 func dumpbitmap(bitmap []bitchunk_t, bno, nblk int) {
 	panic("NYI: dumpbitmap")
+}
+
+// These functions are not necessary due to garbage collection
+func putbitmaps() {
+}
+
+func freecount() {
 }
 
 // Read bytes from the image starting at block 'block' into 'buf'
@@ -1013,7 +1053,9 @@ func printtotal() {
 func chkdev(filename string) {
 	fsck_device = filename
 	initvars()        // initialize state
+
 	devopen(filename) // open the device
+
 	getsuper()
 
 	if block_size < _MIN_BLOCK_SIZE {
@@ -1042,13 +1084,13 @@ func chkdev(filename string) {
 	chkcount()
 	chkmap(imap, spec_imap, 0, BLK_IMAP, N_IMAP, "inode")
 
-	// chkilist()
+	chkilist()
 
 	printtotal()
 
-	// putbitmaps()
-	// freecount()
-	// devclose()
+	putbitmaps()
+	freecount()
+	devclose()
 }
 
 func main() {

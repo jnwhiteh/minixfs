@@ -6,9 +6,11 @@ type bitchunk_t uint32
 type block_nr block_t
 type block_t uint32
 type zone_t uint32
+type mode_t uint16
 
 const (
 	Sizeof_zone_t     = unsafe.Sizeof(*new(zone_t))
+	Sizeof_mode_t     = unsafe.Sizeof(*new(mode_t))
 	Sizeof_block_nr   = unsafe.Sizeof(*new(block_nr))
 	Sizeof_bitchunk_t = unsafe.Sizeof(*new(bitchunk_t))
 	Sizeof_Directory  = unsafe.Sizeof(*new(Directory))
