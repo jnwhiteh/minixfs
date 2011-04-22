@@ -1,0 +1,596 @@
+ninodes       = 32768
+nzones        = 16384
+imap_blocks   = 2
+zmap_blocks   = 1
+firstdatazone = 517
+log_zone_size = 0
+maxsize       = 2147483647
+block size    = 4096
+
+
+ inode permission link   size name
+     1 drwxr-xr-x  14    1088 /
+     2 drwxr-xr-x   2     128 /usr
+   539 drwxr-xr-x   2     192 /sample
+   542 -rw-r--r--   1 4489799 /sample/europarl-en.txt
+     6 drwxr-xr-x   2    2880 /bin
+     7 -rwxr-xr-x   2     480 /bin/M
+     7 -rwxr-xr-x   2     480 /bin/U
+     8 -rwxr-xr-x  12     181 /bin/[
+     9 -rwxr-xr-x   1   18084 /bin/cat
+     8 -rwxr-xr-x  12     181 /bin/cd
+    10 -rwxr-xr-x   1   28480 /bin/chroot
+    11 -rwxr-xr-x   6   42364 /bin/clone
+     8 -rwxr-xr-x  12     181 /bin/command
+    11 -rwxr-xr-x   6   42364 /bin/cp
+    11 -rwxr-xr-x   6   42364 /bin/cpdir
+    12 -rwxr-xr-x   1   68960 /bin/date
+    13 -rwxr-xr-x   1   29756 /bin/dev2name
+     8 -rwxr-xr-x  12     181 /bin/echo
+     8 -rwxr-xr-x  12     181 /bin/expr
+     8 -rwxr-xr-x  12     181 /bin/false
+     8 -rwxr-xr-x  12     181 /bin/getopts
+    14 -rwxr-xr-x   1   27836 /bin/getty
+    15 -rwxr--r--   2   17308 /bin/halt
+    16 -rwsr-xr-x   1   40452 /bin/install
+    17 -rwxr-xr-x   1   21832 /bin/intr
+    11 -rwxr-xr-x   6   42364 /bin/ln
+    18 -rwxr-xr-x   1   17760 /bin/loadkeys
+    19 -rwxr-xr-x   1   59864 /bin/ls
+    20 -rwsr-xr-x   1   34356 /bin/mount
+    11 -rwxr-xr-x   6   42364 /bin/mv
+    21 -rwxr-xr-x   1    9517 /bin/netconf
+    22 -rwxr-xr-x   1   27256 /bin/printroot
+    23 -rwxr-xr-x   1   24652 /bin/pwd
+     8 -rwxr-xr-x  12     181 /bin/read
+    24 -rwxr-xr-x   1     127 /bin/readclock
+    15 -rwxr--r--   2   17308 /bin/reboot
+    11 -rwxr-xr-x   6   42364 /bin/rm
+    25 -rwxr-xr-x   1   73616 /bin/sed
+    26 -rwxr-xr-x   1   52504 /bin/service
+    27 -rwxr-xr-x   1   15811 /bin/setup
+    28 -rwxr-xr-x   1  174316 /bin/sh
+    29 -rwxr-xr-x   1   14088 /bin/sync
+    30 -rwxr-xr-x   1   17280 /bin/sysenv
+     8 -rwxr-xr-x  12     181 /bin/test
+     8 -rwxr-xr-x  12     181 /bin/true
+     8 -rwxr-xr-x  12     181 /bin/umask
+    31 -rwsr-xr-x   1   33040 /bin/umount
+     8 -rwxr-xr-x  12     181 /bin/wait
+    32 drwxr-xr-x   3     384 /boot
+    33 -rwxr-xr-x   1   32224 /boot/boot
+    34 drwxr-xr-x   2     192 /boot/image
+    35 -rw-------   2 2705920 /boot/image/3.1.8
+    36 -rw-------   1 2705920 /boot/image_big
+    35 -rw-------   2 2705920 /boot/image_latest
+    37 drwxr-xr-x   2   29120 /dev
+    38 brw-------   1    1, 4 /dev/boot
+    39 brw-------   1    3, 0 /dev/c0d0
+    40 brw-------   1    3, 1 /dev/c0d0p0
+    41 brw-------   1    3,80 /dev/c0d0p0s0
+    42 brw-------   1    3,81 /dev/c0d0p0s1
+    43 brw-------   1    3,82 /dev/c0d0p0s2
+    44 brw-------   1    3,83 /dev/c0d0p0s3
+    45 brw-------   1    3, 2 /dev/c0d0p1
+    46 brw-------   1    3,84 /dev/c0d0p1s0
+    47 brw-------   1    3,85 /dev/c0d0p1s1
+    48 brw-------   1    3,86 /dev/c0d0p1s2
+    49 brw-------   1    3,87 /dev/c0d0p1s3
+    50 brw-------   1    3, 3 /dev/c0d0p2
+    51 brw-------   1    3,88 /dev/c0d0p2s0
+    52 brw-------   1    3,89 /dev/c0d0p2s1
+    53 brw-------   1    3,8a /dev/c0d0p2s2
+    54 brw-------   1    3,8b /dev/c0d0p2s3
+    55 brw-------   1    3, 4 /dev/c0d0p3
+    56 brw-------   1    3,8c /dev/c0d0p3s0
+    57 brw-------   1    3,8d /dev/c0d0p3s1
+    58 brw-------   1    3,8e /dev/c0d0p3s2
+    59 brw-------   1    3,8f /dev/c0d0p3s3
+    60 brw-------   1    3, 5 /dev/c0d1
+    61 brw-------   1    3, 6 /dev/c0d1p0
+    62 brw-------   1    3,90 /dev/c0d1p0s0
+    63 brw-------   1    3,91 /dev/c0d1p0s1
+    64 brw-------   1    3,92 /dev/c0d1p0s2
+    65 brw-------   1    3,93 /dev/c0d1p0s3
+    66 brw-------   1    3, 7 /dev/c0d1p1
+    67 brw-------   1    3,94 /dev/c0d1p1s0
+    68 brw-------   1    3,95 /dev/c0d1p1s1
+    69 brw-------   1    3,96 /dev/c0d1p1s2
+    70 brw-------   1    3,97 /dev/c0d1p1s3
+    71 brw-------   1    3, 8 /dev/c0d1p2
+    72 brw-------   1    3,98 /dev/c0d1p2s0
+    73 brw-------   1    3,99 /dev/c0d1p2s1
+    74 brw-------   1    3,9a /dev/c0d1p2s2
+    75 brw-------   1    3,9b /dev/c0d1p2s3
+    76 brw-------   1    3, 9 /dev/c0d1p3
+    77 brw-------   1    3,9c /dev/c0d1p3s0
+    78 brw-------   1    3,9d /dev/c0d1p3s1
+    79 brw-------   1    3,9e /dev/c0d1p3s2
+    80 brw-------   1    3,9f /dev/c0d1p3s3
+    81 brw-------   1    3, a /dev/c0d2
+    82 brw-------   1    3, b /dev/c0d2p0
+    83 brw-------   1    3,a0 /dev/c0d2p0s0
+    84 brw-------   1    3,a1 /dev/c0d2p0s1
+    85 brw-------   1    3,a2 /dev/c0d2p0s2
+    86 brw-------   1    3,a3 /dev/c0d2p0s3
+    87 brw-------   1    3, c /dev/c0d2p1
+    88 brw-------   1    3,a4 /dev/c0d2p1s0
+    89 brw-------   1    3,a5 /dev/c0d2p1s1
+    90 brw-------   1    3,a6 /dev/c0d2p1s2
+    91 brw-------   1    3,a7 /dev/c0d2p1s3
+    92 brw-------   1    3, d /dev/c0d2p2
+    93 brw-------   1    3,a8 /dev/c0d2p2s0
+    94 brw-------   1    3,a9 /dev/c0d2p2s1
+    95 brw-------   1    3,aa /dev/c0d2p2s2
+    96 brw-------   1    3,ab /dev/c0d2p2s3
+    97 brw-------   1    3, e /dev/c0d2p3
+    98 brw-------   1    3,ac /dev/c0d2p3s0
+    99 brw-------   1    3,ad /dev/c0d2p3s1
+   100 brw-------   1    3,ae /dev/c0d2p3s2
+   101 brw-------   1    3,af /dev/c0d2p3s3
+   102 brw-------   1    3, f /dev/c0d3
+   103 brw-------   1    3,10 /dev/c0d3p0
+   104 brw-------   1    3,b0 /dev/c0d3p0s0
+   105 brw-------   1    3,b1 /dev/c0d3p0s1
+   106 brw-------   1    3,b2 /dev/c0d3p0s2
+   107 brw-------   1    3,b3 /dev/c0d3p0s3
+   108 brw-------   1    3,11 /dev/c0d3p1
+   109 brw-------   1    3,b4 /dev/c0d3p1s0
+   110 brw-------   1    3,b5 /dev/c0d3p1s1
+   111 brw-------   1    3,b6 /dev/c0d3p1s2
+   112 brw-------   1    3,b7 /dev/c0d3p1s3
+   113 brw-------   1    3,12 /dev/c0d3p2
+   114 brw-------   1    3,b8 /dev/c0d3p2s0
+   115 brw-------   1    3,b9 /dev/c0d3p2s1
+   116 brw-------   1    3,ba /dev/c0d3p2s2
+   117 brw-------   1    3,bb /dev/c0d3p2s3
+   118 brw-------   1    3,13 /dev/c0d3p3
+   119 brw-------   1    3,bc /dev/c0d3p3s0
+   120 brw-------   1    3,bd /dev/c0d3p3s1
+   121 brw-------   1    3,be /dev/c0d3p3s2
+   122 brw-------   1    3,bf /dev/c0d3p3s3
+   123 brw-------   1    3,14 /dev/c0d4
+   124 brw-------   1    3,15 /dev/c0d4p0
+   125 brw-------   1    3,c0 /dev/c0d4p0s0
+   126 brw-------   1    3,c1 /dev/c0d4p0s1
+   127 brw-------   1    3,c2 /dev/c0d4p0s2
+   128 brw-------   1    3,c3 /dev/c0d4p0s3
+   129 brw-------   1    3,16 /dev/c0d4p1
+   130 brw-------   1    3,c4 /dev/c0d4p1s0
+   131 brw-------   1    3,c5 /dev/c0d4p1s1
+   132 brw-------   1    3,c6 /dev/c0d4p1s2
+   133 brw-------   1    3,c7 /dev/c0d4p1s3
+   134 brw-------   1    3,17 /dev/c0d4p2
+   135 brw-------   1    3,c8 /dev/c0d4p2s0
+   136 brw-------   1    3,c9 /dev/c0d4p2s1
+   137 brw-------   1    3,ca /dev/c0d4p2s2
+   138 brw-------   1    3,cb /dev/c0d4p2s3
+   139 brw-------   1    3,18 /dev/c0d4p3
+   140 brw-------   1    3,cc /dev/c0d4p3s0
+   141 brw-------   1    3,cd /dev/c0d4p3s1
+   142 brw-------   1    3,ce /dev/c0d4p3s2
+   143 brw-------   1    3,cf /dev/c0d4p3s3
+   144 brw-------   1    3,19 /dev/c0d5
+   145 brw-------   1    3,1a /dev/c0d5p0
+   146 brw-------   1    3,d0 /dev/c0d5p0s0
+   147 brw-------   1    3,d1 /dev/c0d5p0s1
+   148 brw-------   1    3,d2 /dev/c0d5p0s2
+   149 brw-------   1    3,d3 /dev/c0d5p0s3
+   150 brw-------   1    3,1b /dev/c0d5p1
+   151 brw-------   1    3,d4 /dev/c0d5p1s0
+   152 brw-------   1    3,d5 /dev/c0d5p1s1
+   153 brw-------   1    3,d6 /dev/c0d5p1s2
+   154 brw-------   1    3,d7 /dev/c0d5p1s3
+   155 brw-------   1    3,1c /dev/c0d5p2
+   156 brw-------   1    3,d8 /dev/c0d5p2s0
+   157 brw-------   1    3,d9 /dev/c0d5p2s1
+   158 brw-------   1    3,da /dev/c0d5p2s2
+   159 brw-------   1    3,db /dev/c0d5p2s3
+   160 brw-------   1    3,1d /dev/c0d5p3
+   161 brw-------   1    3,dc /dev/c0d5p3s0
+   162 brw-------   1    3,dd /dev/c0d5p3s1
+   163 brw-------   1    3,de /dev/c0d5p3s2
+   164 brw-------   1    3,df /dev/c0d5p3s3
+   165 brw-------   1    3,1e /dev/c0d6
+   166 brw-------   1    3,1f /dev/c0d6p0
+   167 brw-------   1    3,e0 /dev/c0d6p0s0
+   168 brw-------   1    3,e1 /dev/c0d6p0s1
+   169 brw-------   1    3,e2 /dev/c0d6p0s2
+   170 brw-------   1    3,e3 /dev/c0d6p0s3
+   171 brw-------   1    3,20 /dev/c0d6p1
+   172 brw-------   1    3,e4 /dev/c0d6p1s0
+   173 brw-------   1    3,e5 /dev/c0d6p1s1
+   174 brw-------   1    3,e6 /dev/c0d6p1s2
+   175 brw-------   1    3,e7 /dev/c0d6p1s3
+   176 brw-------   1    3,21 /dev/c0d6p2
+   177 brw-------   1    3,e8 /dev/c0d6p2s0
+   178 brw-------   1    3,e9 /dev/c0d6p2s1
+   179 brw-------   1    3,ea /dev/c0d6p2s2
+   180 brw-------   1    3,eb /dev/c0d6p2s3
+   181 brw-------   1    3,22 /dev/c0d6p3
+   182 brw-------   1    3,ec /dev/c0d6p3s0
+   183 brw-------   1    3,ed /dev/c0d6p3s1
+   184 brw-------   1    3,ee /dev/c0d6p3s2
+   185 brw-------   1    3,ef /dev/c0d6p3s3
+   186 brw-------   1    3,23 /dev/c0d7
+   187 brw-------   1    3,24 /dev/c0d7p0
+   188 brw-------   1    3,f0 /dev/c0d7p0s0
+   189 brw-------   1    3,f1 /dev/c0d7p0s1
+   190 brw-------   1    3,f2 /dev/c0d7p0s2
+   191 brw-------   1    3,f3 /dev/c0d7p0s3
+   192 brw-------   1    3,25 /dev/c0d7p1
+   193 brw-------   1    3,f4 /dev/c0d7p1s0
+   194 brw-------   1    3,f5 /dev/c0d7p1s1
+   195 brw-------   1    3,f6 /dev/c0d7p1s2
+   196 brw-------   1    3,f7 /dev/c0d7p1s3
+   197 brw-------   1    3,26 /dev/c0d7p2
+   198 brw-------   1    3,f8 /dev/c0d7p2s0
+   199 brw-------   1    3,f9 /dev/c0d7p2s1
+   200 brw-------   1    3,fa /dev/c0d7p2s2
+   201 brw-------   1    3,fb /dev/c0d7p2s3
+   202 brw-------   1    3,27 /dev/c0d7p3
+   203 brw-------   1    3,fc /dev/c0d7p3s0
+   204 brw-------   1    3,fd /dev/c0d7p3s1
+   205 brw-------   1    3,fe /dev/c0d7p3s2
+   206 brw-------   1    3,ff /dev/c0d7p3s3
+   207 brw-------   1    8, 0 /dev/c1d0
+   208 brw-------   1    8, 1 /dev/c1d0p0
+   209 brw-------   1    8,80 /dev/c1d0p0s0
+   210 brw-------   1    8,81 /dev/c1d0p0s1
+   211 brw-------   1    8,82 /dev/c1d0p0s2
+   212 brw-------   1    8,83 /dev/c1d0p0s3
+   213 brw-------   1    8, 2 /dev/c1d0p1
+   214 brw-------   1    8,84 /dev/c1d0p1s0
+   215 brw-------   1    8,85 /dev/c1d0p1s1
+   216 brw-------   1    8,86 /dev/c1d0p1s2
+   217 brw-------   1    8,87 /dev/c1d0p1s3
+   218 brw-------   1    8, 3 /dev/c1d0p2
+   219 brw-------   1    8,88 /dev/c1d0p2s0
+   220 brw-------   1    8,89 /dev/c1d0p2s1
+   221 brw-------   1    8,8a /dev/c1d0p2s2
+   222 brw-------   1    8,8b /dev/c1d0p2s3
+   223 brw-------   1    8, 4 /dev/c1d0p3
+   224 brw-------   1    8,8c /dev/c1d0p3s0
+   225 brw-------   1    8,8d /dev/c1d0p3s1
+   226 brw-------   1    8,8e /dev/c1d0p3s2
+   227 brw-------   1    8,8f /dev/c1d0p3s3
+   228 brw-------   1    8, 5 /dev/c1d1
+   229 brw-------   1    8, 6 /dev/c1d1p0
+   230 brw-------   1    8,90 /dev/c1d1p0s0
+   231 brw-------   1    8,91 /dev/c1d1p0s1
+   232 brw-------   1    8,92 /dev/c1d1p0s2
+   233 brw-------   1    8,93 /dev/c1d1p0s3
+   234 brw-------   1    8, 7 /dev/c1d1p1
+   235 brw-------   1    8,94 /dev/c1d1p1s0
+   236 brw-------   1    8,95 /dev/c1d1p1s1
+   237 brw-------   1    8,96 /dev/c1d1p1s2
+   238 brw-------   1    8,97 /dev/c1d1p1s3
+   239 brw-------   1    8, 8 /dev/c1d1p2
+   240 brw-------   1    8,98 /dev/c1d1p2s0
+   241 brw-------   1    8,99 /dev/c1d1p2s1
+   242 brw-------   1    8,9a /dev/c1d1p2s2
+   243 brw-------   1    8,9b /dev/c1d1p2s3
+   244 brw-------   1    8, 9 /dev/c1d1p3
+   245 brw-------   1    8,9c /dev/c1d1p3s0
+   246 brw-------   1    8,9d /dev/c1d1p3s1
+   247 brw-------   1    8,9e /dev/c1d1p3s2
+   248 brw-------   1    8,9f /dev/c1d1p3s3
+   249 brw-------   1    8, a /dev/c1d2
+   250 brw-------   1    8, b /dev/c1d2p0
+   251 brw-------   1    8,a0 /dev/c1d2p0s0
+   252 brw-------   1    8,a1 /dev/c1d2p0s1
+   253 brw-------   1    8,a2 /dev/c1d2p0s2
+   254 brw-------   1    8,a3 /dev/c1d2p0s3
+   255 brw-------   1    8, c /dev/c1d2p1
+   256 brw-------   1    8,a4 /dev/c1d2p1s0
+   257 brw-------   1    8,a5 /dev/c1d2p1s1
+   258 brw-------   1    8,a6 /dev/c1d2p1s2
+   259 brw-------   1    8,a7 /dev/c1d2p1s3
+   260 brw-------   1    8, d /dev/c1d2p2
+   261 brw-------   1    8,a8 /dev/c1d2p2s0
+   262 brw-------   1    8,a9 /dev/c1d2p2s1
+   263 brw-------   1    8,aa /dev/c1d2p2s2
+   264 brw-------   1    8,ab /dev/c1d2p2s3
+   265 brw-------   1    8, e /dev/c1d2p3
+   266 brw-------   1    8,ac /dev/c1d2p3s0
+   267 brw-------   1    8,ad /dev/c1d2p3s1
+   268 brw-------   1    8,ae /dev/c1d2p3s2
+   269 brw-------   1    8,af /dev/c1d2p3s3
+   270 brw-------   1    8, f /dev/c1d3
+   271 brw-------   1    8,10 /dev/c1d3p0
+   272 brw-------   1    8,b0 /dev/c1d3p0s0
+   273 brw-------   1    8,b1 /dev/c1d3p0s1
+   274 brw-------   1    8,b2 /dev/c1d3p0s2
+   275 brw-------   1    8,b3 /dev/c1d3p0s3
+   276 brw-------   1    8,11 /dev/c1d3p1
+   277 brw-------   1    8,b4 /dev/c1d3p1s0
+   278 brw-------   1    8,b5 /dev/c1d3p1s1
+   279 brw-------   1    8,b6 /dev/c1d3p1s2
+   280 brw-------   1    8,b7 /dev/c1d3p1s3
+   281 brw-------   1    8,12 /dev/c1d3p2
+   282 brw-------   1    8,b8 /dev/c1d3p2s0
+   283 brw-------   1    8,b9 /dev/c1d3p2s1
+   284 brw-------   1    8,ba /dev/c1d3p2s2
+   285 brw-------   1    8,bb /dev/c1d3p2s3
+   286 brw-------   1    8,13 /dev/c1d3p3
+   287 brw-------   1    8,bc /dev/c1d3p3s0
+   288 brw-------   1    8,bd /dev/c1d3p3s1
+   289 brw-------   1    8,be /dev/c1d3p3s2
+   290 brw-------   1    8,bf /dev/c1d3p3s3
+   291 brw-------   1    8,14 /dev/c1d4
+   292 brw-------   1    8,15 /dev/c1d4p0
+   293 brw-------   1    8,c0 /dev/c1d4p0s0
+   294 brw-------   1    8,c1 /dev/c1d4p0s1
+   295 brw-------   1    8,c2 /dev/c1d4p0s2
+   296 brw-------   1    8,c3 /dev/c1d4p0s3
+   297 brw-------   1    8,16 /dev/c1d4p1
+   298 brw-------   1    8,c4 /dev/c1d4p1s0
+   299 brw-------   1    8,c5 /dev/c1d4p1s1
+   300 brw-------   1    8,c6 /dev/c1d4p1s2
+   301 brw-------   1    8,c7 /dev/c1d4p1s3
+   302 brw-------   1    8,17 /dev/c1d4p2
+   303 brw-------   1    8,c8 /dev/c1d4p2s0
+   304 brw-------   1    8,c9 /dev/c1d4p2s1
+   305 brw-------   1    8,ca /dev/c1d4p2s2
+   306 brw-------   1    8,cb /dev/c1d4p2s3
+   307 brw-------   1    8,18 /dev/c1d4p3
+   308 brw-------   1    8,cc /dev/c1d4p3s0
+   309 brw-------   1    8,cd /dev/c1d4p3s1
+   310 brw-------   1    8,ce /dev/c1d4p3s2
+   311 brw-------   1    8,cf /dev/c1d4p3s3
+   312 brw-------   1    8,19 /dev/c1d5
+   313 brw-------   1    8,1a /dev/c1d5p0
+   314 brw-------   1    8,d0 /dev/c1d5p0s0
+   315 brw-------   1    8,d1 /dev/c1d5p0s1
+   316 brw-------   1    8,d2 /dev/c1d5p0s2
+   317 brw-------   1    8,d3 /dev/c1d5p0s3
+   318 brw-------   1    8,1b /dev/c1d5p1
+   319 brw-------   1    8,d4 /dev/c1d5p1s0
+   320 brw-------   1    8,d5 /dev/c1d5p1s1
+   321 brw-------   1    8,d6 /dev/c1d5p1s2
+   322 brw-------   1    8,d7 /dev/c1d5p1s3
+   323 brw-------   1    8,1c /dev/c1d5p2
+   324 brw-------   1    8,d8 /dev/c1d5p2s0
+   325 brw-------   1    8,d9 /dev/c1d5p2s1
+   326 brw-------   1    8,da /dev/c1d5p2s2
+   327 brw-------   1    8,db /dev/c1d5p2s3
+   328 brw-------   1    8,1d /dev/c1d5p3
+   329 brw-------   1    8,dc /dev/c1d5p3s0
+   330 brw-------   1    8,dd /dev/c1d5p3s1
+   331 brw-------   1    8,de /dev/c1d5p3s2
+   332 brw-------   1    8,df /dev/c1d5p3s3
+   333 brw-------   1    8,1e /dev/c1d6
+   334 brw-------   1    8,1f /dev/c1d6p0
+   335 brw-------   1    8,e0 /dev/c1d6p0s0
+   336 brw-------   1    8,e1 /dev/c1d6p0s1
+   337 brw-------   1    8,e2 /dev/c1d6p0s2
+   338 brw-------   1    8,e3 /dev/c1d6p0s3
+   339 brw-------   1    8,20 /dev/c1d6p1
+   340 brw-------   1    8,e4 /dev/c1d6p1s0
+   341 brw-------   1    8,e5 /dev/c1d6p1s1
+   342 brw-------   1    8,e6 /dev/c1d6p1s2
+   343 brw-------   1    8,e7 /dev/c1d6p1s3
+   344 brw-------   1    8,21 /dev/c1d6p2
+   345 brw-------   1    8,e8 /dev/c1d6p2s0
+   346 brw-------   1    8,e9 /dev/c1d6p2s1
+   347 brw-------   1    8,ea /dev/c1d6p2s2
+   348 brw-------   1    8,eb /dev/c1d6p2s3
+   349 brw-------   1    8,22 /dev/c1d6p3
+   350 brw-------   1    8,ec /dev/c1d6p3s0
+   351 brw-------   1    8,ed /dev/c1d6p3s1
+   352 brw-------   1    8,ee /dev/c1d6p3s2
+   353 brw-------   1    8,ef /dev/c1d6p3s3
+   354 brw-------   1    8,23 /dev/c1d7
+   355 brw-------   1    8,24 /dev/c1d7p0
+   356 brw-------   1    8,f0 /dev/c1d7p0s0
+   357 brw-------   1    8,f1 /dev/c1d7p0s1
+   358 brw-------   1    8,f2 /dev/c1d7p0s2
+   359 brw-------   1    8,f3 /dev/c1d7p0s3
+   360 brw-------   1    8,25 /dev/c1d7p1
+   361 brw-------   1    8,f4 /dev/c1d7p1s0
+   362 brw-------   1    8,f5 /dev/c1d7p1s1
+   363 brw-------   1    8,f6 /dev/c1d7p1s2
+   364 brw-------   1    8,f7 /dev/c1d7p1s3
+   365 brw-------   1    8,26 /dev/c1d7p2
+   366 brw-------   1    8,f8 /dev/c1d7p2s0
+   367 brw-------   1    8,f9 /dev/c1d7p2s1
+   368 brw-------   1    8,fa /dev/c1d7p2s2
+   369 brw-------   1    8,fb /dev/c1d7p2s3
+   370 brw-------   1    8,27 /dev/c1d7p3
+   371 brw-------   1    8,fc /dev/c1d7p3s0
+   372 brw-------   1    8,fd /dev/c1d7p3s1
+   373 brw-------   1    8,fe /dev/c1d7p3s2
+   374 brw-------   1    8,ff /dev/c1d7p3s3
+   375 crw--w----   1    4, 0 /dev/console
+     4 crw-------   2    7, 1 /dev/eth
+     4 crw-------   2    7, 1 /dev/eth0
+   377 brw-rw-rw-   1    2, 0 /dev/fd0
+   378 brw-rw-rw-   1    2,70 /dev/fd0p0
+   379 brw-rw-rw-   1    2,74 /dev/fd0p1
+   380 brw-rw-rw-   1    2,78 /dev/fd0p2
+   381 brw-rw-rw-   1    2,7c /dev/fd0p3
+   382 brw-rw-rw-   1    2, 1 /dev/fd1
+   383 brw-rw-rw-   1    2,71 /dev/fd1p0
+   384 brw-rw-rw-   1    2,75 /dev/fd1p1
+   385 brw-rw-rw-   1    2,79 /dev/fd1p2
+   386 brw-rw-rw-   1    2,7d /dev/fd1p3
+   387 brw-r--r--   1    b, 0 /dev/filter
+   388 crw-r--r--   1   11, 0 /dev/hello
+   389 brw-------   1    1, 6 /dev/imgrd
+     5 crw-------   2    7, 2 /dev/ip
+     5 crw-------   2    7, 2 /dev/ip0
+   391 crw-rw----   1    4,7f /dev/kbd
+   392 crw-rw----   1    4,7e /dev/kbdaux
+   393 crw-------   1    f, 0 /dev/klog
+   394 crw-r-----   1    1, 2 /dev/kmem
+   395 c-w--w--w-   1    4, f /dev/log
+   396 c-w-------   1    6, 0 /dev/lp
+   397 crw-r-----   1    1, 1 /dev/mem
+   398 lrwxrwxrwx   1      11 /dev/mouse
+   399 crw-rw-rw-   1    1, 3 /dev/null
+   400 crw-rw-rw-   1    4,c0 /dev/ptyp0
+   401 crw-rw-rw-   1    4,c1 /dev/ptyp1
+   402 crw-rw-rw-   1    4,c2 /dev/ptyp2
+   403 crw-rw-rw-   1    4,c3 /dev/ptyp3
+   404 crw-rw-rw-   1    4,c4 /dev/ptyp4
+   405 crw-rw-rw-   1    4,c5 /dev/ptyp5
+   406 crw-rw-rw-   1    4,c6 /dev/ptyp6
+   407 crw-rw-rw-   1    4,c7 /dev/ptyp7
+   408 crw-rw-rw-   1    4,c8 /dev/ptyp8
+   409 crw-rw-rw-   1    4,c9 /dev/ptyp9
+   410 crw-rw-rw-   1    4,ca /dev/ptypa
+   411 crw-rw-rw-   1    4,cb /dev/ptypb
+   412 crw-rw-rw-   1    4,cc /dev/ptypc
+   413 crw-rw-rw-   1    4,cd /dev/ptypd
+   414 crw-rw-rw-   1    4,ce /dev/ptype
+   415 crw-rw-rw-   1    4,cf /dev/ptypf
+   416 crw-rw-rw-   1    4,d0 /dev/ptyq0
+   417 crw-rw-rw-   1    4,d1 /dev/ptyq1
+   418 crw-rw-rw-   1    4,d2 /dev/ptyq2
+   419 crw-rw-rw-   1    4,d3 /dev/ptyq3
+   420 crw-rw-rw-   1    4,d4 /dev/ptyq4
+   421 crw-rw-rw-   1    4,d5 /dev/ptyq5
+   422 crw-rw-rw-   1    4,d6 /dev/ptyq6
+   423 crw-rw-rw-   1    4,d7 /dev/ptyq7
+   424 crw-rw-rw-   1    4,d8 /dev/ptyq8
+   425 crw-rw-rw-   1    4,d9 /dev/ptyq9
+   426 crw-rw-rw-   1    4,da /dev/ptyqa
+   427 crw-rw-rw-   1    4,db /dev/ptyqb
+   428 crw-rw-rw-   1    4,dc /dev/ptyqc
+   429 crw-rw-rw-   1    4,dd /dev/ptyqd
+   430 crw-rw-rw-   1    4,de /dev/ptyqe
+   431 crw-rw-rw-   1    4,df /dev/ptyqf
+   432 brw-------   1    1, 0 /dev/ram
+   433 brw-------   1    1, 7 /dev/ram0
+   434 brw-------   1    1, 8 /dev/ram1
+   435 brw-------   1    1, 9 /dev/ram2
+   436 brw-------   1    1, a /dev/ram3
+   437 brw-------   1    1, b /dev/ram4
+   438 brw-------   1    1, c /dev/ram5
+   439 crw-r--r--   1   10, 0 /dev/random
+   376 crw-rw-rw-   2    7, 3 /dev/tcp
+   376 crw-rw-rw-   2    7, 3 /dev/tcp0
+   441 crw-rw-rw-   1    5, 0 /dev/tty
+   442 crw-rw-rw-   1    4,10 /dev/tty00
+   443 crw-rw-rw-   1    4,11 /dev/tty01
+   444 crw-rw-rw-   1    4,12 /dev/tty02
+   445 crw-rw-rw-   1    4,13 /dev/tty03
+   446 crw-------   1    4, 1 /dev/ttyc1
+   447 crw-------   1    4, 2 /dev/ttyc2
+   448 crw-------   1    4, 3 /dev/ttyc3
+   449 crw-rw-rw-   1    4,80 /dev/ttyp0
+   450 crw-rw-rw-   1    4,81 /dev/ttyp1
+   451 crw-rw-rw-   1    4,82 /dev/ttyp2
+   452 crw-rw-rw-   1    4,83 /dev/ttyp3
+   453 crw-rw-rw-   1    4,84 /dev/ttyp4
+   454 crw-rw-rw-   1    4,85 /dev/ttyp5
+   455 crw-rw-rw-   1    4,86 /dev/ttyp6
+   456 crw-rw-rw-   1    4,87 /dev/ttyp7
+   457 crw-rw-rw-   1    4,88 /dev/ttyp8
+   458 crw-rw-rw-   1    4,89 /dev/ttyp9
+   459 crw-rw-rw-   1    4,8a /dev/ttypa
+   460 crw-rw-rw-   1    4,8b /dev/ttypb
+   461 crw-rw-rw-   1    4,8c /dev/ttypc
+   462 crw-rw-rw-   1    4,8d /dev/ttypd
+   463 crw-rw-rw-   1    4,8e /dev/ttype
+   464 crw-rw-rw-   1    4,8f /dev/ttypf
+   465 crw-rw-rw-   1    4,90 /dev/ttyq0
+   466 crw-rw-rw-   1    4,91 /dev/ttyq1
+   467 crw-rw-rw-   1    4,92 /dev/ttyq2
+   468 crw-rw-rw-   1    4,93 /dev/ttyq3
+   469 crw-rw-rw-   1    4,94 /dev/ttyq4
+   470 crw-rw-rw-   1    4,95 /dev/ttyq5
+   471 crw-rw-rw-   1    4,96 /dev/ttyq6
+   472 crw-rw-rw-   1    4,97 /dev/ttyq7
+   473 crw-rw-rw-   1    4,98 /dev/ttyq8
+   474 crw-rw-rw-   1    4,99 /dev/ttyq9
+   475 crw-rw-rw-   1    4,9a /dev/ttyqa
+   476 crw-rw-rw-   1    4,9b /dev/ttyqb
+   477 crw-rw-rw-   1    4,9c /dev/ttyqc
+   478 crw-rw-rw-   1    4,9d /dev/ttyqd
+   479 crw-rw-rw-   1    4,9e /dev/ttyqe
+   480 crw-rw-rw-   1    4,9f /dev/ttyqf
+   390 crw-rw-rw-   2    7, 4 /dev/udp
+   390 crw-rw-rw-   2    7, 4 /dev/udp0
+   482 crw-rw-rw-   1   12, 0 /dev/uds
+   483 crw-r--r--   1   10, 0 /dev/urandom
+   484 crw-------   1    4,7d /dev/video
+   485 crw-r--r--   1    1, 5 /dev/zero
+   440 crw-rw-rw-   1    7, 0 /dev/ipstat
+   486 drwxr-xr-x   3    2112 /etc
+   487 -rwxr-xr-x   1     204 /etc/binary_sizes
+   488 -rwxr-xr-x   1     213 /etc/binary_sizes.big
+   489 -rwxr-xr-x   1     215 /etc/binary_sizes.xxl
+   490 -rwxr-xr-x   1      89 /etc/fstab
+   491 -rwxr-xr-x   1     166 /etc/group
+   492 -rwxr-xr-x   1      16 /etc/hostname.file
+   493 -rwxr-xr-x   1      28 /etc/inet.conf
+     3 -rw-r--r--   1     853 /etc/keymap
+   495 -rwxr-xr-x   1      70 /etc/make.conf
+   496 -rw-r--r--   1     217 /etc/man.conf
+   497 -rwxr-xr-x   1     465 /etc/motd.install
+   498 -rwxr-xr-x   1      70 /etc/mtab
+   499 -rwxr-xr-x   1     495 /etc/passwd
+   500 -rwxr-xr-x   1    1308 /etc/pkgsrc.conf
+   501 -rwxr-xr-x   1      76 /etc/profile
+   502 -rwxr-xr-x   1     670 /etc/protocols
+   503 -rwxr-xr-x   1    4892 /etc/rc
+   504 -rwxr-xr-x   1      43 /etc/rc.cd
+   505 -rwxr-xr-x   1     137 /etc/rc.daemons.dist
+   506 -rwxr-xr-x   1    1206 /etc/rs.inet
+   507 -rwxr-xr-x   1     220 /etc/rs.single
+   508 -rwxr-xr-x   1    2703 /etc/services
+   509 -rw-------   1      13 /etc/shadow
+   510 -rwxr-xr-x   1     549 /etc/syslog.conf
+   511 -rwxr-xr-x   1   10247 /etc/system.conf
+   512 drwxr-xr-x   2     128 /etc/system.conf.d
+   513 -rwxr-xr-x   1    4917 /etc/termcap
+   514 -rwxr-xr-x   1     644 /etc/ttytab
+   515 -rwxr-xr-x   1     240 /etc/utmp
+   516 -rw-r--r--   1      65 /etc/version
+   548 -rwxr-xr-x   1     465 /etc/motd
+   517 drwxr-xr-x   2     128 /home
+   518 drwxrwxrwx   2     128 /mnt
+   519 drwx------   3     576 /root
+   520 -rw-r--r--   1     639 /root/.ashrc
+   521 -rw-r--r--   1     300 /root/.ellepro.b1
+   522 -rw-r--r--   1    5979 /root/.ellepro.e
+   523 -rw-r--r--   1      44 /root/.exrc
+   524 -rw-r--r--   1     304 /root/.profile
+   494 -rw-------   1      35 /root/.lesshst
+   540 drwx------   2     192 /root/.ssh
+   541 -rw-r--r--   1     395 /root/.ssh/known_hosts
+   525 drwxr-xr-x   2     896 /sbin
+   526 -rwxr-xr-x   1   77120 /sbin/ahci
+   527 -rwxr-xr-x   1   87276 /sbin/at_wini
+   528 -rwxr-xr-x   1   58536 /sbin/bios_wini
+   529 -rwxr-xr-x   1   96820 /sbin/ext2
+   530 -rwxr-xr-x   1   65344 /sbin/floppy
+   531 -rwxr-xr-x   1   48840 /sbin/fsck.mfs
+   532 -rwxr-xr-x   1   61744 /sbin/hgfs
+   533 -rwxr-xr-x   1   54780 /sbin/is
+   534 -rwxr-xr-x   1   76148 /sbin/isofs
+   535 -rwxr-xr-x   1   81684 /sbin/mfs
+   536 -rwxr-xr-x   1   47032 /sbin/mkfs.mfs
+   537 -rwxr-xr-x   1   61548 /sbin/readclock.drv
+   538 drwxrwxrwt   2     256 /tmp
+   543 drwxr-xr-x   3     256 /var
+   544 lrwxrwxrwx   1       8 /var/log
+   545 drwxr-xr-x   2     192 /var/run
+   481 -rw-------   1       5 /var/run/syslogd.pid
+
+Checking zone map
+Checking inode map
+Checking inode list
+
+blocksize =  4096        zonesize  =  4096
+
+      79    Regular files
+      17    Directories
+     356    Block special files
+      92    Character special files
+   32222    Free inodes
+       0    Named pipes
+       0    Unix sockets
+       2    Symbolic links
+   12916    Free zones
