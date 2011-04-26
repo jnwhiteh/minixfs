@@ -44,12 +44,12 @@ func (b *FullDataBlock) isBlockType() {}
 func (b *PartialDataBlock) isBlockType() {}
 
 // Ensure each block type implements the Block interface
-var _ Block = &InodeBlock{nil, nil}
-var _ Block = &DirectoryBlock{nil, nil}
-var _ Block = &IndirectBlock{nil, nil}
-var _ Block = &MapBlock{nil, nil}
-var _ Block = &FullDataBlock{nil, nil}
-var _ Block = &PartialDataBlock{nil, nil}
+var _ Block = &InodeBlock{}
+var _ Block = &DirectoryBlock{}
+var _ Block = &IndirectBlock{}
+var _ Block = &MapBlock{}
+var _ Block = &FullDataBlock{}
+var _ Block = &PartialDataBlock{}
 
 func (fs *FileSystem) NewInodeBlock() *InodeBlock {
 	return &InodeBlock{make([]disk_inode, fs.super.inodes_per_block), new(Buf)}
