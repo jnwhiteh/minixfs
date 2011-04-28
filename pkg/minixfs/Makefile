@@ -4,6 +4,7 @@ TARG=jnwhiteh/minixfs
 GOFILES=\
 		blocks.go \
 		bitmap.go \
+		device.go \
 		cache.go \
 		const.go \
 		fs.go \

@@ -1,6 +1,5 @@
 package minixfs
 
-import "encoding/binary"
 import "os"
 
 // Buffer (block) cache. To acquire a block, a routine calls fs.GetBlock()
@@ -60,35 +59,32 @@ func (fs *FileSystem) GetBlock(num uint, block Block) os.Error {
 		return os.NewError("Invalid block requested")
 	}
 
+	var err os.Error
 	pos := int64((num) * uint(fs.super.Block_size))
-	newPos, err := fs.file.Seek(pos, 0)
-	if err != nil || pos != newPos {
-		return err
-	}
 
 	// Do a type assertion and perform the actual I/O.
 	if bp, ok := block.(*InodeBlock); ok {
-		err = binary.Read(fs.file, binary.LittleEndian, bp.Data)
+		err = fs.dev.Read(bp.Data, pos)
 		bp.buf.num = num
 		bp.buf.dirty = false
 	} else if bp, ok := block.(*DirectoryBlock); ok {
-		err = binary.Read(fs.file, binary.LittleEndian, bp.Data)
+		err = fs.dev.Read(bp.Data, pos)
 		bp.buf.num = num
 		bp.buf.dirty = false
 	} else if bp, ok := block.(*IndirectBlock); ok {
-		err = binary.Read(fs.file, binary.LittleEndian, bp.Data)
+		err = fs.dev.Read(bp.Data, pos)
 		bp.buf.num = num
 		bp.buf.dirty = false
 	} else if bp, ok := block.(*MapBlock); ok {
-		err = binary.Read(fs.file, binary.LittleEndian, bp.Data)
+		err = fs.dev.Read(bp.Data, pos)
 		bp.buf.num = num
 		bp.buf.dirty = false
 	} else if bp, ok := block.(*FullDataBlock); ok {
-		err = binary.Read(fs.file, binary.LittleEndian, bp.Data)
+		err = fs.dev.Read(bp.Data, pos)
 		bp.buf.num = num
 		bp.buf.dirty = false
 	} else if bp, ok := block.(*PartialDataBlock); ok {
-		err = binary.Read(fs.file, binary.LittleEndian, bp.Data)
+		err = fs.dev.Read(bp.Data, pos)
 		bp.buf.num = num
 		bp.buf.dirty = false
 	} else {
@@ -129,25 +125,22 @@ func (fs *FileSystem) PutBlock(block Block, block_type int) os.Error {
 	}
 
 	if dirty {
+		var err os.Error
 		pos := int64((num) * uint(fs.super.Block_size))
-		newPos, err := fs.file.Seek(pos, 0)
-		if err != nil || pos != newPos {
-			return err
-		}
 
 		// Do a type assertion and perform the actual I/O.
 		if bp, ok := block.(*InodeBlock); ok {
-			err = binary.Write(fs.file, binary.LittleEndian, bp.Data)
+			err = fs.dev.Write(bp.Data, pos)
 		} else if bp, ok := block.(*DirectoryBlock); ok {
-			err = binary.Write(fs.file, binary.LittleEndian, bp.Data)
+			err = fs.dev.Write(bp.Data, pos)
 		} else if bp, ok := block.(*IndirectBlock); ok {
-			err = binary.Write(fs.file, binary.LittleEndian, bp.Data)
+			err = fs.dev.Write(bp.Data, pos)
 		} else if bp, ok := block.(*MapBlock); ok {
-			err = binary.Write(fs.file, binary.LittleEndian, bp.Data)
+			err = fs.dev.Write(bp.Data, pos)
 		} else if bp, ok := block.(*FullDataBlock); ok {
-			err = binary.Write(fs.file, binary.LittleEndian, bp.Data)
+			err = fs.dev.Write(bp.Data, pos)
 		} else if bp, ok := block.(*PartialDataBlock); ok {
-			err = binary.Write(fs.file, binary.LittleEndian, bp.Data)
+			err = fs.dev.Write(bp.Data, pos)
 		}
 
 		if err != nil {

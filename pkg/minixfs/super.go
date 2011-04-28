@@ -3,7 +3,6 @@ package minixfs
 import "log"
 import "math"
 import "os"
-import "encoding/binary"
 
 type Superblock struct {
 	diskblock        *disk_superblock
@@ -44,13 +43,9 @@ func bitmapsize(nr_bits uint, block_size uint) uint {
 }
 
 // Read the superblock from the second 1024k block of the file
-func ReadSuperblock(file *os.File) (*Superblock, os.Error) {
+func ReadSuperblock(dev BlockDevice) (*Superblock, os.Error) {
 	sup_disk := new(disk_superblock)
-	_, err := file.Seek(1024, 0)
-	if err != nil {
-		return nil, err
-	}
-	err = binary.Read(file, binary.LittleEndian, sup_disk)
+	err := dev.Read(sup_disk, 1024)
 	if err != nil {
 		return nil, err
 	}

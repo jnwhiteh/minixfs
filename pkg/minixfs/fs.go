@@ -1,5 +1,6 @@
 package minixfs
 
+import "encoding/binary"
 import "log"
 import "os"
 
@@ -8,7 +9,7 @@ import "os"
 // file system residing on disk.
 
 type FileSystem struct {
-	file   *os.File        // the actual file backing the file system
+	dev    BlockDevice    // the underlying filesystem device
 	super  *Superblock     // the superblock for the associated file system
 	inodes map[uint]*Inode // a map containing the inodes for the open files
 
@@ -25,19 +26,18 @@ type FileSystem struct {
 func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	var fs *FileSystem = new(FileSystem)
 
-	// open the file, but do not close it
-	file, err := os.OpenFile(filename, os.O_RDWR, 0)
+	dev, err := NewFileDevice(filename, binary.LittleEndian)
 
 	if err != nil {
 		return nil, err
 	}
 
-	super, err := ReadSuperblock(file)
+	super, err := ReadSuperblock(dev)
 	if err != nil {
 		return nil, err
 	}
 
-	fs.file = file
+	fs.dev = dev
 	fs.super = super
 	fs.inodes = make(map[uint]*Inode)
 
