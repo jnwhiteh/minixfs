@@ -4,7 +4,7 @@ type Block interface {
 	isBlockType()
 }
 
-// TODO: Unepxort the 'data' member
+// TODO: Unexport the 'data' member
 
 type InodeBlock struct {
 	Data []disk_inode // block containing a series of inodes
@@ -12,7 +12,7 @@ type InodeBlock struct {
 }
 
 type DirectoryBlock struct {
-	Data []Directory // block containing directory entries
+	Data []disk_dirent // block containing directory entries
 	buf  *Buf
 }
 
@@ -36,11 +36,11 @@ type PartialDataBlock struct {
 	buf  *Buf
 }
 
-func (b *InodeBlock) isBlockType() {}
-func (b *DirectoryBlock) isBlockType() {}
-func (b *IndirectBlock) isBlockType() {}
-func (b *MapBlock) isBlockType() {}
-func (b *FullDataBlock) isBlockType() {}
+func (b *InodeBlock) isBlockType()       {}
+func (b *DirectoryBlock) isBlockType()   {}
+func (b *IndirectBlock) isBlockType()    {}
+func (b *MapBlock) isBlockType()         {}
+func (b *FullDataBlock) isBlockType()    {}
 func (b *PartialDataBlock) isBlockType() {}
 
 // Ensure each block type implements the Block interface
@@ -56,7 +56,7 @@ func (fs *FileSystem) NewInodeBlock() *InodeBlock {
 }
 
 func (fs *FileSystem) NewDirectoryBlock() *DirectoryBlock {
-	return &DirectoryBlock{make([]Directory, fs.Block_size/64), new(Buf)}
+	return &DirectoryBlock{make([]disk_dirent, fs.Block_size/64), new(Buf)}
 }
 
 func (fs *FileSystem) NewIndirectBlock() *IndirectBlock {

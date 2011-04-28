@@ -13,7 +13,7 @@ import "os"
 // This struct is embedded in every 'Block' type
 
 type Buf struct {
-	num uint   // the block number for this block
+	num   uint // the block number for this block
 	dirty bool // clean (false) or dirty (true)
 	count uint // the number of users of this cache block
 }
@@ -55,7 +55,7 @@ func (fs *FileSystem) GetPartialDataBlock(num uint) (*PartialDataBlock, os.Error
 }
 
 // TODO: Refactor this to use rw_block
-func (fs *FileSystem) GetBlock(num uint, block Block) (os.Error) {
+func (fs *FileSystem) GetBlock(num uint, block Block) os.Error {
 	if num <= 0 {
 		return os.NewError("Invalid block requested")
 	}

@@ -21,12 +21,6 @@ type FileSystem struct {
 	WorkDir *Inode
 }
 
-// A directory entry
-type Directory struct {
-	Inum uint32
-	Name [60]byte
-}
-
 // Create a new FileSystem from a given file on the filesystem
 func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	var fs *FileSystem = new(FileSystem)

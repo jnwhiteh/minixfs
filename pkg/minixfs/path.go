@@ -27,4 +27,3 @@ func (fs *FileSystem) LastDir(filename string) (*Inode, string, os.Error) {
 
 	return nil, "", os.NewError("LastDir not implemented")
 }
-

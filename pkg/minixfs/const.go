@@ -5,13 +5,15 @@ const (
 	NR_INODES      = 64 // the number of inodes kept in memory
 	ROOT_INODE_NUM = 1  // the root inode number
 	START_BLOCK    = 2  // first block of FS (not counting SB)
-	SUPER_V3       = 0x4d5a
-	V2_INODE_SIZE  = 64
-	V2_NR_DZONES   = 7  // number of direct zones in a V2 inode
-	V2_NR_TZONES   = 10 // total # of zone numbers in a V2 inode
 
-	V2_ZONE_NUM_SIZE = 4 // the number of bytes in a zone_t (uint32)
-	ZONE_SHIFT       = 0 // unused, but leaving in for clarity
+	SUPER_V3 = 0x4d5a
+
+	V2_INODE_SIZE    = 64
+	V2_NR_DZONES     = 7  // number of direct zones in a V2 inode
+	V2_NR_TZONES     = 10 // total # of zone numbers in a V2 inode
+	V2_ZONE_NUM_SIZE = 4  // the number of bytes in a zone_t (uint32)
+
+	ZONE_SHIFT = 0 // unused, but leaving in for clarity
 
 	IMAP = 0 // operations are on the inode bitmap
 	ZMAP = 1 // operations are on the zone bitmap

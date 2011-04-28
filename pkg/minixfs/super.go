@@ -5,25 +5,6 @@ import "math"
 import "os"
 import "encoding/binary"
 
-type disk_superblock struct {
-	Ninodes           uint32 // # of usable inodes on the minor device
-	Nzones            uint16 // total device size, including bit maps, etc.
-	Imap_blocks       uint16 // # of blocks used by inode bit map
-	Zmap_blocks       uint16 // # of blocks used by zone bit map
-	Firstdatazone_old uint16 // number of first data zone
-	Log_zone_size     uint16 // log2 of blocks/zone
-	Pad               uint16 // try to avoid compiler-dependent padding
-	Max_size          int32  // maximum file size on this device
-	Zones             uint32 // number of zones (replaces s_nzones in V2+)
-	Magic             uint16 // magic number to recognize super-blocks
-
-	// The following fields are only present in V3 and above, which is
-	// the standard version of Minix that we are implementing
-	Pad2         uint16 // try to avoid compiler-dependent padding
-	Block_size   uint16 // block size in bytes
-	Disk_version byte   // filesystem format sub-version
-}
-
 type Superblock struct {
 	diskblock        *disk_superblock
 	inodes_per_block uint
@@ -182,10 +163,10 @@ func NewSuperblock(blocks, inodes, block_size uint) (*Superblock, os.Error) {
 }
 
 // Allocate a bit from a bit map and return its bit number
-func (fs *FileSystem) AllocBit(bmap uint, origin uint) (uint) {
+func (fs *FileSystem) AllocBit(bmap uint, origin uint) uint {
 	var start_block uint // first bit block
 	var map_bits uint    // how many bits are there in the bit map
-	var bit_blocks uint // how many blocks are there in the bit map
+	var bit_blocks uint  // how many blocks are there in the bit map
 
 	if bmap == IMAP {
 		start_block = START_BLOCK
@@ -193,7 +174,7 @@ func (fs *FileSystem) AllocBit(bmap uint, origin uint) (uint) {
 		bit_blocks = fs.super.Imap_blocks
 	} else {
 		start_block = START_BLOCK + fs.super.Imap_blocks
-		map_bits = fs.super.Zones - (fs.super.Firstdatazone_old-1)
+		map_bits = fs.super.Zones - (fs.super.Firstdatazone_old - 1)
 		bit_blocks = fs.super.Zmap_blocks
 	}
 
@@ -295,7 +276,7 @@ func (fs *FileSystem) FreeBit(bmap uint, bit_returned uint) {
 		}
 	}
 
-	k = k & (^ mask)
+	k = k & (^mask)
 	bp.Data[word] = k
 	bp.buf.dirty = true
 	fs.PutBlock(bp, MAP_BLOCK)
