@@ -1,6 +1,5 @@
 package minixfs
 
-import "log"
 import "math"
 import "os"
 
@@ -187,15 +186,12 @@ func (fs *FileSystem) AllocBit(bmap uint, origin uint) uint {
 	//wlim := FS_BITMAP_CHUNKS(fs.Block_size)
 
 	for {
-		bp, err := fs.GetMapBlock(start_block + block)
-		if err != nil {
-			log.Printf("Unable to fetch bitmap block %d - %s", block, err)
-			return NO_BIT
-		}
+		bp := fs.GetBlock(int(start_block + block), MAP_BLOCK)
+		bitmaps := bp.block.(MapBlock)
 
 		// Iterate over the words in a block
-		for i := word; i < uint(len(bp.Data)); i++ {
-			num := bp.Data[i]
+		for i := word; i < uint(len(bitmaps)); i++ {
+			num := bitmaps[i]
 
 			// Does this word contain a free bit?
 			if num == math.MaxUint16 {
@@ -218,9 +214,9 @@ func (fs *FileSystem) AllocBit(bmap uint, origin uint) uint {
 
 			// Allocate and return bit number
 			num = num | (1 << bit)
-			bp.Data[i] = num
+			bitmaps[i] = num
 
-			bp.buf.dirty = true
+			bp.dirty = true
 			fs.PutBlock(bp, MAP_BLOCK)
 			return b
 		}
@@ -256,13 +252,10 @@ func (fs *FileSystem) FreeBit(bmap uint, bit_returned uint) {
 	bit := bit_returned % FS_BITCHUNK_BITS
 	mask := uint16(1) << bit
 
-	bp, err := fs.GetMapBlock(start_block + block)
-	if err != nil {
-		log.Printf("Unable to fetch bitmap block %d - %s", block, err)
-		return
-	}
+	bp := fs.GetBlock(int(start_block + block), MAP_BLOCK)
+	bitmaps := bp.block.(MapBlock)
 
-	k := bp.Data[word]
+	k := bitmaps[word]
 	if (k & mask) == 0 {
 		if bmap == IMAP {
 			panic("tried to free unused inode")
@@ -272,7 +265,19 @@ func (fs *FileSystem) FreeBit(bmap uint, bit_returned uint) {
 	}
 
 	k = k & (^mask)
-	bp.Data[word] = k
-	bp.buf.dirty = true
+	bitmaps[word] = k
+	bp.dirty = true
 	fs.PutBlock(bp, MAP_BLOCK)
+}
+
+// Return a zone
+func (fs *FileSystem) FreeZone(numb uint) {
+	if numb < fs.super.Firstdatazone_old || numb >= fs.super.Nzones {
+		return
+	}
+	bit := numb - fs.super.Firstdatazone_old - 1
+	fs.FreeBit(ZMAP, bit)
+	if bit < fs.super.I_Search {
+		fs.super.I_Search = bit
+	}
 }

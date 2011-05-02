@@ -37,12 +37,10 @@ func (fs *FileSystem) ReadMap(inode *Inode, position uint) uint {
 		}
 		excess = excess - nr_indirects // single indirect doesn't count
 		b := z << scale
-		bp, err := fs.GetIndirectBlock(uint(b)) // get double indirect block
-		if err != nil {
-			log.Printf("Could not fetch doubly-indirect block: %d - %s", b, err)
-		}
+		bp := fs.GetBlock(int(b), INDIRECT_BLOCK) // get double indirect block
+		zones := bp.block.(IndirectBlock)
 		index := excess / nr_indirects
-		z = fs.RdIndir(bp, index)       // z= zone for single
+		z = fs.RdIndir(zones, index)       // z= zone for single
 		fs.PutBlock(bp, INDIRECT_BLOCK) // release double indirect block
 		excess = excess % nr_indirects  // index into single indirect block
 	}
@@ -53,13 +51,9 @@ func (fs *FileSystem) ReadMap(inode *Inode, position uint) uint {
 	}
 
 	b := z << scale // b is block number for single indirect
-	bp, err := fs.GetIndirectBlock(uint(b))
-	if err != nil {
-		log.Printf("Could not fetch indirect block: %d - %s", b, err)
-		return NO_BLOCK
-	}
-
-	z = fs.RdIndir(bp, excess)
+	bp := fs.GetBlock(int(b), INDIRECT_BLOCK)
+	zones := bp.block.(IndirectBlock)
+	z = fs.RdIndir(zones, excess)
 	fs.PutBlock(bp, INDIRECT_BLOCK)
 	if z == NO_ZONE {
 		return NO_BLOCK
@@ -69,8 +63,8 @@ func (fs *FileSystem) ReadMap(inode *Inode, position uint) uint {
 }
 
 // Given a pointer to an indirect block, read one entry.
-func (fs *FileSystem) RdIndir(bp *IndirectBlock, index uint) uint {
-	zone := uint(bp.Data[index])
+func (fs *FileSystem) RdIndir(bp IndirectBlock, index uint) uint {
+	zone := uint(bp[index])
 	if zone != NO_ZONE && (zone < fs.super.Firstdatazone_old || zone >= fs.super.Zones) {
 		log.Printf("Illegal zone number %ld in indirect block, index %d\n", zone, index)
 		log.Printf("Firstdatazone_old: %d", fs.super.Firstdatazone_old)

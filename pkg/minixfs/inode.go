@@ -52,13 +52,11 @@ func (fs *FileSystem) GetInode(num uint) (*Inode, os.Error) {
 	block_num := ((num - 1) / fs.super.inodes_per_block) + uint(block_offset)
 
 	// Load the inode from the disk and create in-memory version of it
-	inode_block, err := fs.GetInodeBlock(block_num)
-	if err != nil {
-		return nil, err
-	}
+	bp := fs.GetBlock(int(block_num), INODE_BLOCK)
+	inodeb := bp.block.(InodeBlock)
 
 	// We have the full block, now get the correct inode entry
-	inode_d := &inode_block.Data[(num-1)%fs.super.inodes_per_block]
+	inode_d := &inodeb[num-1%fs.super.inodes_per_block]
 	inode := &Inode{
 		disk_inode: inode_d,
 		fs:         fs,

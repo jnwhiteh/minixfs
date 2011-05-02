@@ -4,73 +4,24 @@ type Block interface {
 	isBlockType()
 }
 
-// TODO: Unexport the 'data' member
+type InodeBlock []disk_inode      // block containing a series of inodes
+type DirectoryBlock []disk_dirent // block containing directory entries
+type IndirectBlock []uint32       // block containing 32-bit zone numbers
+type MapBlock []uint16            // block containing bitmaps (in 16-bit chunks)
+type FullDataBlock []uint8        // block containing data (in bytes)
+type PartialDataBlock []uint8     // block containing data (in bytes)
 
-type InodeBlock struct {
-	Data []disk_inode // block containing a series of inodes
-	buf  *Buf
-}
-
-type DirectoryBlock struct {
-	Data []disk_dirent // block containing directory entries
-	buf  *Buf
-}
-
-type IndirectBlock struct {
-	Data []uint32 // block containing 32-bit zone numbers
-	buf  *Buf
-}
-
-type MapBlock struct {
-	Data []uint16 // block containing bitmaps (in 16-bit chunks)
-	buf  *Buf
-}
-
-type FullDataBlock struct {
-	Data []uint8 // block containing data (in bytes)
-	buf  *Buf
-}
-
-type PartialDataBlock struct {
-	Data []uint8 // block containing data (in bytes)
-	buf  *Buf
-}
-
-func (b *InodeBlock) isBlockType()       {}
-func (b *DirectoryBlock) isBlockType()   {}
-func (b *IndirectBlock) isBlockType()    {}
-func (b *MapBlock) isBlockType()         {}
-func (b *FullDataBlock) isBlockType()    {}
-func (b *PartialDataBlock) isBlockType() {}
+func (b InodeBlock) isBlockType()       {}
+func (b DirectoryBlock) isBlockType()   {}
+func (b IndirectBlock) isBlockType()    {}
+func (b MapBlock) isBlockType()         {}
+func (b FullDataBlock) isBlockType()    {}
+func (b PartialDataBlock) isBlockType() {}
 
 // Ensure each block type implements the Block interface
-var _ Block = &InodeBlock{}
-var _ Block = &DirectoryBlock{}
-var _ Block = &IndirectBlock{}
-var _ Block = &MapBlock{}
-var _ Block = &FullDataBlock{}
-var _ Block = &PartialDataBlock{}
-
-func (fs *FileSystem) NewInodeBlock() *InodeBlock {
-	return &InodeBlock{make([]disk_inode, fs.super.inodes_per_block), new(Buf)}
-}
-
-func (fs *FileSystem) NewDirectoryBlock() *DirectoryBlock {
-	return &DirectoryBlock{make([]disk_dirent, fs.Block_size/64), new(Buf)}
-}
-
-func (fs *FileSystem) NewIndirectBlock() *IndirectBlock {
-	return &IndirectBlock{make([]uint32, fs.Block_size/4), new(Buf)}
-}
-
-func (fs *FileSystem) NewMapBlock() *MapBlock {
-	return &MapBlock{make([]uint16, FS_BITMAP_CHUNKS(fs.Block_size)), new(Buf)}
-}
-
-func (fs *FileSystem) NewFullDataBlock() *FullDataBlock {
-	return &FullDataBlock{make([]byte, fs.Block_size), new(Buf)}
-}
-
-func (fs *FileSystem) NewPartialDataBlock() *PartialDataBlock {
-	return &PartialDataBlock{make([]byte, fs.Block_size), new(Buf)}
-}
+var _ Block = (InodeBlock)(nil)
+var _ Block = (DirectoryBlock)(nil)
+var _ Block = (IndirectBlock)(nil)
+var _ Block = (MapBlock)(nil)
+var _ Block = (FullDataBlock)(nil)
+var _ Block = (PartialDataBlock)(nil)

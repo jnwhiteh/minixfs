@@ -9,8 +9,9 @@ import "os"
 // file system residing on disk.
 
 type FileSystem struct {
-	dev    BlockDevice    // the underlying filesystem device
+	dev    BlockDevice     // the underlying filesystem device
 	super  *Superblock     // the superblock for the associated file system
+	cache  *LRUCache       // the block cache
 	inodes map[uint]*Inode // a map containing the inodes for the open files
 
 	Magic         uint // magic number to recognize super-blocks
@@ -39,6 +40,7 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 
 	fs.dev = dev
 	fs.super = super
+	fs.cache = NewLRUCache(dev, int(super.Block_size), DEFAULT_NR_BUFS)
 	fs.inodes = make(map[uint]*Inode)
 
 	fs.Magic = super.Magic
@@ -55,6 +57,17 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 
 	return fs, nil
 }
+
+func (fs *FileSystem) GetBlock(bnum int, btype BlockType) *buf {
+	return fs.cache.GetBlock(bnum, btype, false)
+}
+
+func (fs *FileSystem) PutBlock(bp *buf, btype BlockType) {
+	fs.cache.PutBlock(bp, btype)
+}
+
+// The following are convenience methods that allow us to get a specific type
+// of block from the block cache. Since we need 
 
 func (fs *FileSystem) GetDataBlockFromZone(num uint) uint {
 	// Move past the boot block, superblock and bitmats

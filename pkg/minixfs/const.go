@@ -6,9 +6,13 @@ const (
 	ROOT_INODE_NUM = 1  // the root inode number
 	START_BLOCK    = 2  // first block of FS (not counting SB)
 
+	DEFAULT_NR_BUFS = 1024 // the number of buffer slots in buffer cache
+
 	SUPER_V3 = 0x4d5a
 
-	V2_INODE_SIZE    = 64
+	V2_INODE_SIZE  = 64 // the size of an inode in bytes
+	V2_DIRENT_SIZE = 64 // the size of a dirent in bytes
+
 	V2_NR_DZONES     = 7  // number of direct zones in a V2 inode
 	V2_NR_TZONES     = 10 // total # of zone numbers in a V2 inode
 	V2_ZONE_NUM_SIZE = 4  // the number of bytes in a zone_t (uint32)
@@ -25,13 +29,6 @@ const (
 	// When a block is released, the type of usage is passed to put_block()
 	WRITE_IMMED = 0100 // block should be written to disk now
 	ONE_SHOT    = 0200 // set if block not likely to be needed soon
-
-	INODE_BLOCK        = 0 // inode block
-	DIRECTORY_BLOCK    = 1 // directory block
-	INDIRECT_BLOCK     = 2 // pointer block
-	MAP_BLOCK          = 3 // bit map
-	FULL_DATA_BLOCK    = 5 // data, fully used
-	PARTIAL_DATA_BLOCK = 6 // data, partly used
 
 	I_TYPE          = 0170000 // bit mask for type of inode
 	I_UNIX_SOCKET   = 0140000 // unix domain socket

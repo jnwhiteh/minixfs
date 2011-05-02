@@ -17,7 +17,10 @@ type BlockDevice interface {
 	// Write will write a block of data to the device at the given position.
 	Write(buf interface{}, pos int64) os.Error
 
-	Scatter() os.Error
+	// Scatter takes a list of cache buffers and will write the given blocks
+	// to the disk using some algorithm.
+	Scatter([]*buf) os.Error
+
 	Gather() os.Error
 }
 
@@ -64,7 +67,7 @@ func (dev FileDevice) Write(buf interface{}, pos int64) os.Error {
 	return err
 }
 
-func (dev FileDevice) Scatter() os.Error {
+func (dev FileDevice) Scatter(bufq []*buf) os.Error {
 	panic("NYI: FileDevice.Scatter")
 }
 

@@ -1,7 +1,5 @@
 package minixfs
 
-import "log"
-
 // Remove all the zones from the inode and mark it as dirty
 func (fs *FileSystem) Truncate(rip *Inode) {
 	file_type := rip.Mode & I_TYPE
@@ -41,14 +39,11 @@ func (fs *FileSystem) Truncate(rip *Inode) {
 	fs.FreeZone(uint(rip.Zone[single]))
 	if z := rip.Zone[single+1]; z != NO_ZONE {
 		// free all the single indirect zones pointed to by the double
-		b := uint(z << scale)
-		bp, err := fs.GetIndirectBlock(b)
-		if err != nil {
-			log.Printf("Failed when fetching indirect block %d", b)
-			panic("Failed to truncate file")
-		}
+		b := int(z << scale)
+		bp := fs.GetBlock(b, INDIRECT_BLOCK)
+		zones := bp.block.(IndirectBlock)
 		for i := uint(0); i < nr_indirects; i++ {
-			z1 := fs.RdIndir(bp, i)
+			z1 := fs.RdIndir(zones, i)
 			fs.FreeZone(z1)
 		}
 		// now free the double indirect zone itself
