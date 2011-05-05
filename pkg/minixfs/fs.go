@@ -18,7 +18,7 @@ type FileSystem struct {
 	Block_size    uint // block size in bytes
 	Log_zone_size uint // log2 of blocks/zone
 
-	// TODO: These should be contained in a process table, not in the FileSystem
+	procs []*Process // an array of processes that have been opened
 	RootDir *Inode
 	WorkDir *Inode
 }
@@ -47,6 +47,8 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	fs.Block_size = super.Block_size
 	fs.Log_zone_size = super.Log_zone_size
 
+	fs.procs = make([]*Process, NR_PROCS)
+
 	fs.RootDir, err = fs.GetInode(ROOT_INODE_NUM)
 	if err != nil {
 		log.Printf("Unable to fetch root inode: %s", err)
@@ -58,20 +60,60 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	return fs, nil
 }
 
+// The GetBlock method is a wrapper for fs.cache.GetBlock()
 func (fs *FileSystem) GetBlock(bnum int, btype BlockType) *buf {
 	return fs.cache.GetBlock(bnum, btype, false)
 }
 
+// The PutBlock method is a wrapper for fs.cache.PutBlock()
 func (fs *FileSystem) PutBlock(bp *buf, btype BlockType) {
 	fs.cache.PutBlock(bp, btype)
 }
-
-// The following are convenience methods that allow us to get a specific type
-// of block from the block cache. Since we need 
 
 func (fs *FileSystem) GetDataBlockFromZone(num uint) uint {
 	// Move past the boot block, superblock and bitmats
 	offset := uint(2 + fs.super.Imap_blocks + fs.super.Zmap_blocks)
 	offset = offset + (uint(fs.super.Ninodes) / fs.super.inodes_per_block)
 	return offset + num
+}
+
+type Process struct {
+	pid     int    // numeric id of the process
+	umask   uint16 // file creation mask
+	rootdir *Inode // root directory of the process
+	workdir *Inode // working directory of the process
+}
+
+func (p *Process) Open(path string, flags int, perm int) (*File, os.Error) {
+	return &File{}, nil
+}
+
+var ERR_PID_EXISTS = os.NewError("Process already exists")
+
+func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Process, os.Error) {
+	if fs.procs[pid] != nil {
+		return nil, ERR_PID_EXISTS
+	}
+
+	// Get an inode from a path
+	rip, err := fs.EatPath(rootpath)
+	if err != nil || rip == nil {
+		return nil, err
+	}
+
+	rinode := rip
+	winode := rinode
+	return &Process{pid, umask, rinode, winode}, nil
+}
+
+type File struct {
+
+}
+
+func (f *File) Seek(pos int, whence int) (int, os.Error) {
+	return 0, nil
+}
+
+func (f *File) Read(b []byte) (int, os.Error) {
+	return 0, nil
 }

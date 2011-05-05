@@ -3,6 +3,10 @@ package minixfs
 import "os"
 import "path"
 
+func (fs *FileSystem) EatPath(path string) (*Inode, os.Error) {
+	return nil, os.NewError("Not Implemented")
+}
+
 // Given a path, parse it as far as the last directory and fetch the inode
 // for the last directory and return it along with the final portion of the
 // path and any error that might have occurred.
