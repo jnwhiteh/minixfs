@@ -5,9 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"rand"
 	"testing"
-	"time"
 )
 
 func TestOpen(test *testing.T) {
@@ -24,10 +22,13 @@ func TestOpen(test *testing.T) {
 	}
 }
 
-var _READS_NUM int = 1024
-var _READS_SIZE int = 32
+type readCase struct {
+	name string
+	size int
+	pos int
+}
 
-func TestRead(test *testing.T) {
+func TestReadCases(test *testing.T) {
 	// Read in the original data so we have something to compare against
 	file, err := os.Open("../../europarl-en.txt")
 	if err != nil {
@@ -44,49 +45,60 @@ func TestRead(test *testing.T) {
 	// Open the filesystem so we can read from it
 	fs, err := OpenFileSystemFile("../../minix3root.img")
 	if err != nil || fs == nil {
-		test.Errorf("Failed to open file system: %s", err)
+		test.Logf("Failed to open file system: %s", err)
+		test.FailNow()
 	}
 
 	// Register a new process to use as context (umask, rootpath)
 	proc, err := fs.NewProcess(1 ,022, "/")
-	if err != nil || proc == nil {
-		test.Errorf("Failed to register a new process: %s", err)
+	if err != nil {
+		test.Logf("Failed to register a new process: %s", err)
+		test.FailNow()
 	}
 
 	// Open the file on the mounted filesystem
 	mfile, err := proc.Open("/sample/europarl-en.txt", O_RDONLY, 0666)
+	log.Printf("Opened file /sample/europarl-en.txt, has size: %v", mfile.rip.Size)
+	log.Printf("File is located on inode: %v", mfile.rip.inum)
 
-	max := len(odata) - _READS_SIZE
-	rand.Seed(time.Nanoseconds())
+	// block = position / block_size
+	// 0-6 direct blocks (4096 bytes each)
+	// 7 indirect block (1024 zone entries, holding 4096 bytes each)
+	// 8 doubly indirect block (1024 indb entries, 1024 zones, 4096 bytes each)
+	//
+	// Maximum file size using direct blocks = 28,672 (28KiB)
+	// Maximum file size using indirect+direct = 4,222,976 (4.02 MiB)
+	// Maximum file size using dblindirect+etc = 4,299,190,272 (4 GiB)
 
-	buf := make([]byte, _READS_SIZE)
+	readCases := []readCase{
+		// first block read
+		{size: 64, pos: 20000, name: "fbr direct"}, // direct zone (5th block)
+		{size: 50, pos: 45000, name: "fbr indirect"}, // indirect zone (11th block)
+	}
 
-	// Run a seek/read test several times
-	for i := 0; i < _READS_NUM; i++ {
-		// Get a random position to seek to
-		pos := rand.Intn(max)
+	for _, c := range readCases {
+		buf := make([]byte, c.size)
 
 		// Seek to the position in the file, and read a 32-byte block
-		npos, err := mfile.Seek(pos, 0)
+		npos, err := mfile.Seek(c.pos, 0)
 		if err != nil {
-			test.Errorf("Failed when seeking to position %d: %s", pos, err)
-		} else if npos != pos {
-			test.Errorf("Seek mismatch: got %d, expected %d", npos, pos)
+			test.Errorf("Failed when seeking to position %d: %s", c.pos, err)
+		} else if npos != c.pos {
+			test.Errorf("Seek mismatch: got %d, expected %d", npos, c.pos)
 		}
 
+		// Perform the read
 		n, err := mfile.Read(buf)
 		if err != nil {
 			test.Errorf("Failed when reading from mfile: %s", err)
-		} else if n != _READS_SIZE {
-			test.Errorf("Len mismatch: got %d, expected %d", n, _READS_SIZE)
+		} else if n != c.size {
+			test.Errorf("Len mismatch: got %d, expected %d", n, c.size)
 		}
 
 		// Check and see if the data matches
-		obuf := odata[pos:pos+32]
+		obuf := odata[c.pos:c.pos+c.size]
 		if !bytes.Equal(obuf, buf) {
-			test.Errorf("Data does not match: got '%q', expected '%q'", buf, obuf)
+			test.Errorf("Data does not match: \n===GOT===\n%s\n===EXPECTED===\n%s\n", buf, obuf)
 		}
 	}
-
-	log.Printf("Max seek: %d", len(odata) - _READS_SIZE)
 }

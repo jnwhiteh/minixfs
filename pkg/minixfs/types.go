@@ -53,3 +53,25 @@ type disk_dirent struct {
 	Inum uint32
 	Name [60]byte
 }
+
+func (entry disk_dirent) HasName(s string) bool {
+	b := entry.Name
+	if len(b) < len(s) {
+		return false
+	}
+	// Test each character in 's' to make sure it is in 'b'
+	for i := 0; i < len(s); i++ {
+		if b[i] != s[i] {
+			return false
+		}
+	}
+	if len(s) == len(b) {
+		return true
+	} else {
+		if b[len(s)] == 0 {
+			return true
+		}
+	}
+	return false
+}
+

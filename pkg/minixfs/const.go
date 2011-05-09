@@ -14,6 +14,7 @@ const (
 
 	V2_INODE_SIZE  = 64 // the size of an inode in bytes
 	V2_DIRENT_SIZE = 64 // the size of a dirent in bytes
+	DIR_ENTRY_SIZE = V2_DIRENT_SIZE
 
 	V2_NR_DZONES     = 7  // number of direct zones in a V2 inode
 	V2_NR_TZONES     = 10 // total # of zone numbers in a V2 inode

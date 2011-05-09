@@ -56,7 +56,7 @@ func (fs *FileSystem) GetInode(num uint) (*Inode, os.Error) {
 	inodeb := bp.block.(InodeBlock)
 
 	// We have the full block, now get the correct inode entry
-	inode_d := &inodeb[num-1%fs.super.inodes_per_block]
+	inode_d := &inodeb[(num-1)%fs.super.inodes_per_block]
 	inode := &Inode{
 		disk_inode: inode_d,
 		fs:         fs,
