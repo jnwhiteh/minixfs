@@ -69,11 +69,17 @@ func TestReadCases(test *testing.T) {
 	// Maximum file size using direct blocks = 28,672 (28KiB)
 	// Maximum file size using indirect+direct = 4,222,976 (4.02 MiB)
 	// Maximum file size using dblindirect+etc = 4,299,190,272 (4 GiB)
+	//
+	// Position 	Block
+	// 0-4095 			0 (direct)
+	// 4096-8191 		1 (direct)
+	// 24576-28671 		6 (direct)
 
 	readCases := []readCase{
 		// first block read
 		{size: 64, pos: 20000, name: "fbr direct"}, // direct zone (5th block)
 		{size: 50, pos: 45000, name: "fbr indirect"}, // indirect zone (11th block)
+		{size: 70, pos: 4227000, name: "fbr dblin"}, // doubly indirect (1032) 
 	}
 
 	for _, c := range readCases {
