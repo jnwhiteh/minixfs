@@ -20,10 +20,6 @@ type FileSystem struct {
 
 	procs    []*Process // an array of processes that have been opened
 	rootproc *Process   // a 'fake' process providing context for the filesystem
-
-	// TODO: Remove these
-	RootDir *Inode
-	WorkDir *Inode
 }
 
 // Create a new FileSystem from a given file on the filesystem
@@ -60,10 +56,6 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	}
 
 	fs.rootproc = &Process{fs, 0, 022, rip, rip}
-
-	fs.RootDir = rip
-	fs.WorkDir = fs.RootDir
-
 	return fs, nil
 }
 

@@ -35,9 +35,9 @@ func (fs *FileSystem) LastDir(proc *Process, path string) (*Inode, string, os.Er
 
 	var rip *Inode
 	if filepath.IsAbs(path) {
-		rip = fs.RootDir
+		rip = proc.rootdir
 	} else {
-		rip = fs.WorkDir
+		rip = proc.workdir
 	}
 
 	// If directory has been removed or path is empty, return ENOENT
