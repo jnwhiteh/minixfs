@@ -67,6 +67,11 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	return fs, nil
 }
 
+// Close the filesystem
+func (fs *FileSystem) Close() {
+	fs.dev.Close()
+}
+
 // The GetBlock method is a wrapper for fs.cache.GetBlock()
 func (fs *FileSystem) GetBlock(bnum int, btype BlockType) *buf {
 	return fs.cache.GetBlock(bnum, btype, false)

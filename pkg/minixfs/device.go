@@ -22,6 +22,9 @@ type BlockDevice interface {
 	Scatter([]*buf) os.Error
 
 	Gather() os.Error
+
+	// Close and cleanup the device
+	Close()
 }
 
 // A FileDevice is a block device that is backed by a file on the filesystem.
@@ -73,4 +76,8 @@ func (dev FileDevice) Scatter(bufq []*buf) os.Error {
 
 func (dev FileDevice) Gather() os.Error {
 	panic("NYI: FileDevice.Gather")
+}
+
+func (dev FileDevice) Close() {
+	dev.file.Close()
 }
