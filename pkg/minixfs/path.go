@@ -1,7 +1,6 @@
 package minixfs
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -126,7 +125,6 @@ func (fs *FileSystem) SearchDir(dirp *Inode, path string) (int, os.Error) {
 		dirarr := bp.block.(DirectoryBlock)
 		for i := 0; i < len(dirarr) && numEntries > 0; i++ {
 			if dirarr[i].HasName(path) {
-				log.Printf("Found entry %s in inode %d at inode %d", dirarr[i].Name, dirp.inum, dirarr[i].Inum)
 				return int(dirarr[i].Inum), nil
 			}
 			numEntries--
