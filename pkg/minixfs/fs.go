@@ -204,11 +204,13 @@ func (file *File) Read(b []byte) (int, os.Error) {
 
 		// If we only need a portion of this block
 		if bytesLeft < int(fs.Block_size) {
+
 			for i := 0; i < bytesLeft; i++ {
 				b[numBytes] = bdata[i]
 				numBytes++
 			}
 
+			file.pos += bytesLeft
 			fs.PutBlock(bp, FULL_DATA_BLOCK)
 			return numBytes, nil
 		}
@@ -218,6 +220,9 @@ func (file *File) Read(b []byte) (int, os.Error) {
 			b[numBytes] = bdata[i]
 			numBytes++
 		}
+
+		file.pos += len(bdata)
+		fs.PutBlock(bp, FULL_DATA_BLOCK)
 	}
 
 	return numBytes, nil
