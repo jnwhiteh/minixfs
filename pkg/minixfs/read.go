@@ -40,7 +40,7 @@ func (fs *FileSystem) ReadMap(inode *Inode, position uint) uint {
 		bp := fs.GetBlock(int(b), INDIRECT_BLOCK) // get double indirect block
 		zones := bp.block.(IndirectBlock)
 		index := excess / nr_indirects
-		z = fs.RdIndir(zones, index)       // z= zone for single
+		z = fs.RdIndir(zones, index)    // z= zone for single
 		fs.PutBlock(bp, INDIRECT_BLOCK) // release double indirect block
 		excess = excess % nr_indirects  // index into single indirect block
 	}

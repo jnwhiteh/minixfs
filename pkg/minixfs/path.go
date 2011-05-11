@@ -10,7 +10,7 @@ var ENOTDIR = os.NewError("ENOTDIR: not a directory")
 var ENOENT = os.NewError("ENOENT: no such file or directory")
 
 // EathPath parses the path 'path' and retrieves the associated inode.
-func (fs *FileSystem) EatPath(proc *Process, path string) (*Inode) {
+func (fs *FileSystem) EatPath(proc *Process, path string) *Inode {
 	ldip, rest, err := fs.LastDir(proc, path)
 	if err != nil {
 		return nil // could not open final directory
@@ -55,7 +55,7 @@ func (fs *FileSystem) LastDir(proc *Process, path string) (*Inode, string, os.Er
 		pathlist = strings.Split(path, filepath.SeparatorString, -1)
 	}
 
-	for i := 0; i < len(pathlist) - 1; i++ {
+	for i := 0; i < len(pathlist)-1; i++ {
 		newip := fs.Advance(proc, rip, pathlist[i])
 		fs.PutInode(rip)
 		if newip == nil {
@@ -70,7 +70,7 @@ func (fs *FileSystem) LastDir(proc *Process, path string) (*Inode, string, os.Er
 // Advance looks up the component 'path' in the directory 'dirp', returning
 // the inode.
 
-func (fs *FileSystem) Advance(proc *Process, dirp *Inode, path string) (*Inode) {
+func (fs *FileSystem) Advance(proc *Process, dirp *Inode, path string) *Inode {
 	// if there is no path, just return this inode
 	if len(path) == 0 {
 		rip, _ := fs.GetInode(dirp.Inum())

@@ -74,4 +74,3 @@ func (entry disk_dirent) HasName(s string) bool {
 	}
 	return false
 }
-

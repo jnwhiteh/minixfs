@@ -166,9 +166,9 @@ func (file *File) Read(b []byte) (int, os.Error) {
 	bp := fs.GetBlock(int(bnum), FULL_DATA_BLOCK)
 	bdata := bp.block.(FullDataBlock)
 
-	if len(b) < int(fs.Block_size) - offset { // this block contains all the data we need
+	if len(b) < int(fs.Block_size)-offset { // this block contains all the data we need
 		for i := 0; i < len(b); i++ {
-			b[i] = bdata[offset + i]
+			b[i] = bdata[offset+i]
 		}
 		file.pos += len(b)
 		fs.PutBlock(bp, FULL_DATA_BLOCK)
@@ -177,8 +177,8 @@ func (file *File) Read(b []byte) (int, os.Error) {
 
 	// we need this entire first block, so start filling
 	var numBytes int = 0
-	for i := 0; i < int(fs.Block_size) - offset; i++ {
-		b[i] = bdata[offset + i]
+	for i := 0; i < int(fs.Block_size)-offset; i++ {
+		b[i] = bdata[offset+i]
 		numBytes++
 	}
 
