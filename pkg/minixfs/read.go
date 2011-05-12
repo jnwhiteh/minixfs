@@ -4,7 +4,7 @@ import "log"
 
 // Given an inode and a position within the corresponding file, locate the
 // block (not zone) number in which that position is to be found and return
-func (fs *FileSystem) ReadMap(inode *Inode, position uint) uint {
+func (fs *FileSystem) read_map(inode *Inode, position uint) uint {
 	scale := fs.super.Log_zone_size                        // for block-zone conversion
 	block_pos := position / fs.super.Block_size            // relative block # in file
 	zone := block_pos >> scale                             // position's zone
@@ -37,12 +37,12 @@ func (fs *FileSystem) ReadMap(inode *Inode, position uint) uint {
 		}
 		excess = excess - nr_indirects // single indirect doesn't count
 		b := z << scale
-		bp := fs.GetBlock(int(b), INDIRECT_BLOCK) // get double indirect block
+		bp := fs.get_block(int(b), INDIRECT_BLOCK) // get double indirect block
 		zones := bp.block.(IndirectBlock)
 		index := excess / nr_indirects
-		z = fs.RdIndir(zones, index)    // z= zone for single
-		fs.PutBlock(bp, INDIRECT_BLOCK) // release double indirect block
-		excess = excess % nr_indirects  // index into single indirect block
+		z = fs.rd_indir(zones, index)    // z= zone for single
+		fs.put_block(bp, INDIRECT_BLOCK) // release double indirect block
+		excess = excess % nr_indirects   // index into single indirect block
 	}
 
 	// 'z' is zone num for single indirect block; 'excess' is index into it
@@ -51,10 +51,10 @@ func (fs *FileSystem) ReadMap(inode *Inode, position uint) uint {
 	}
 
 	b := z << scale // b is block number for single indirect
-	bp := fs.GetBlock(int(b), INDIRECT_BLOCK)
+	bp := fs.get_block(int(b), INDIRECT_BLOCK)
 	zones := bp.block.(IndirectBlock)
-	z = fs.RdIndir(zones, excess)
-	fs.PutBlock(bp, INDIRECT_BLOCK)
+	z = fs.rd_indir(zones, excess)
+	fs.put_block(bp, INDIRECT_BLOCK)
 	if z == NO_ZONE {
 		return NO_BLOCK
 	}
@@ -63,7 +63,7 @@ func (fs *FileSystem) ReadMap(inode *Inode, position uint) uint {
 }
 
 // Given a pointer to an indirect block, read one entry.
-func (fs *FileSystem) RdIndir(bp IndirectBlock, index uint) uint {
+func (fs *FileSystem) rd_indir(bp IndirectBlock, index uint) uint {
 	zone := uint(bp[index])
 	if zone != NO_ZONE && (zone < fs.super.Firstdatazone_old || zone >= fs.super.Zones) {
 		log.Printf("Illegal zone number %ld in indirect block, index %d\n", zone, index)

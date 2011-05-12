@@ -11,7 +11,7 @@ func TestAdvance(test *testing.T) {
 	var rip *Inode
 
 	// Advance to /root/.ssh/known_hosts at inode 541
-	if dirp = fs.Advance(proc, proc.rootdir, "root"); dirp == nil {
+	if dirp = fs.advance(proc, proc.rootdir, "root"); dirp == nil {
 		test.Logf("Failed to get /root directory inode")
 		test.FailNow()
 	}
@@ -19,7 +19,7 @@ func TestAdvance(test *testing.T) {
 		test.Errorf("Inodes did not match, expected %d, got %d", 519, dirp.inum)
 	}
 	// Advance to /root/.ssh
-	if dirp = fs.Advance(proc, dirp, ".ssh"); dirp == nil {
+	if dirp = fs.advance(proc, dirp, ".ssh"); dirp == nil {
 		test.Logf("Failed to get /root/.ssh directory inode")
 		test.FailNow()
 	}
@@ -27,7 +27,7 @@ func TestAdvance(test *testing.T) {
 		test.Errorf("Inodes did not match, expected %d, got %d", 519, dirp.inum)
 	}
 	// Advance to /root/.ssh/known_hosts
-	if rip = fs.Advance(proc, dirp, "known_hosts"); rip == nil {
+	if rip = fs.advance(proc, dirp, "known_hosts"); rip == nil {
 		test.Logf("Failed to get /root/.ssh/known_hosts inode")
 		test.FailNow()
 	}
@@ -43,22 +43,22 @@ func TestAdvance(test *testing.T) {
 	// predictable way
 
 	// Look up an entry that doesn't exist
-	if dirp = fs.Advance(proc, proc.rootdir, "monkeybutt"); dirp != nil {
+	if dirp = fs.advance(proc, proc.rootdir, "monkeybutt"); dirp != nil {
 		test.Errorf("Failed when looking up a missing entry, inode not nil")
 	}
 
 	// Look up an entry on a nil inode
-	if dirp = fs.Advance(proc, nil, "monkeybutt"); dirp != nil {
+	if dirp = fs.advance(proc, nil, "monkeybutt"); dirp != nil {
 		test.Errorf("Failed when looking up in a nil inode, inode not nil")
 	}
 
 	// Look up an entry in a non-directory inode
-	if dirp = fs.Advance(proc, rip, "monkeybutt"); dirp != nil {
+	if dirp = fs.advance(proc, rip, "monkeybutt"); dirp != nil {
 		test.Errorf("Failed when looking up on a non-directory inode, inode not nil")
 	}
 
 	// Look up an empty path
-	if dirp = fs.Advance(proc, proc.rootdir, ""); dirp != proc.rootdir {
+	if dirp = fs.advance(proc, proc.rootdir, ""); dirp != proc.rootdir {
 		test.Errorf("Failed when looking up with an empty path, inode not the same")
 	}
 

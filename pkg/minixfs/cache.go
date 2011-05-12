@@ -140,7 +140,7 @@ func (c *LRUCache) GetBlock(bnum int, btype BlockType, onlySearch bool) *buf {
 // file system (e.g., inode blocks) are written to the disk immediately if
 // they are dirty.
 
-func (c *LRUCache) PutBlock(bp *buf, btype BlockType) os.Error {
+func (c *LRUCache) put_block(bp *buf, btype BlockType) os.Error {
 	if bp == nil {
 		return nil
 	}

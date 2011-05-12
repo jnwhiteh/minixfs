@@ -157,7 +157,7 @@ func NewSuperblock(blocks, inodes, block_size uint) (*Superblock, os.Error) {
 }
 
 // Allocate a bit from a bit map and return its bit number
-func (fs *FileSystem) AllocBit(bmap uint, origin uint) uint {
+func (fs *FileSystem) alloc_bit(bmap uint, origin uint) uint {
 	var start_block uint // first bit block
 	var map_bits uint    // how many bits are there in the bit map
 	var bit_blocks uint  // how many blocks are there in the bit map
@@ -178,15 +178,15 @@ func (fs *FileSystem) AllocBit(bmap uint, origin uint) uint {
 	}
 
 	// Locate the starting place
-	block := origin / FS_BITS_PER_BLOCK(fs.Block_size)
-	word := (origin % FS_BITS_PER_BLOCK(fs.Block_size)) / FS_BITCHUNK_BITS
+	block := origin / FS_BITS_PER_BLOCK(fs.super.Block_size)
+	word := (origin % FS_BITS_PER_BLOCK(fs.super.Block_size)) / FS_BITCHUNK_BITS
 
 	// Iterate over all blocks plus one, because we start in the middle
 	bcount := bit_blocks + 1
 	//wlim := FS_BITMAP_CHUNKS(fs.Block_size)
 
 	for {
-		bp := fs.GetBlock(int(start_block+block), MAP_BLOCK)
+		bp := fs.get_block(int(start_block+block), MAP_BLOCK)
 		bitmaps := bp.block.(MapBlock)
 
 		// Iterate over the words in a block
@@ -205,7 +205,7 @@ func (fs *FileSystem) AllocBit(bmap uint, origin uint) uint {
 			}
 
 			// Get the bit number from the start of the bit map
-			b := (block * FS_BITS_PER_BLOCK(fs.Block_size)) + (i * FS_BITCHUNK_BITS) + bit
+			b := (block * FS_BITS_PER_BLOCK(fs.super.Block_size)) + (i * FS_BITCHUNK_BITS) + bit
 
 			// Don't allocate bits beyond the end of the map
 			if b >= map_bits {
@@ -217,11 +217,11 @@ func (fs *FileSystem) AllocBit(bmap uint, origin uint) uint {
 			bitmaps[i] = num
 
 			bp.dirty = true
-			fs.PutBlock(bp, MAP_BLOCK)
+			fs.put_block(bp, MAP_BLOCK)
 			return b
 		}
 
-		fs.PutBlock(bp, MAP_BLOCK)
+		fs.put_block(bp, MAP_BLOCK)
 		block = block + 1
 		if (block) >= bit_blocks {
 			block = 0
@@ -237,7 +237,7 @@ func (fs *FileSystem) AllocBit(bmap uint, origin uint) uint {
 }
 
 // Deallocate an inode/zone in the bitmap, freeing it up for re-use
-func (fs *FileSystem) FreeBit(bmap uint, bit_returned uint) {
+func (fs *FileSystem) free_bit(bmap uint, bit_returned uint) {
 	var start_block uint // first bit block
 
 	if bmap == IMAP {
@@ -246,13 +246,13 @@ func (fs *FileSystem) FreeBit(bmap uint, bit_returned uint) {
 		start_block = START_BLOCK + fs.super.Imap_blocks
 	}
 
-	block := bit_returned / FS_BITS_PER_BLOCK(fs.Block_size)
-	word := (bit_returned % FS_BITS_PER_BLOCK(fs.Block_size)) / FS_BITCHUNK_BITS
+	block := bit_returned / FS_BITS_PER_BLOCK(fs.super.Block_size)
+	word := (bit_returned % FS_BITS_PER_BLOCK(fs.super.Block_size)) / FS_BITCHUNK_BITS
 
 	bit := bit_returned % FS_BITCHUNK_BITS
 	mask := uint16(1) << bit
 
-	bp := fs.GetBlock(int(start_block+block), MAP_BLOCK)
+	bp := fs.get_block(int(start_block+block), MAP_BLOCK)
 	bitmaps := bp.block.(MapBlock)
 
 	k := bitmaps[word]
@@ -267,16 +267,16 @@ func (fs *FileSystem) FreeBit(bmap uint, bit_returned uint) {
 	k = k & (^mask)
 	bitmaps[word] = k
 	bp.dirty = true
-	fs.PutBlock(bp, MAP_BLOCK)
+	fs.put_block(bp, MAP_BLOCK)
 }
 
 // Return a zone
-func (fs *FileSystem) FreeZone(numb uint) {
+func (fs *FileSystem) free_zone(numb uint) {
 	if numb < fs.super.Firstdatazone_old || numb >= fs.super.Nzones {
 		return
 	}
 	bit := numb - fs.super.Firstdatazone_old - 1
-	fs.FreeBit(ZMAP, bit)
+	fs.free_bit(ZMAP, bit)
 	if bit < fs.super.I_Search {
 		fs.super.I_Search = bit
 	}

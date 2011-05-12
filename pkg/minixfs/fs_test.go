@@ -36,8 +36,8 @@ func TestOpen(test *testing.T) {
 		test.Errorf("Failed to open file system: %s", err)
 	}
 
-	if fs.Block_size != 4096 {
-		test.Errorf("block size mismatch: got %d, expected %d", fs.Block_size, 4096)
+	if fs.super.Block_size != 4096 {
+		test.Errorf("block size mismatch: got %d, expected %d", fs.super.Block_size, 4096)
 	}
 	if fs.Magic != 0x4d5a {
 		test.Errorf("magic number mismatch: got 0x%x, expected 0x%x", fs.Magic, 0x4d5a)

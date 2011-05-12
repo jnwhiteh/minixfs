@@ -32,7 +32,7 @@ func (inode *Inode) Inum() uint {
 // The root inode on the disk is ROOT_INODE_NUM, and should be located 64
 // bytes into the first block following the bitmaps.
 
-func (fs *FileSystem) GetInode(num uint) (*Inode, os.Error) {
+func (fs *FileSystem) get_inode(num uint) (*Inode, os.Error) {
 	if num == 0 {
 		return nil, os.NewError("Invalid inode number")
 	}
@@ -52,7 +52,7 @@ func (fs *FileSystem) GetInode(num uint) (*Inode, os.Error) {
 	block_num := ((num - 1) / fs.super.inodes_per_block) + uint(block_offset)
 
 	// Load the inode from the disk and create in-memory version of it
-	bp := fs.GetBlock(int(block_num), INODE_BLOCK)
+	bp := fs.get_block(int(block_num), INODE_BLOCK)
 	inodeb := bp.block.(InodeBlock)
 
 	// We have the full block, now get the correct inode entry
@@ -70,9 +70,9 @@ func (fs *FileSystem) GetInode(num uint) (*Inode, os.Error) {
 }
 
 // Allocate a free inode on the given FileSystem and return a pointer to it.
-func (fs *FileSystem) AllocInode(mode uint16) *Inode {
+func (fs *FileSystem) alloc_inode(mode uint16) *Inode {
 	// Acquire an inode from the bit map
-	b := fs.AllocBit(IMAP, fs.super.I_Search)
+	b := fs.alloc_bit(IMAP, fs.super.I_Search)
 	if b == NO_BIT {
 		log.Printf("Out of i-nodes on device")
 		return nil
@@ -81,7 +81,7 @@ func (fs *FileSystem) AllocInode(mode uint16) *Inode {
 	fs.super.I_Search = b
 
 	// Try to acquire a slot in the inode table
-	inode, err := fs.GetInode(b)
+	inode, err := fs.get_inode(b)
 	if err != nil {
 		log.Printf("Failed to get inode: %d", b)
 		return nil
@@ -92,19 +92,19 @@ func (fs *FileSystem) AllocInode(mode uint16) *Inode {
 	inode.Uid = 0 // TODO: Must get the current uid
 	inode.Gid = 0 // TODO: Must get the current gid
 
-	fs.WipeInode(inode)
+	fs.wipe_inode(inode)
 	return inode
 }
 
 // Return an inode to the pool of free inodes
-func (fs *FileSystem) FreeInode(inode *Inode) {
-	fs.FreeBit(IMAP, inode.inum)
+func (fs *FileSystem) free_inode(inode *Inode) {
+	fs.free_bit(IMAP, inode.inum)
 	if inode.inum < fs.super.I_Search {
 		fs.super.I_Search = inode.inum
 	}
 }
 
-func (fs *FileSystem) WipeInode(inode *Inode) {
+func (fs *FileSystem) wipe_inode(inode *Inode) {
 	inode.Size = 0
 	// TODO: Update ATIME, CTIME, MTIME
 	inode.dirty = true
@@ -114,24 +114,24 @@ func (fs *FileSystem) WipeInode(inode *Inode) {
 	}
 }
 
-func (fs *FileSystem) DupInode(inode *Inode) {
+func (fs *FileSystem) dup_inode(inode *Inode) {
 	inode.count++
 }
 
 // The caller is no longer using this inode. If no one else is using it
 // either write it back to the disk immediately. If it has no links,
 // truncate it and return it to the pool of available inodes.
-func (fs *FileSystem) PutInode(rip *Inode) {
+func (fs *FileSystem) put_inode(rip *Inode) {
 	if rip == nil {
 		return
 	}
 	rip.count--
 	if rip.count == 0 { // means no one is using it now
 		if rip.Nlinks == 0 { // free the inode
-			fs.Truncate(rip) // return all the disk blocks
+			fs.truncate(rip) // return all the disk blocks
 			rip.Mode = I_NOT_ALLOC
 			rip.dirty = true
-			fs.FreeInode(rip)
+			fs.free_inode(rip)
 		} else {
 			// TODO: Handle the pipe case here
 			// if rip.pipe == true {
