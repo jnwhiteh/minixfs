@@ -82,10 +82,15 @@ func (fs *FileSystem) Advance(proc *Process, dirp *Inode, path string) *Inode {
 		return nil
 	}
 
+	// check to ensure that this inode is a directory
+	if dirp.GetType() != I_DIRECTORY {
+		return nil
+	}
+
+	// TODO: Is there a way to signal an error here?
 	// ensure that 'path' is an entry in the directory
 	numb, err := fs.SearchDir(dirp, path)
 	if err != nil {
-		panic("could not find entry")
 		return nil
 	}
 

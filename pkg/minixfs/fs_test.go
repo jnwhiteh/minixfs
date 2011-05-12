@@ -10,6 +10,26 @@ import (
 	"time"
 )
 
+// Open the sample minix3 file system and create a process '1'
+func OpenMinix3(test *testing.T) (*FileSystem, *Process) {
+	// Open the filesystem so we can read from it
+	fs, err := OpenFileSystemFile("../../minix3root.img")
+	if err != nil || fs == nil {
+		test.Logf("Failed to open file system: %s", err)
+		test.FailNow()
+	}
+
+	// Register a new process to use as context (umask, rootpath)
+	proc, err := fs.NewProcess(1, 022, "/")
+	if err != nil {
+		test.Logf("Failed to register a new process: %s", err)
+		test.FailNow()
+	}
+
+	return fs, proc
+}
+
+
 func TestOpen(test *testing.T) {
 	fs, err := OpenFileSystemFile("../../minix3root.img")
 	if err != nil {
@@ -46,19 +66,7 @@ func openEuroparl(test *testing.T) ([]byte, *File) {
 	}
 	file.Close()
 
-	// Open the filesystem so we can read from it
-	fs, err := OpenFileSystemFile("../../minix3root.img")
-	if err != nil || fs == nil {
-		test.Logf("Failed to open file system: %s", err)
-		test.FailNow()
-	}
-
-	// Register a new process to use as context (umask, rootpath)
-	proc, err := fs.NewProcess(1, 022, "/")
-	if err != nil {
-		test.Logf("Failed to register a new process: %s", err)
-		test.FailNow()
-	}
+	_, proc := OpenMinix3(test)
 
 	// Open the file on the mounted filesystem
 	mfile, err := proc.Open("/sample/europarl-en.txt", O_RDONLY, 0666)
@@ -140,7 +148,7 @@ func TestRandomReads(test *testing.T) {
 	// down.
 
 	maxDataSize := 4096 * 4 // the maximum size of the read (2 blocks)
-	numTests := 1000        // the number of tests to run
+	numTests := 100         // the number of tests to run
 
 	rand.Seed(time.Nanoseconds())
 
