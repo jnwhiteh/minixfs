@@ -75,12 +75,6 @@ type Process struct {
 	workdir *Inode      // working directory of the process
 }
 
-func (proc *Process) Open(path string, flags int, perm int) (*File, os.Error) {
-	// TODO Fetch the inode for this file
-	var rip *Inode = proc.fs.eat_path(proc, path)
-	return &File{proc, 0, rip}, nil
-}
-
 var ERR_PID_EXISTS = os.NewError("Process already exists")
 var ERR_PATH_LOOKUP = os.NewError("Could not lookup path")
 
@@ -98,6 +92,26 @@ func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Proce
 	rinode := rip
 	winode := rinode
 	return &Process{fs, pid, umask, rinode, winode}, nil
+}
+
+func (proc *Process) Open(path string, flags int, perm int) (*File, os.Error) {
+	rip, err := proc.fs.eat_path(proc, path)
+	if err != nil {
+		return nil, err
+	}
+	return &File{proc, 0, rip}, nil
+}
+
+func (proc *Process) Unlink(path string) os.Error {
+	panic("NYI: Process.Unlink")
+}
+
+func (proc *Process) Mkdir(path string, mode mode_t) os.Error {
+	panic("NYI: Process.Mkdir")
+}
+
+func (proc *Process) Chdir(path string) os.Error {
+	panic("NYI: Process.Chdir")
 }
 
 // File represents an open file and is the OO equivalent of the file
@@ -202,4 +216,8 @@ func (file *File) Read(b []byte) (int, os.Error) {
 	}
 
 	return numBytes, nil
+}
+
+func (file *File) Write(data []byte) (n int, err os.Error) {
+	panic("NYI: File.Write")
 }
