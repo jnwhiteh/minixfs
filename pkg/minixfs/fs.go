@@ -67,7 +67,6 @@ func (fs *FileSystem) put_block(bp *buf, btype BlockType) {
 }
 
 // Skeleton implementation of system calls required for tests in 'fs_test.go'
-
 type Process struct {
 	fs      *FileSystem // the file system on which this process resides
 	pid     int         // numeric id of the process

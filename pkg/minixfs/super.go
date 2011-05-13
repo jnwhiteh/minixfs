@@ -178,8 +178,8 @@ func (fs *FileSystem) alloc_bit(bmap uint, origin uint) uint {
 	}
 
 	// Locate the starting place
-	block := origin / FS_BITS_PER_BLOCK(fs.super.Block_size)
-	word := (origin % FS_BITS_PER_BLOCK(fs.super.Block_size)) / FS_BITCHUNK_BITS
+	block := origin / _FS_BITS_PER_BLOCK(fs.super.Block_size)
+	word := (origin % _FS_BITS_PER_BLOCK(fs.super.Block_size)) / FS_BITCHUNK_BITS
 
 	// Iterate over all blocks plus one, because we start in the middle
 	bcount := bit_blocks + 1
@@ -205,7 +205,7 @@ func (fs *FileSystem) alloc_bit(bmap uint, origin uint) uint {
 			}
 
 			// Get the bit number from the start of the bit map
-			b := (block * FS_BITS_PER_BLOCK(fs.super.Block_size)) + (i * FS_BITCHUNK_BITS) + bit
+			b := (block * _FS_BITS_PER_BLOCK(fs.super.Block_size)) + (i * FS_BITCHUNK_BITS) + bit
 
 			// Don't allocate bits beyond the end of the map
 			if b >= map_bits {
@@ -246,8 +246,8 @@ func (fs *FileSystem) free_bit(bmap uint, bit_returned uint) {
 		start_block = START_BLOCK + fs.super.Imap_blocks
 	}
 
-	block := bit_returned / FS_BITS_PER_BLOCK(fs.super.Block_size)
-	word := (bit_returned % FS_BITS_PER_BLOCK(fs.super.Block_size)) / FS_BITCHUNK_BITS
+	block := bit_returned / _FS_BITS_PER_BLOCK(fs.super.Block_size)
+	word := (bit_returned % _FS_BITS_PER_BLOCK(fs.super.Block_size)) / FS_BITCHUNK_BITS
 
 	bit := bit_returned % FS_BITCHUNK_BITS
 	mask := uint16(1) << bit
