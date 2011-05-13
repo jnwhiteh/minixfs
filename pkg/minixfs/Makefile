@@ -7,6 +7,7 @@ GOFILES=\
 		device.go \
 		cache.go \
 		const.go \
+		errors.go \
 		fs.go \
 		link.go \
 		macros.go \

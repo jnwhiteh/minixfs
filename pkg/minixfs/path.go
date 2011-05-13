@@ -6,25 +6,22 @@ import (
 	"strings"
 )
 
-var ENOTDIR = os.NewError("ENOTDIR: not a directory")
-var ENOENT = os.NewError("ENOENT: no such file or directory")
-
 // EathPath parses the path 'path' and retrieves the associated inode.
-func (fs *FileSystem) eat_path(proc *Process, path string) *Inode {
+func (fs *FileSystem) eat_path(proc *Process, path string) (*Inode, os.Error) {
 	ldip, rest, err := fs.last_dir(proc, path)
 	if err != nil {
-		return nil // could not open final directory
+		return nil, err// could not open final directory
 	}
 
 	// If there is no more path to go, return
 	if len(rest) == 0 {
-		return ldip
+		return ldip, nil
 	}
 
 	// Get final compoennt of the path
 	rip := fs.advance(proc, ldip, rest)
 	fs.put_inode(ldip)
-	return rip
+	return rip, nil
 }
 
 // LastDir parses 'path' as far as the last directory, fetching the inode and
@@ -62,6 +59,12 @@ func (fs *FileSystem) last_dir(proc *Process, path string) (*Inode, string, os.E
 			return nil, "", ENOENT
 		}
 		rip = newip
+	}
+
+	if rip.GetType() != I_DIRECTORY {
+		// last file of path prefix is not a directory
+		fs.put_inode(rip)
+		return nil, "", ENOTDIR
 	}
 
 	return rip, pathlist[len(pathlist)-1], nil

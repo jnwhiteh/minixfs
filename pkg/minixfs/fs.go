@@ -90,9 +90,9 @@ func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Proce
 	}
 
 	// Get an inode from a path
-	rip := fs.eat_path(fs.rootproc, rootpath)
-	if rip == nil {
-		return nil, ERR_PATH_LOOKUP
+	rip, err := fs.eat_path(fs.rootproc, rootpath)
+	if err != nil {
+		return nil, err
 	}
 
 	rinode := rip
