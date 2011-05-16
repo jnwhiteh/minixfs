@@ -3,6 +3,7 @@ package minixfs
 import (
 	"encoding/binary"
 	"os"
+	"time"
 )
 
 var ERR_SEEK = os.NewError("could not seek to given position")
@@ -58,6 +59,7 @@ func (dev FileDevice) Read(buf interface{}, pos int64) os.Error {
 	return err
 }
 
+// Write implements the BlockDevice.Write method
 func (dev FileDevice) Write(buf interface{}, pos int64) os.Error {
 	newPos, err := dev.file.Seek(pos, 0)
 	if err != nil {
@@ -70,14 +72,60 @@ func (dev FileDevice) Write(buf interface{}, pos int64) os.Error {
 	return err
 }
 
+// Scatter implements the BlockDevice.Scatter method
 func (dev FileDevice) Scatter(bufq []*buf) os.Error {
 	panic("NYI: FileDevice.Scatter")
 }
 
+// Gather implements the BlockDevice.Gather method
 func (dev FileDevice) Gather() os.Error {
 	panic("NYI: FileDevice.Gather")
 }
 
+// Close implements the BlockDevice.Close method
 func (dev FileDevice) Close() {
 	dev.file.Close()
+}
+
+type DelayFileDevice struct {
+	seekDelay int64
+	dev *FileDevice
+}
+
+// NewDelayFileDevice creates a file-backed block device that has a static
+// delay for seek operations.
+func NewDelayFileDevice(filename string, byteOrder binary.ByteOrder, seekDelay int64) (*DelayFileDevice, os.Error) {
+	file, err := os.OpenFile(filename, os.O_RDWR, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DelayFileDevice{seekDelay, &FileDevice{file, filename, byteOrder}}, nil
+}
+
+// Read implements the BlockDevice.Read method
+func (dev DelayFileDevice) Read(buf interface{}, pos int64) os.Error {
+	time.Sleep(dev.seekDelay)
+	return dev.dev.Read(buf, pos)
+}
+
+// Write implements the BlockDevice.Write method
+func (dev DelayFileDevice) Write(buf interface{}, pos int64) os.Error {
+	time.Sleep(dev.seekDelay)
+	return dev.dev.Write(buf, pos)
+}
+
+// Scatter implements the BlockDevice.Scatter method
+func (dev DelayFileDevice) Scatter(bufq []*buf) os.Error {
+	panic("NYI: DelayFileDevice.Scatter")
+}
+
+// Gather implements the BlockDevice.Gather method
+func (dev DelayFileDevice) Gather() os.Error {
+	panic("NYI: DelayFileDevice.Gather")
+}
+
+// Close implements the BlockDevice.Close method
+func (dev DelayFileDevice) Close() {
+	dev.dev.Close()
 }
