@@ -1,14 +1,18 @@
 package minixfs
 
 const (
-	CHAR_BIT       = 8  // number of bits in a char
-	NR_INODES      = 64 // the number of inodes kept in memory
-	ROOT_INODE_NUM = 1  // the root inode number
-	START_BLOCK    = 2  // first block of FS (not counting SB)
+	CHAR_BIT    = 8 // number of bits in a char
+	START_BLOCK = 2 // first block of FS (not counting SB)
 
-	DEFAULT_NR_BUFS = 1024 // the number of buffer slots in buffer cache
+	ROOT_DEVICE  = 0 // the root device number
+	ROOT_INODE   = 1 // the root inode number
+	ROOT_PROCESS = 0 // the root process number (dummy)
 
-	NR_PROCS = 32 // the maximum number of processes
+	NR_FILPS  = 128  // # slots in filp table
+	NR_INODES = 64   // # slots in "in core" inode table
+	NR_SUPERS = 8    // # slots in the super block table
+	NR_PROCS  = 32   // # slots in the process table
+	NR_BUFS   = 1024 // # slots in the block cache
 
 	SUPER_V3 = 0x4d5a
 

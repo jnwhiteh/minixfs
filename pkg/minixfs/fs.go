@@ -3,19 +3,20 @@ package minixfs
 import "encoding/binary"
 import "log"
 import "os"
+import "sync"
 
 // FileSystem encapsulates a minix file system, including the shared data
 // structures associated with the file system. It abstracts away from the file
-// system residing on disk. Currently this support a single device and
-// filesystem and therefore does not support mount points.
+// system residing on disk.
 type FileSystem struct {
-	dev    BlockDevice     // the underlying filesystem device
-	super  *Superblock     // the superblock for the associated file system
-	cache  *LRUCache       // the block cache
-	inodes map[uint]*Inode // a map containing the inodes for the open files
+	devs   []BlockDevice // the block devices that comprise the file system
+	supers []*Superblock // the superblocks for the given devices
+	inodes []*Inode      // the block of in-core inode entries
+	cache  *LRUCache     // the block cache (shared across all devices)
 
-	procs    []*Process // an array of processes that have been opened
-	rootproc *Process   // a 'fake' process providing context for the filesystem
+	procs []*Process // an array of processes that have been opened
+
+	mutex *sync.RWMutex // mutex for reading/writing the above arrays
 }
 
 // Create a new FileSystem from a given file on the filesystem
@@ -33,32 +34,44 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 		return nil, err
 	}
 
-	fs.dev = dev
-	fs.super = super
-	fs.cache = NewLRUCache(dev, int(super.Block_size), DEFAULT_NR_BUFS)
-	fs.inodes = make(map[uint]*Inode)
-
+	fs.devs = make([]BlockDevice, NR_SUPERS)
+	fs.supers = make([]*Superblock, NR_SUPERS)
+	fs.inodes = make([]*Inode, NR_INODES)
 	fs.procs = make([]*Process, NR_PROCS)
 
+	fs.cache = NewLRUCache(fs, NR_BUFS)
+	fs.mutex = new(sync.RWMutex)
+
+	fs.devs[ROOT_DEVICE] = dev
+	fs.supers[ROOT_DEVICE] = super
+
 	// fetch the root inode
-	rip, err := fs.get_inode(ROOT_INODE_NUM)
+	rip, err := fs.get_inode(ROOT_DEVICE, ROOT_INODE)
 	if err != nil {
 		log.Printf("Unable to fetch root inode: %s", err)
 		return nil, err
 	}
 
-	fs.rootproc = &Process{fs, 0, 022, rip, rip}
+	fs.procs[ROOT_PROCESS] = &Process{fs, 0, 022, rip, rip}
 	return fs, nil
 }
 
 // Close the filesystem
 func (fs *FileSystem) Close() {
-	fs.dev.Close()
+	fs.mutex.Lock()
+	for i := 0; i < NR_SUPERS; i++ {
+		if fs.devs[i] != nil {
+			fs.cache.Flush(i)
+			fs.devs[i].Close()
+			fs.devs[i] = nil
+		}
+	}
+	fs.mutex.Unlock()
 }
 
 // The GetBlock method is a wrapper for fs.cache.GetBlock()
-func (fs *FileSystem) get_block(bnum int, btype BlockType) *buf {
-	return fs.cache.GetBlock(bnum, btype, false)
+func (fs *FileSystem) get_block(dev, bnum int, btype BlockType) *buf {
+	return fs.cache.GetBlock(dev, bnum, btype, false)
 }
 
 // The PutBlock method is a wrapper for fs.cache.PutBlock()
@@ -84,7 +97,7 @@ func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Proce
 	}
 
 	// Get an inode from a path
-	rip, err := fs.eat_path(fs.rootproc, rootpath)
+	rip, err := fs.eat_path(fs.procs[ROOT_PROCESS], rootpath)
 	if err != nil {
 		return nil, err
 	}
@@ -153,18 +166,20 @@ func (file *File) Read(b []byte) (int, os.Error) {
 	}
 
 	fs := file.proc.fs
+	dev := file.rip.dev
+	blocksize := int(fs.supers[dev].Block_size)
 
 	// We can't just start reading at the start of a block, since we may be at
 	// an offset within that block. So work out the first chunk to read
-	offset := file.pos % int(fs.super.Block_size)
+	offset := file.pos % blocksize
 	bnum := fs.read_map(file.rip, uint(file.pos))
 
 	// TODO: Error check this
 	// read the first data block and copy the portion of data we need
-	bp := fs.get_block(int(bnum), FULL_DATA_BLOCK)
+	bp := fs.get_block(dev, int(bnum), FULL_DATA_BLOCK)
 	bdata := bp.block.(FullDataBlock)
 
-	if len(b) < int(fs.super.Block_size)-offset { // this block contains all the data we need
+	if len(b) < blocksize-offset { // this block contains all the data we need
 		for i := 0; i < len(b); i++ {
 			b[i] = bdata[offset+i]
 		}
@@ -175,7 +190,7 @@ func (file *File) Read(b []byte) (int, os.Error) {
 
 	// we need this entire first block, so start filling
 	var numBytes int = 0
-	for i := 0; i < int(fs.super.Block_size)-offset; i++ {
+	for i := 0; i < blocksize-offset; i++ {
 		b[i] = bdata[offset+i]
 		numBytes++
 	}
@@ -187,13 +202,13 @@ func (file *File) Read(b []byte) (int, os.Error) {
 	// will likely be a partial block, so handle that specially.
 	for numBytes < len(b) {
 		bnum = fs.read_map(file.rip, uint(file.pos))
-		bp := fs.get_block(int(bnum), FULL_DATA_BLOCK)
+		bp := fs.get_block(dev, int(bnum), FULL_DATA_BLOCK)
 		bdata := bp.block.(FullDataBlock)
 
 		bytesLeft := len(b) - numBytes // the number of bytes still needed
 
 		// If we only need a portion of this block
-		if bytesLeft < int(fs.super.Block_size) {
+		if bytesLeft < blocksize {
 
 			for i := 0; i < bytesLeft; i++ {
 				b[numBytes] = bdata[i]

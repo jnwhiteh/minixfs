@@ -5,7 +5,7 @@ import "os"
 
 type Inode struct {
 	*disk_inode
-	fs    *FileSystem
+	dev   int
 	count uint
 	inum  uint
 	dirty bool
@@ -32,56 +32,75 @@ func (inode *Inode) Inum() uint {
 // The root inode on the disk is ROOT_INODE_NUM, and should be located 64
 // bytes into the first block following the bitmaps.
 
-func (fs *FileSystem) get_inode(num uint) (*Inode, os.Error) {
+func (fs *FileSystem) get_inode(dev int, num uint) (*Inode, os.Error) {
 	if num == 0 {
 		return nil, os.NewError("Invalid inode number")
 	}
 
-	// Check and see if the inode is already loaded in memory
-	if inode, ok := fs.inodes[num]; ok {
-		inode.count++
-		return inode, nil
+	avail := -1
+	for i := 0; i < NR_INODES; i++ {
+		rip := fs.inodes[i]
+		if rip != nil && rip.count > 0 { // only check used slots for (dev, numb)
+			if int(rip.dev) == dev && rip.inum == num {
+				// this is the inode that we are looking for
+				rip.count++
+				return rip, nil
+			}
+		} else {
+			avail = i // remember this free slot for late
+		}
 	}
 
-	if len(fs.inodes) >= NR_INODES {
-		return nil, os.NewError("Too many open inodes")
+	// Inode we want is not currently in ise. Did we find a free slot?
+	if avail == -1 { // inode table completely full
+		return nil, ENFILE
 	}
+
+	// A free inode slot has been located. Load the inode into it
+	xp := fs.inodes[avail]
+	if xp == nil {
+		xp = new(Inode)
+	}
+
+	super := fs.supers[dev]
 
 	// For a 4096 block size, inodes 0-63 reside in the first block
-	block_offset := fs.super.Imap_blocks + fs.super.Zmap_blocks + 2
-	block_num := ((num - 1) / fs.super.inodes_per_block) + uint(block_offset)
+	block_offset := super.Imap_blocks + super.Zmap_blocks + 2
+	block_num := ((num - 1) / super.inodes_per_block) + uint(block_offset)
 
 	// Load the inode from the disk and create in-memory version of it
-	bp := fs.get_block(int(block_num), INODE_BLOCK)
+	bp := fs.get_block(dev, int(block_num), INODE_BLOCK)
 	inodeb := bp.block.(InodeBlock)
 
 	// We have the full block, now get the correct inode entry
-	inode_d := &inodeb[(num-1)%fs.super.inodes_per_block]
-	inode := &Inode{
-		disk_inode: inode_d,
-		fs:         fs,
-		count:      1,
-		inum:       num,
-		dirty:      false,
-	}
-	fs.inodes[num] = inode
+	inode_d := &inodeb[(num-1)%super.inodes_per_block]
+	xp.disk_inode = inode_d
+	xp.dev = dev
+	xp.inum = num
+	xp.count = 1
+	xp.dirty = false
 
-	return inode, nil
+	// add the inode to the cache
+	fs.inodes[avail] = xp
+
+	return xp, nil
 }
 
-// Allocate a free inode on the given FileSystem and return a pointer to it.
-func (fs *FileSystem) alloc_inode(mode uint16) *Inode {
+// Allocate a free inode on the given device and return a pointer to it.
+func (fs *FileSystem) alloc_inode(dev int, mode uint16) *Inode {
+	super := fs.supers[dev]
+
 	// Acquire an inode from the bit map
-	b := fs.alloc_bit(IMAP, fs.super.I_Search)
+	b := fs.alloc_bit(dev, IMAP, super.I_Search)
 	if b == NO_BIT {
 		log.Printf("Out of i-nodes on device")
 		return nil
 	}
 
-	fs.super.I_Search = b
+	super.I_Search = b
 
 	// Try to acquire a slot in the inode table
-	inode, err := fs.get_inode(b)
+	inode, err := fs.get_inode(dev, b)
 	if err != nil {
 		log.Printf("Failed to get inode: %d", b)
 		return nil
@@ -98,9 +117,11 @@ func (fs *FileSystem) alloc_inode(mode uint16) *Inode {
 
 // Return an inode to the pool of free inodes
 func (fs *FileSystem) free_inode(inode *Inode) {
-	fs.free_bit(IMAP, inode.inum)
-	if inode.inum < fs.super.I_Search {
-		fs.super.I_Search = inode.inum
+	super := fs.supers[inode.dev]
+
+	fs.free_bit(inode.dev, IMAP, inode.inum)
+	if inode.inum < super.I_Search {
+		super.I_Search = inode.inum
 	}
 }
 

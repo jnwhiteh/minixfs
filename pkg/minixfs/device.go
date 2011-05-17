@@ -89,7 +89,7 @@ func (dev FileDevice) Close() {
 
 type DelayFileDevice struct {
 	seekDelay int64
-	dev *FileDevice
+	dev       *FileDevice
 }
 
 // NewDelayFileDevice creates a file-backed block device that has a static

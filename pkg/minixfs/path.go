@@ -10,7 +10,7 @@ import (
 func (fs *FileSystem) eat_path(proc *Process, path string) (*Inode, os.Error) {
 	ldip, rest, err := fs.last_dir(proc, path)
 	if err != nil {
-		return nil, err// could not open final directory
+		return nil, err // could not open final directory
 	}
 
 	// If there is no more path to go, return
@@ -72,11 +72,10 @@ func (fs *FileSystem) last_dir(proc *Process, path string) (*Inode, string, os.E
 
 // Advance looks up the component 'path' in the directory 'dirp', returning
 // the inode.
-
 func (fs *FileSystem) advance(proc *Process, dirp *Inode, path string) *Inode {
 	// if there is no path, just return this inode
 	if len(path) == 0 {
-		rip, _ := fs.get_inode(dirp.Inum())
+		rip, _ := fs.get_inode(dirp.dev, dirp.Inum())
 		return rip
 	}
 
@@ -99,12 +98,12 @@ func (fs *FileSystem) advance(proc *Process, dirp *Inode, path string) *Inode {
 
 	// don't go beyond the current root directory, ever
 	if dirp == proc.rootdir && path == ".." {
-		rip, _ := fs.get_inode(dirp.Inum())
+		rip, _ := fs.get_inode(dirp.dev, dirp.Inum())
 		return rip
 	}
 
 	// the component has been found in the directory, get the inode
-	rip, _ := fs.get_inode(uint(numb))
+	rip, _ := fs.get_inode(dirp.dev, uint(numb))
 	if rip == nil {
 		return nil
 	}
@@ -121,11 +120,13 @@ func (fs *FileSystem) search_dir(dirp *Inode, path string) (int, os.Error) {
 		return 0, ENOTDIR
 	}
 
+	super := fs.supers[dirp.dev]
+
 	// step through the directory on block at a time
 	numEntries := dirp.Size / DIR_ENTRY_SIZE
-	for pos := 0; pos < int(dirp.Size); pos += int(fs.super.Block_size) {
+	for pos := 0; pos < int(dirp.Size); pos += int(super.Block_size) {
 		b := fs.read_map(dirp, uint(pos)) // get block number
-		bp := fs.get_block(int(b), DIRECTORY_BLOCK)
+		bp := fs.get_block(dirp.dev, int(b), DIRECTORY_BLOCK)
 		if bp == nil {
 			panic("get_block returned NO_BLOCK")
 		}

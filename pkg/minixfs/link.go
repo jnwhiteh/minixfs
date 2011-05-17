@@ -9,9 +9,10 @@ func (fs *FileSystem) truncate(rip *Inode) {
 		return
 	}
 
-	scale := fs.super.Log_zone_size
-	zone_size := fs.super.Block_size << scale
-	nr_indirects := fs.super.Block_size / V2_ZONE_NUM_SIZE
+	super := fs.supers[rip.dev]
+	scale := super.Log_zone_size
+	zone_size := super.Block_size << scale
+	nr_indirects := super.Block_size / V2_ZONE_NUM_SIZE
 
 	// PIPE:
 	// // Pipes can shrink, so adjust size to make sure all zones are removed
@@ -24,7 +25,7 @@ func (fs *FileSystem) truncate(rip *Inode) {
 	for position := uint(0); position < uint(rip.Size); position += zone_size {
 		if b := fs.read_map(rip, position); b != NO_BLOCK {
 			z := b >> scale
-			fs.free_zone(z)
+			fs.free_zone(rip.dev, z)
 		}
 	}
 
@@ -36,19 +37,18 @@ func (fs *FileSystem) truncate(rip *Inode) {
 	// 	return
 	// }
 	single := V2_NR_DZONES
-	fs.free_zone(uint(rip.Zone[single]))
+	fs.free_zone(rip.dev, uint(rip.Zone[single]))
 	if z := rip.Zone[single+1]; z != NO_ZONE {
 		// free all the single indirect zones pointed to by the double
 		b := int(z << scale)
-		bp := fs.get_block(b, INDIRECT_BLOCK)
-		zones := bp.block.(IndirectBlock)
+		bp := fs.get_block(rip.dev, b, INDIRECT_BLOCK)
 		for i := uint(0); i < nr_indirects; i++ {
-			z1 := fs.rd_indir(zones, i)
-			fs.free_zone(z1)
+			z1 := fs.rd_indir(bp, i)
+			fs.free_zone(rip.dev, z1)
 		}
 		// now free the double indirect zone itself
 		fs.put_block(bp, INDIRECT_BLOCK)
-		fs.free_zone(uint(z))
+		fs.free_zone(rip.dev, uint(z))
 	}
 
 	// leave zone numbers for de(1) to recover file after an unlink(2)

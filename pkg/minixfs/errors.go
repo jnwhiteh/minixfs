@@ -8,6 +8,7 @@ import (
 // specifically from lib/ansi/errlist.c.
 
 var (
-	ENOENT = os.NewError("No such file or directory")
+	ENFILE  = os.NewError("File table overflow")
+	ENOENT  = os.NewError("No such file or directory")
 	ENOTDIR = os.NewError("Not a directory")
 )

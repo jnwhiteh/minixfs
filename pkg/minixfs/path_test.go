@@ -60,6 +60,7 @@ func TestAdvance(test *testing.T) {
 	// Look up an empty path
 	if dirp = fs.advance(proc, proc.rootdir, ""); dirp != proc.rootdir {
 		test.Errorf("Failed when looking up with an empty path, inode not the same")
+		test.Logf("Got %q, expected %q", proc.rootdir, dirp)
 	}
 
 	fs.Close()
