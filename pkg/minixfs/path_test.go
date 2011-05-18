@@ -23,16 +23,16 @@ func TestAdvance(test *testing.T) {
 		test.Logf("Failed to get /root/.ssh directory inode")
 		test.FailNow()
 	}
-	if dirp.inum != 540 {
-		test.Errorf("Inodes did not match, expected %d, got %d", 519, dirp.inum)
+	if dirp.inum != 539 {
+		test.Errorf("Inodes did not match, expected %d, got %d", 539, dirp.inum)
 	}
 	// Advance to /root/.ssh/known_hosts
 	if rip = fs.advance(proc, dirp, "known_hosts"); rip == nil {
 		test.Logf("Failed to get /root/.ssh/known_hosts inode")
 		test.FailNow()
 	}
-	if rip.inum != 541 {
-		test.Errorf("Inodes did not match, expected %d, got %d", 519, dirp.inum)
+	if rip.inum != 540 {
+		test.Errorf("Inodes did not match, expected %d, got %d", 540, dirp.inum)
 	}
 	// Verify the size of the file
 	if rip.Size != 395 {
