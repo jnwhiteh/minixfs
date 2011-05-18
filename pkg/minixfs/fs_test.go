@@ -33,7 +33,8 @@ func OpenMinix3(test *testing.T) (*FileSystem, *Process) {
 func TestOpen(test *testing.T) {
 	fs, err := OpenFileSystemFile("../../minix3root.img")
 	if err != nil {
-		test.Errorf("Failed to open file system: %s", err)
+		test.Logf("Failed to open file system: %s", err)
+		test.FailNow()
 	}
 
 	if fs.supers[0].Block_size != 4096 {
