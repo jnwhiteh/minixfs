@@ -26,6 +26,9 @@ type Superblock struct {
 	Disk_version byte // filesystem format sub-version
 
 	I_Search uint // when searching for an unused inode, start at this bit
+
+	isup   *Inode // inode for root dir of mounted file system
+	imount *Inode // inode mounted on
 }
 
 func bitmapsize(nr_bits uint, block_size uint) uint {

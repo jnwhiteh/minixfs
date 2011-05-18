@@ -32,6 +32,7 @@ const (
 	NO_ZONE  = 0
 	NO_BLOCK = 0
 	NO_BIT   = 0
+	NO_DEV = -1
 
 	// When a block is released, the type of usage is passed to put_block()
 	WRITE_IMMED = 0100 // block should be written to disk now

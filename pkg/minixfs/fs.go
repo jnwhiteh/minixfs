@@ -79,6 +79,16 @@ func (fs *FileSystem) put_block(bp *buf, btype BlockType) {
 	fs.cache.put_block(bp, btype)
 }
 
+// Return the device number corresponding to a given device or NO_DEV
+func (fs *FileSystem) _getdevnum(dev BlockDevice) (int) {
+	for i := 0; i < NR_SUPERS; i++ {
+		if fs.devs[i] == dev {
+			return i
+		}
+	}
+	return NO_DEV
+}
+
 // Skeleton implementation of system calls required for tests in 'fs_test.go'
 type Process struct {
 	fs      *FileSystem // the file system on which this process resides
@@ -235,4 +245,10 @@ func (file *File) Read(b []byte) (int, os.Error) {
 
 func (file *File) Write(data []byte) (n int, err os.Error) {
 	panic("NYI: File.Write")
+}
+
+// TODO: Should this always be succesful?
+func (file *File) Close() {
+	file.proc.fs.put_inode(file.rip)
+	file.proc = nil
 }

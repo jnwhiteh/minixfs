@@ -108,8 +108,44 @@ func (fs *FileSystem) advance(proc *Process, dirp *Inode, path string) *Inode {
 		return nil
 	}
 
-	// TODO: Handle mounted file systems here
+	if rip.inum == ROOT_INODE {
+		if dirp.inum == ROOT_INODE {
+			// TODO: What does this do?
+			if path[1] == '.' {
+				if fs.devs[rip.dev] != nil {
+					// we can skip the superblock search here since we know
+					// that 'i' is the device that we're looking at.
+					sp := fs.supers[rip.dev]
+					fs.put_inode(rip)
+					mnt_dev := sp.imount.dev
+					inumb := sp.imount.inum
+					rip2, _ := fs.get_inode(mnt_dev, inumb) // TODO: ignore error
+					rip = fs.advance(proc, rip2, path)
+					fs.put_inode(rip2)
+				}
+			}
+		}
+	}
 
+	if rip == nil {
+		return nil
+	}
+
+	// See if the inode is mounted on. If so, switch to the root directory of
+	// the mounted file system. The super_block provides the linkage between
+	// the inode mounted on and the root directory of the mounted file system.
+	for rip != nil && rip.mount {
+		// The inode is indeed mounted on
+		for i := 0; i < NR_SUPERS; i++ {
+			if fs.supers[i] != nil && fs.supers[i].imount == rip {
+				// Release the inode mounted on. Replace by the inode of the
+				// root inode of the mounted device.
+				fs.put_inode(rip)
+				rip, _ = fs.get_inode(i, ROOT_INODE) // TODO: ignore error
+				break
+			}
+		}
+	}
 	return rip
 }
 

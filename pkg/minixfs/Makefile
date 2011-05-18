@@ -11,6 +11,8 @@ GOFILES=\
 		fs.go \
 		link.go \
 		macros.go \
+		misc.go \
+		mount.go \
 		open.go \
 		inode.go \
 		path.go \

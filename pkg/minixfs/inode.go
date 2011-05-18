@@ -9,6 +9,7 @@ type Inode struct {
 	count uint
 	inum  uint
 	dirty bool
+	mount bool
 }
 
 func (inode *Inode) GetType() uint16 {
