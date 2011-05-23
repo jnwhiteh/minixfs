@@ -3,6 +3,7 @@ package minixfs
 import (
 	"encoding/binary"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -33,6 +34,7 @@ type FileDevice struct {
 	file      *os.File         // the file that represents this device
 	filename  string           // the path to the given file
 	byteOrder binary.ByteOrder // the byte order of the given file
+	m         *sync.RWMutex
 }
 
 // NewFileDevice creates a new file-backed block device, given a filename
@@ -43,11 +45,12 @@ func NewFileDevice(filename string, byteOrder binary.ByteOrder) (*FileDevice, os
 		return nil, err
 	}
 
-	return &FileDevice{file, filename, byteOrder}, nil
+	return &FileDevice{file, filename, byteOrder, new(sync.RWMutex)}, nil
 }
 
 // Read implements the BlockDevice.Read method
 func (dev FileDevice) Read(buf interface{}, pos int64) os.Error {
+	dev.m.RLock() // acquire the read mutex
 	newPos, err := dev.file.Seek(pos, 0)
 	if err != nil {
 		return err
@@ -56,11 +59,13 @@ func (dev FileDevice) Read(buf interface{}, pos int64) os.Error {
 	}
 
 	err = binary.Read(dev.file, dev.byteOrder, buf)
+	dev.m.RUnlock() // release the read mutex
 	return err
 }
 
 // Write implements the BlockDevice.Write method
 func (dev FileDevice) Write(buf interface{}, pos int64) os.Error {
+	dev.m.Lock() // acquire the write mutex
 	newPos, err := dev.file.Seek(pos, 0)
 	if err != nil {
 		return err
@@ -69,6 +74,7 @@ func (dev FileDevice) Write(buf interface{}, pos int64) os.Error {
 	}
 
 	err = binary.Write(dev.file, dev.byteOrder, buf)
+	dev.m.Unlock() // release the write mutex
 	return err
 }
 
@@ -84,9 +90,14 @@ func (dev FileDevice) Gather() os.Error {
 
 // Close implements the BlockDevice.Close method
 func (dev FileDevice) Close() {
+	dev.m.Lock() // acquire the write mutex
 	dev.file.Close()
+	dev.m.Unlock() // release the write mutex
 }
 
+// DelayFileDevice represents a file-backed block device that has a static
+// delay for seek operations. There is no explicit locking performed in this
+// device, it instead relies on the locking of the underlying FileDevice.
 type DelayFileDevice struct {
 	seekDelay int64
 	dev       *FileDevice
@@ -100,7 +111,8 @@ func NewDelayFileDevice(filename string, byteOrder binary.ByteOrder, seekDelay i
 		return nil, err
 	}
 
-	return &DelayFileDevice{seekDelay, &FileDevice{file, filename, byteOrder}}, nil
+	fdev := &FileDevice{file, filename, byteOrder, new(sync.RWMutex)}
+	return &DelayFileDevice{seekDelay, fdev}, nil
 }
 
 // Read implements the BlockDevice.Read method
