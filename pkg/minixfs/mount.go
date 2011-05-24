@@ -46,6 +46,7 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
 	// there is a problem)
 	fs.devs[freeIndex] = dev
 	fs.supers[freeIndex] = sp
+	fs.cache.MountDevice(freeIndex, dev, sp)
 
 	// Get the inode of the file to be mounted on
 	rip, err := fs.eat_path(fs.procs[ROOT_PROCESS], path)
@@ -96,9 +97,10 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
 		fs.put_inode(root_ip)
 		fs.do_sync()
 		fs.cache.Invalidate(freeIndex)
-		dev.Close()
 		fs.devs[freeIndex] = nil
 		fs.supers[freeIndex] = nil
+		fs.cache.UnmountDevice(freeIndex)
+		dev.Close()
 		return r
 	}
 
@@ -149,7 +151,7 @@ func (fs *FileSystem) Unmount(dev BlockDevice) os.Error {
 	// Finish off the unmount
 	sp.imount.mount = false // inode returns to normal
 	fs.put_inode(sp.imount) // release the inode mounted on
-	fs.put_inode(sp.isup) // release the root inode of the mounted fs
+	fs.put_inode(sp.isup)   // release the root inode of the mounted fs
 	sp.imount = nil
 
 	fs.devs[devnum] = nil

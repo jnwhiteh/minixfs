@@ -39,11 +39,17 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	fs.inodes = make([]*Inode, NR_INODES)
 	fs.procs = make([]*Process, NR_PROCS)
 
-	fs.cache = NewLRUCache(fs, NR_BUFS)
+	fs.cache = NewLRUCache(NR_BUFS)
 	fs.mutex = new(sync.RWMutex)
 
 	fs.devs[ROOT_DEVICE] = dev
 	fs.supers[ROOT_DEVICE] = super
+
+	err = fs.cache.MountDevice(ROOT_DEVICE, dev, super)
+	if err != nil {
+		log.Printf("Could not mount root device: %s", err)
+		return nil, err
+	}
 
 	// fetch the root inode
 	rip, err := fs.get_inode(ROOT_DEVICE, ROOT_INODE)
@@ -71,7 +77,7 @@ func (fs *FileSystem) Close() {
 
 // The GetBlock method is a wrapper for fs.cache.GetBlock()
 func (fs *FileSystem) get_block(dev, bnum int, btype BlockType) *buf {
-	return fs.cache.GetBlock(dev, bnum, btype, false)
+	return fs.cache.GetBlock(dev, bnum, btype, NORMAL)
 }
 
 // The PutBlock method is a wrapper for fs.cache.PutBlock()
@@ -80,7 +86,7 @@ func (fs *FileSystem) put_block(bp *buf, btype BlockType) {
 }
 
 // Return the device number corresponding to a given device or NO_DEV
-func (fs *FileSystem) _getdevnum(dev BlockDevice) (int) {
+func (fs *FileSystem) _getdevnum(dev BlockDevice) int {
 	for i := 0; i < NR_SUPERS; i++ {
 		if fs.devs[i] == dev {
 			return i

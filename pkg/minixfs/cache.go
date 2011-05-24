@@ -1,21 +1,18 @@
 package minixfs
 
-import "fmt"
-import "os"
-
 // The buffer cache in the Minix file system is built on top of the raw device
-// and provides access to recently requested blocks served from memory. In
-// this implementation, this is just a limited length hash. Since Go is
-// garbage collected, we do not have to worry about keeping static buffers of
-// blocks, we just remove all references to a block when we wish to remove it
-// and can freely allocate a new one.
+// and provides access to recently requested blocks served from memory.
 //
 // When a block is obtained via 'GetBlock' its count field is incremented and
 // marks it in-use. When a block is returned using 'PutBlock', this same field
 // is decremented. Only if this field is 0 is the block actually moved to the
 // list of blocks available for eviction.
-//
-// For simplicity, each block cache is tied to a single device.
+
+import "fmt"
+import "log"
+import "os"
+import "runtime"
+import "sync"
 
 type BlockType int
 
@@ -41,77 +38,170 @@ type buf struct {
 
 	next *buf // used to link all free bufs in a chain
 	prev *buf // used to link all free bufs the other way
+
+	b_hash *buf // used to link all bufs for a hash mask together
 }
 
 // LRUCache is a block cache implementation that will evict the least recently
 // used block when necessary. The number of cached blocks is static.
 type LRUCache struct {
-	fs    *FileSystem    // the filesystem for which this is a cache
-	bhash []map[int]*buf // a hash from block number to buf
+	// These struct elements are duplicates of those that can be found in
+	// the FileSystem struct. By duplicating them, we make LRUCache a
+	// self-contained data structure that has a well-defined interface.
+	devs   []BlockDevice // the block devices that comprise the file system
+	supers []*Superblock // the superblocks for the given devices
+
+	buf      []*buf // static list of cache blocks
+	buf_hash []*buf // the buffer hash table
 
 	size     int // the current size of the cache, in blocks
 	max_size int // the maximum size of the cache, in blocks
 
 	front *buf // a pointer to the least recently used block
 	rear  *buf // a pointer to the most recently used block
+
+	m *sync.RWMutex
 }
 
 // NewLRUCache creates a new LRUCache with the given size
-func NewLRUCache(fs *FileSystem, size int) *LRUCache {
+func NewLRUCache(size int) *LRUCache {
 	cache := &LRUCache{
-		fs:       fs,
-		bhash:    make([]map[int]*buf, NR_SUPERS),
+		devs:     make([]BlockDevice, NR_SUPERS),
+		supers:   make([]*Superblock, NR_SUPERS),
+		buf:      make([]*buf, NR_BUFS),
+		buf_hash: make([]*buf, NR_BUF_HASH),
 		size:     0,
 		max_size: size,
-		front:    nil,
-		rear:     nil,
+		m:        new(sync.RWMutex),
 	}
 
-	// TODO: A hashmap won't ever compact itself, so we can end up using more
-	// actual space than if we had just kept a static buffer with a hash chain
-	// as in the original implementation.
-	for i := 0; i < NR_SUPERS; i++ {
-		cache.bhash[i] = make(map[int]*buf)
+	// Create all of the entries in buf ahead of time
+	for i := 0; i < NR_BUFS; i++ {
+		cache.buf[i] = new(buf)
 	}
+
+	for i := 1; i < NR_BUFS-1; i++ {
+		cache.buf[i].prev = cache.buf[i-1]
+		cache.buf[i].next = cache.buf[i+1]
+	}
+
+	cache.front = cache.buf[0]
+	cache.front.next = cache.buf[1]
+
+	cache.rear = cache.buf[NR_BUFS-1]
+	cache.rear.prev = cache.buf[NR_BUFS-2]
+
+	for i := 0; i < NR_BUFS-1; i++ {
+		cache.buf[i].b_hash = cache.buf[i].next
+	}
+
+	cache.buf_hash[0] = cache.front
 	return cache
 }
 
-func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, onlySearch bool) *buf {
-	hash := c.bhash[dev]
-	// Check to see if the block is cached
-	if buf, ok := hash[bnum]; ok {
-		if buf.count == 0 {
-			c.rm_lru(buf) // remove the block from the free list
-			buf.count++
-			c.size++
-			return buf
-		}
+// Associate a BlockDevice and *Superblock with a device number so it can be
+// used internally. This operation requires the write portion of the RWMutex
+// since it alters the devs and supers arrays.
+func (c *LRUCache) MountDevice(devno int, dev BlockDevice, super *Superblock) os.Error {
+	c.m.Lock() // acquire the write mutex (+++)
+	if c.devs[devno] != nil || c.supers[devno] != nil {
+		c.m.Unlock() // release the write mutex (---)
+		return EBUSY
 	}
+	c.devs[devno] = dev
+	c.supers[devno] = super
+	c.m.Unlock() // release the write mutex (---)
+	return nil
+}
 
-	// Block was not found, check if we need to evict a block
-	if c.size >= c.max_size {
-		if c.front == nil {
-			// TODO: Is this the right behaviour?
-			panic(fmt.Sprintf("cache: all buffers in use: %d", c.size))
-		} else {
-			// Evict the block on the front of the LRU chain
-			bp := c.front
-			hash[bp.blocknr] = nil, false
-			c.rm_lru(bp)
-			c.size--
+// Clear an association between a BlockDevice/*Superblock pair and a device
+// number.
+func (c *LRUCache) UnmountDevice(devno int) os.Error {
+	c.m.Lock() // acquire the write mutex (+++)
+	c.devs[devno] = nil
+	c.supers[devno] = nil
+	c.m.Unlock() // release the write mutex (---)
+	return nil
+}
 
-			// If the block being evicted is dirty, make it clean by writing
-			// it to the disk. Avoid hysterisis by flushing all other dirty
-			// blocks for this device.
-			if bp.dirty {
-				c.Flush(bp.dev)
+var here = func() {
+	_, file, line, _ := runtime.Caller(1)
+	log.Printf("%s:%d", file, line)
+}
+
+// GetBlock obtains a specified block from a given device. This function
+// requires that the device specific is a mounted valid device, no further
+// error checking is performed here.
+func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *buf {
+	c.m.Lock() // acquire the write mutex (+++)
+
+	var bp *buf
+
+	// Search the hash chain for (dev, block). Each block number is hashed to
+	// a bucket in c.buf_hash and the blocks stored there are linked via the
+	// b_hash pointers in the *buf struct.
+	if dev != NO_DEV {
+		b := bnum & HASH_MASK
+		bp = c.buf_hash[b]
+		for bp != nil {
+			if bp.blocknr == bnum && bp.dev == dev {
+				// Block needed has been found
+				if bp.count == 0 {
+					c._NL_rm_lru(bp)
+				}
+				bp.count++
+				c.m.Unlock() // release the write mutex (---)
+				return bp
+			} else {
+				// This block is not the one sought
+				bp = bp.b_hash
 			}
 		}
 	}
 
-	// Allocate a new block and fetch the data from the device
-	bp := new(buf)
-	blocksize := int(c.fs.supers[dev].Block_size)
+	// Desired block is not available on chain. Take oldest block ('front')
+	bp = c.front
+	if bp == nil {
+		c.m.Unlock() // release the write mutex (---)
+		panic("all buffers in use")
+	}
+	c._NL_rm_lru(bp)
+
+	// Remove the block that was just taken from its hash chain
+	b := bp.blocknr & HASH_MASK
+	prev_ptr := c.buf_hash[b]
+	if prev_ptr == bp {
+		c.buf_hash[b] = bp.b_hash
+	} else {
+		log.Printf("prev_ptr: %p", prev_ptr)
+		// The block just taken is not on the front of its hash chain
+		for prev_ptr.b_hash != nil {
+			if prev_ptr.b_hash == bp {
+				prev_ptr.b_hash = bp.b_hash // found it
+				break
+			} else {
+				prev_ptr = prev_ptr.b_hash // keep looking
+			}
+		}
+	}
+
+	// If the block taken is dirty, make it clean by writing it to the disk.
+	// Avoid hysterisis by flushing all other dirty blocks for the same
+	// device.
+	if bp.dev != NO_DEV && bp.dirty {
+		// We cannot use c.Flush(dev) here, since that requires the mutex and
+		// we are currently holding it. So we refactor that function into
+		// flushall(), which does not require the mutex, and then utilize that
+		// in c.Flush().
+		c._NL_flushall(bp.dev)
+	}
+
+	// We use the garbage collector for the actual block data, so invalidate
+	// what we have here and create a new block of data. This allows us to
+	// avoid lots of runtime checking to see if we already have a useable
+	// block of data.
+
+	blocksize := c.supers[dev].Block_size
 
 	switch btype {
 	case INODE_BLOCK:
@@ -127,21 +217,31 @@ func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, onlySearch bool) *bu
 	case PARTIAL_DATA_BLOCK:
 		bp.block = make(PartialDataBlock, blocksize)
 	default:
+		c.m.Unlock() // release the write mutex (---)
 		panic(fmt.Sprintf("Invalid block type specified: %d", btype))
 	}
 
+	// we avoid hard-setting count (we increment instead) and we don't reset
+	// the dirty flag (since the previous flushall would have done that)
 	bp.dev = dev
 	bp.blocknr = bnum
-	bp.count = 1
-	bp.dirty = false
-	hash[bnum] = bp
-	c.size++
+	bp.count++
+	b = bp.blocknr & HASH_MASK
+	bp.b_hash = c.buf_hash[b]
+	c.buf_hash[b] = bp
 
-	if onlySearch {
-		panic("NYI: LRUCache.GetBlock with onlySearch = true")
+	// Go get the requested block unless searchin or prefetching
+	if dev != NO_DEV {
+		if only_search == PREFETCH {
+			bp.dev = NO_DEV
+		} else {
+			if only_search == NORMAL {
+				c._NL_read_block(bp) // call non-locking worker function
+			}
+		}
 	}
 
-	c.ReadBlock(bp)
+	c.m.Unlock() // release the write mutex (---)
 	return bp
 }
 
@@ -201,28 +301,44 @@ func (c *LRUCache) put_block(bp *buf, btype BlockType) os.Error {
 }
 
 func (c *LRUCache) Invalidate(dev int) {
-	c.bhash[dev] = make(map[int]*buf)
-	c.front = nil
-	c.rear = nil
+	c.m.Lock()
+	for i := 0; i < NR_BUFS; i++ {
+		if c.buf[i].dev == dev {
+			c.buf[i].dev = NO_DEV
+		}
+	}
+	c.m.Unlock()
 }
 
 func (c *LRUCache) Flush(dev int) {
-	dirty := make([]*buf, 0) // a slice of dirty blocks
-	ndirty := 0
-
-	for _, bp := range c.bhash[dev] {
-		if bp.dirty {
-			dirty = append(dirty, bp)
-			ndirty++
-		}
-	}
-	if len(dirty) > 0 {
-		c.fs.devs[dev].Scatter(dirty) // write the list of blocks, scattered
-	}
+	c.m.Lock()
+	c._NL_flushall(dev)
+	c.m.Unlock()
 }
 
-// rm_lru removes a block from its LRU chain
-func (c *LRUCache) rm_lru(bp *buf) {
+func (c *LRUCache) ReadBlock(bp *buf) os.Error {
+	c.m.RLock()
+	err := c._NL_read_block(bp)
+	c.m.Unlock()
+	return err
+}
+
+func (c *LRUCache) WriteBlock(bp *buf) os.Error {
+	c.m.RLock()
+	blocksize := c.supers[bp.dev].Block_size
+	pos := int64(blocksize) * int64(bp.blocknr)
+	err := c.devs[bp.dev].Write(bp.block, pos)
+	c.m.RUnlock()
+	return err
+}
+
+// The following functions are non-locking utility functions. This is
+// indicated by the _NL at the start of their names. These functions are only
+// meant to be called from other functions that have already obtained the
+// buffer cache mutex.
+
+// Remove a block from its LRU chain
+func (c *LRUCache) _NL_rm_lru(bp *buf) {
 	nextp := bp.next
 	prevp := bp.prev
 	if prevp != nil {
@@ -238,14 +354,29 @@ func (c *LRUCache) rm_lru(bp *buf) {
 	}
 }
 
-func (c *LRUCache) ReadBlock(bp *buf) os.Error {
-	blocksize := c.fs.supers[bp.dev].Block_size
+// Read a block from the underlying device
+func (c *LRUCache) _NL_read_block(bp *buf) os.Error {
+	blocksize := c.supers[bp.dev].Block_size
 	pos := int64(blocksize) * int64(bp.blocknr)
-	return c.fs.devs[bp.dev].Read(bp.block, pos)
+	return c.devs[bp.dev].Read(bp.block, pos)
 }
 
-func (c *LRUCache) WriteBlock(bp *buf) os.Error {
-	blocksize := c.fs.supers[bp.dev].Block_size
-	pos := int64(blocksize) * int64(bp.blocknr)
-	return c.fs.devs[bp.dev].Write(bp.block, pos)
+// Flush all dirty blocks for one device
+func (c *LRUCache) _NL_flushall(dev int) {
+	// TODO: These should be static (or pre-created) so the file server can't
+	// possible panic due to failed memory allocation.
+	var dirty = make([]*buf, NR_BUFS) // a slice of dirty blocks
+	ndirty := 0
+
+	var bp *buf
+	for i := 0; i < NR_BUFS; i++ {
+		bp = c.buf[i]
+		if bp.dirty && bp.dev == dev {
+			dirty[ndirty] = bp
+			ndirty++
+		}
+	}
+	if ndirty > 0 {
+		c.devs[dev].Scatter(dirty[:ndirty]) // write the list of dirty blocks
+	}
 }

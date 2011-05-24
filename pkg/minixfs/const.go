@@ -8,11 +8,15 @@ const (
 	ROOT_INODE   = 1 // the root inode number
 	ROOT_PROCESS = 0 // the root process number (dummy)
 
-	NR_FILPS  = 128  // # slots in filp table
-	NR_INODES = 64   // # slots in "in core" inode table
-	NR_SUPERS = 8    // # slots in the super block table
-	NR_PROCS  = 32   // # slots in the process table
-	NR_BUFS   = 1024 // # slots in the block cache
+	NR_FILPS  = 128 // # slots in filp table
+	NR_INODES = 64  // # slots in "in core" inode table
+	NR_SUPERS = 8   // # slots in the super block table
+	NR_PROCS  = 32  // # slots in the process table
+
+	// The buffer cache should be made as large as you can afford
+	NR_BUFS     = 1280            // # blocks in the buffer cache
+	NR_BUF_HASH = 2048            // size of buf hash table; MUST BE POWER OF 2
+	HASH_MASK   = NR_BUF_HASH - 1 // mask for hashing block numbers
 
 	SUPER_V3 = 0x4d5a
 
@@ -32,7 +36,7 @@ const (
 	NO_ZONE  = 0
 	NO_BLOCK = 0
 	NO_BIT   = 0
-	NO_DEV = -1
+	NO_DEV   = -1
 
 	// When a block is released, the type of usage is passed to put_block()
 	WRITE_IMMED = 0100 // block should be written to disk now
@@ -73,4 +77,8 @@ const (
 	O_RDONLY = 0 // open(name, O_RDONLY) opens read only
 	O_WRONLY = 1 // open(name, O_WRONLY) opens write only
 	O_RDWR   = 2 // open(name, O_RDWR) opens read/write
+
+	NORMAL   = 0 // forces get_block to do disk read
+	NO_READ  = 1 // prevents get_block from doing disk read
+	PREFETCH = 2 // tells get_block not to read or mark dev
 )
