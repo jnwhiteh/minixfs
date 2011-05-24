@@ -99,13 +99,12 @@ func NewLRUCache() *LRUCache {
 // since it alters the devs and supers arrays.
 func (c *LRUCache) MountDevice(devno int, dev BlockDevice, super *Superblock) os.Error {
 	c.m.Lock() // acquire the write mutex (+++)
+	defer c.m.Unlock() // defer release of the write mutex (---)
 	if c.devs[devno] != nil || c.supers[devno] != nil {
-		c.m.Unlock() // release the write mutex (---)
 		return EBUSY
 	}
 	c.devs[devno] = dev
 	c.supers[devno] = super
-	c.m.Unlock() // release the write mutex (---)
 	return nil
 }
 
@@ -113,9 +112,9 @@ func (c *LRUCache) MountDevice(devno int, dev BlockDevice, super *Superblock) os
 // number.
 func (c *LRUCache) UnmountDevice(devno int) os.Error {
 	c.m.Lock() // acquire the write mutex (+++)
+	defer c.m.Unlock() // defer release of the write mutex (---)
 	c.devs[devno] = nil
 	c.supers[devno] = nil
-	c.m.Unlock() // release the write mutex (---)
 	return nil
 }
 
@@ -129,6 +128,7 @@ var here = func() {
 // error checking is performed here.
 func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *buf {
 	c.m.Lock() // acquire the write mutex (+++)
+	defer c.m.Unlock() // defer release of the write mutex (---)
 
 	var bp *buf
 
@@ -145,7 +145,6 @@ func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *bu
 					c._NL_rm_lru(bp)
 				}
 				bp.count++
-				c.m.Unlock() // release the write mutex (---)
 				return bp
 			} else {
 				// This block is not the one sought
@@ -157,7 +156,6 @@ func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *bu
 	// Desired block is not available on chain. Take oldest block ('front')
 	bp = c.front
 	if bp == nil {
-		c.m.Unlock() // release the write mutex (---)
 		panic("all buffers in use")
 	}
 	c._NL_rm_lru(bp)
@@ -211,7 +209,6 @@ func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *bu
 	case PARTIAL_DATA_BLOCK:
 		bp.block = make(PartialDataBlock, blocksize)
 	default:
-		c.m.Unlock() // release the write mutex (---)
 		panic(fmt.Sprintf("Invalid block type specified: %d", btype))
 	}
 
@@ -235,7 +232,6 @@ func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *bu
 		}
 	}
 
-	c.m.Unlock() // release the write mutex (---)
 	return bp
 }
 
