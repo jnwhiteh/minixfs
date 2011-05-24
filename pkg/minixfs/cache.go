@@ -54,9 +54,6 @@ type LRUCache struct {
 	buf      []*buf // static list of cache blocks
 	buf_hash []*buf // the buffer hash table
 
-	size     int // the current size of the cache, in blocks
-	max_size int // the maximum size of the cache, in blocks
-
 	front *buf // a pointer to the least recently used block
 	rear  *buf // a pointer to the most recently used block
 
@@ -64,14 +61,12 @@ type LRUCache struct {
 }
 
 // NewLRUCache creates a new LRUCache with the given size
-func NewLRUCache(size int) *LRUCache {
+func NewLRUCache() *LRUCache {
 	cache := &LRUCache{
 		devs:     make([]BlockDevice, NR_SUPERS),
 		supers:   make([]*Superblock, NR_SUPERS),
 		buf:      make([]*buf, NR_BUFS),
 		buf_hash: make([]*buf, NR_BUF_HASH),
-		size:     0,
-		max_size: size,
 		m:        new(sync.RWMutex),
 	}
 

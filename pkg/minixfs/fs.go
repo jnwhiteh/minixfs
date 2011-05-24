@@ -39,7 +39,7 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	fs.inodes = make([]*Inode, NR_INODES)
 	fs.procs = make([]*Process, NR_PROCS)
 
-	fs.cache = NewLRUCache(NR_BUFS)
+	fs.cache = NewLRUCache()
 	fs.mutex = new(sync.RWMutex)
 
 	fs.devs[ROOT_DEVICE] = dev
