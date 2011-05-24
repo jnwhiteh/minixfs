@@ -272,7 +272,7 @@ func (c *LRUCache) put_block(bp *buf, btype BlockType) os.Error {
 		}
 		c.front = bp
 	} else {
-		// Block properly will be needed quickly. Put it on read of chain. It
+		// Block probably will be needed quickly. Put it on read of chain. It
 		// will not be evicted from the cache for a long time.
 		bp.prev = c.rear
 		bp.next = nil
