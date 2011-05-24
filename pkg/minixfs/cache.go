@@ -168,7 +168,6 @@ func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *bu
 	if prev_ptr == bp {
 		c.buf_hash[b] = bp.b_hash
 	} else {
-		log.Printf("prev_ptr: %p", prev_ptr)
 		// The block just taken is not on the front of its hash chain
 		for prev_ptr.b_hash != nil {
 			if prev_ptr.b_hash == bp {
