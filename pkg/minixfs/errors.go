@@ -11,6 +11,7 @@ var (
 	EBUSY   = os.NewError("Resource busy")
 	EINVAL  = os.NewError("Invalid argument")
 	EISDIR  = os.NewError("Is a directory")
+	EMFILE  = os.NewError("Too many open files")
 	ENFILE  = os.NewError("File table overflow")
 	ENOENT  = os.NewError("No such file or directory")
 	ENOTDIR = os.NewError("Not a directory")

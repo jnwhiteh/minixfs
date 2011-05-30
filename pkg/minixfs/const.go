@@ -13,6 +13,8 @@ const (
 	NR_SUPERS = 8   // # slots in the super block table
 	NR_PROCS  = 32  // # slots in the process table
 
+	OPEN_MAX = 20 // the maximum number of files that can be opened by a process
+
 	// The buffer cache should be made as large as you can afford
 	NR_BUFS     = 1280            // # blocks in the buffer cache
 	NR_BUF_HASH = 2048            // size of buf hash table; MUST BE POWER OF 2

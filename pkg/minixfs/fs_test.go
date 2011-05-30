@@ -71,8 +71,8 @@ func openEuroparl(test *testing.T) ([]byte, *File) {
 
 	// Open the file on the mounted filesystem
 	mfile, err := proc.Open("/sample/europarl-en.txt", O_RDONLY, 0666)
-	log.Printf("Opened file /sample/europarl-en.txt, has size: %v", mfile.rip.Size)
-	log.Printf("File is located on inode: %v", mfile.rip.inum)
+	log.Printf("Opened file /sample/europarl-en.txt, has size: %v", mfile.inode.Size)
+	log.Printf("File is located on inode: %v", mfile.inode.inum)
 
 	return odata, mfile
 }

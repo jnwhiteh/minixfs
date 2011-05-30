@@ -6,6 +6,19 @@ import (
 	"testing"
 )
 
+// Return the device number corresponding to a given device or NO_DEV
+var _getdevnum = func (fs *FileSystem, dev BlockDevice) int {
+	fs.m.devs.RLock()
+	defer fs.m.devs.RUnlock()
+
+	for i := 0; i < NR_SUPERS; i++ {
+		if fs.devs[i] == dev {
+			return i
+		}
+	}
+	return NO_DEV
+}
+
 func TestMountUnmountUsr(test *testing.T) {
 	// Mount the root filesystem
 	fs, proc := OpenMinix3(test)
@@ -22,7 +35,7 @@ func TestMountUnmountUsr(test *testing.T) {
 		test.Fatalf("Failed to mount minix3usr.img on /dev: %s", err)
 	}
 
-	devnum := fs._getdevnum(dev)
+	devnum := _getdevnum(fs, dev)
 	if devnum == NO_DEV {
 		test.Fatalf("Failed looking up device number")
 	}
@@ -43,8 +56,8 @@ func TestMountUnmountUsr(test *testing.T) {
 		test.Fatalf("Could not open /usr/pkg/man/man3/SSL_set_fd.3: %s", err)
 	}
 
-	if file.rip.inum != 11389 {
-		test.Fatalf("Inode mismatch: got %d, expected %d", file.rip.inum, 11389)
+	if file.inode.inum != 11389 {
+		test.Fatalf("Inode mismatch: got %d, expected %d", file.inode.inum, 11389)
 	}
 	file.Close()
 
