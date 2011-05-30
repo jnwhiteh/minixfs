@@ -8,6 +8,7 @@ GOFILES=\
 		cache.go \
 		const.go \
 		errors.go \
+		file.go \
 		fs.go \
 		icache.go \
 		link.go \

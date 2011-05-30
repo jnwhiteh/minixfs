@@ -14,6 +14,7 @@ type FileSystem struct {
 	cache  *LRUCache     // the block cache (shared across all devices)
 	icache *InodeCache   // the inode cache (shared across all devices)
 
+	filp  []*filp    // the filp table
 	procs []*Process // an array of processes that have been opened
 
 	m *sync.RWMutex // mutex for reading/writing the above arrays
@@ -36,6 +37,8 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 
 	fs.devs = make([]BlockDevice, NR_SUPERS)
 	fs.supers = make([]*Superblock, NR_SUPERS)
+
+	fs.filp = make([]*filp, NR_FILPS)
 	fs.procs = make([]*Process, NR_PROCS)
 
 	fs.cache = NewLRUCache()
