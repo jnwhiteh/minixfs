@@ -11,8 +11,8 @@ import "sync"
 type FileSystem struct {
 	devs   []BlockDevice // the block devices that comprise the file system
 	supers []*Superblock // the superblocks for the given devices
-	inodes []*Inode      // the block of in-core inode entries
 	cache  *LRUCache     // the block cache (shared across all devices)
+	icache *InodeCache   // the inode cache (shared across all devices)
 
 	procs []*Process // an array of processes that have been opened
 
@@ -36,10 +36,11 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 
 	fs.devs = make([]BlockDevice, NR_SUPERS)
 	fs.supers = make([]*Superblock, NR_SUPERS)
-	fs.inodes = make([]*Inode, NR_INODES)
 	fs.procs = make([]*Process, NR_PROCS)
 
 	fs.cache = NewLRUCache()
+	fs.icache = NewInodeCache(fs, NR_INODES)
+
 	fs.mutex = new(sync.RWMutex)
 
 	fs.devs[ROOT_DEVICE] = dev
@@ -48,6 +49,11 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	err = fs.cache.MountDevice(ROOT_DEVICE, dev, super)
 	if err != nil {
 		log.Printf("Could not mount root device: %s", err)
+		return nil, err
+	}
+	err = fs.icache.MountDevice(ROOT_DEVICE, dev, super)
+	if err != nil {
+		log.Printf("Could not mount root device on icache: %s", err)
 		return nil, err
 	}
 

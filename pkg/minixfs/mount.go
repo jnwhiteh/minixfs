@@ -47,6 +47,7 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
 	fs.devs[freeIndex] = dev
 	fs.supers[freeIndex] = sp
 	fs.cache.MountDevice(freeIndex, dev, sp)
+	fs.icache.MountDevice(freeIndex, dev, sp)
 
 	// Get the inode of the file to be mounted on
 	rip, err := fs.eat_path(fs.procs[ROOT_PROCESS], path)
@@ -100,6 +101,7 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
 		fs.devs[freeIndex] = nil
 		fs.supers[freeIndex] = nil
 		fs.cache.UnmountDevice(freeIndex)
+		fs.icache.UnmountDevice(freeIndex)
 		dev.Close()
 		return r
 	}
@@ -124,14 +126,7 @@ func (fs *FileSystem) Unmount(dev BlockDevice) os.Error {
 
 	// See if the mounted device is busy. Only 1 inode using it should be open
 	// -- the root inode -- and that inode only 1 time.
-	count := 0
-	for i := 0; i < NR_INODES; i++ {
-		rip := fs.inodes[i]
-		if rip != nil && rip.count > 0 && rip.dev == devnum {
-			count += int(rip.count)
-		}
-	}
-	if count > 1 {
+	if fs.icache.IsDeviceBusy(devnum) {
 		return EBUSY // can't unmount a busy file system
 	}
 

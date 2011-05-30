@@ -3,6 +3,8 @@ package minixfs
 import "log"
 import "os"
 
+// In-memory inode structure, containing the full disk_inode as an embedded
+// member.
 type Inode struct {
 	*disk_inode
 	dev   int
@@ -12,79 +14,29 @@ type Inode struct {
 	mount bool
 }
 
+// GetType returns the type of an inode, extracting it from the mode
 func (inode *Inode) GetType() uint16 {
 	return inode.Mode & I_TYPE
 }
 
+// IsDirectory return true if the inode represents a directory on the file
+// system
 func (inode *Inode) IsDirectory() bool {
 	return inode.GetType() == I_DIRECTORY
 }
 
+// IsRegular returns whether or not the inode represents a regular data file
+// on the file system.
 func (inode *Inode) IsRegular() bool {
 	return inode.GetType() == I_REGULAR
-}
-
-func (inode *Inode) Inum() uint {
-	return inode.inum
 }
 
 // Retrieve an Inode from disk/cache given an Inode number. The 0th Inode
 // is reserved and unallocatable, so we return an error when it is requested
 // The root inode on the disk is ROOT_INODE_NUM, and should be located 64
 // bytes into the first block following the bitmaps.
-
 func (fs *FileSystem) get_inode(dev int, num uint) (*Inode, os.Error) {
-	if num == 0 {
-		return nil, os.NewError("Invalid inode number")
-	}
-
-	avail := -1
-	for i := 0; i < NR_INODES; i++ {
-		rip := fs.inodes[i]
-		if rip != nil && rip.count > 0 { // only check used slots for (dev, numb)
-			if int(rip.dev) == dev && rip.inum == num {
-				// this is the inode that we are looking for
-				rip.count++
-				return rip, nil
-			}
-		} else {
-			avail = i // remember this free slot for late
-		}
-	}
-
-	// Inode we want is not currently in ise. Did we find a free slot?
-	if avail == -1 { // inode table completely full
-		return nil, ENFILE
-	}
-
-	// A free inode slot has been located. Load the inode into it
-	xp := fs.inodes[avail]
-	if xp == nil {
-		xp = new(Inode)
-	}
-
-	super := fs.supers[dev]
-
-	// For a 4096 block size, inodes 0-63 reside in the first block
-	block_offset := super.Imap_blocks + super.Zmap_blocks + 2
-	block_num := ((num - 1) / super.inodes_per_block) + uint(block_offset)
-
-	// Load the inode from the disk and create in-memory version of it
-	bp := fs.get_block(dev, int(block_num), INODE_BLOCK)
-	inodeb := bp.block.(InodeBlock)
-
-	// We have the full block, now get the correct inode entry
-	inode_d := &inodeb[(num-1)%super.inodes_per_block]
-	xp.disk_inode = inode_d
-	xp.dev = dev
-	xp.inum = num
-	xp.count = 1
-	xp.dirty = false
-
-	// add the inode to the cache
-	fs.inodes[avail] = xp
-
-	return xp, nil
+	return fs.icache.GetInode(dev, num)
 }
 
 // Allocate a free inode on the given device and return a pointer to it.
@@ -137,6 +89,10 @@ func (fs *FileSystem) wipe_inode(inode *Inode) {
 }
 
 func (fs *FileSystem) dup_inode(inode *Inode) {
+	// Acquire the icache mutex to ensure we don't increment an inode that is
+	// about to be re-used.
+	fs.icache.m.Lock() // acquire the write mutex
+	defer fs.icache.m.Unlock()
 	inode.count++
 }
 
@@ -147,6 +103,12 @@ func (fs *FileSystem) put_inode(rip *Inode) {
 	if rip == nil {
 		return
 	}
+
+	// Acquire the icache mutex to ensure this inode can be re-used when we
+	// are done with it.
+	fs.icache.m.Lock() // acquire the write mutex
+	defer fs.icache.m.Unlock()
+
 	rip.count--
 	if rip.count == 0 { // means no one is using it now
 		if rip.Nlinks == 0 { // free the inode

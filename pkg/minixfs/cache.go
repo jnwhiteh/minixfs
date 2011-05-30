@@ -98,7 +98,7 @@ func NewLRUCache() *LRUCache {
 // used internally. This operation requires the write portion of the RWMutex
 // since it alters the devs and supers arrays.
 func (c *LRUCache) MountDevice(devno int, dev BlockDevice, super *Superblock) os.Error {
-	c.m.Lock() // acquire the write mutex (+++)
+	c.m.Lock()         // acquire the write mutex (+++)
 	defer c.m.Unlock() // defer release of the write mutex (---)
 	if c.devs[devno] != nil || c.supers[devno] != nil {
 		return EBUSY
@@ -111,7 +111,7 @@ func (c *LRUCache) MountDevice(devno int, dev BlockDevice, super *Superblock) os
 // Clear an association between a BlockDevice/*Superblock pair and a device
 // number.
 func (c *LRUCache) UnmountDevice(devno int) os.Error {
-	c.m.Lock() // acquire the write mutex (+++)
+	c.m.Lock()         // acquire the write mutex (+++)
 	defer c.m.Unlock() // defer release of the write mutex (---)
 	c.devs[devno] = nil
 	c.supers[devno] = nil
@@ -127,7 +127,7 @@ var here = func() {
 // requires that the device specific is a mounted valid device, no further
 // error checking is performed here.
 func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *buf {
-	c.m.Lock() // acquire the write mutex (+++)
+	c.m.Lock()         // acquire the write mutex (+++)
 	defer c.m.Unlock() // defer release of the write mutex (---)
 
 	var bp *buf

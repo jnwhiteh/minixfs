@@ -9,6 +9,7 @@ GOFILES=\
 		const.go \
 		errors.go \
 		fs.go \
+		icache.go \
 		link.go \
 		macros.go \
 		misc.go \

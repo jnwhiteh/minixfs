@@ -75,7 +75,7 @@ func (fs *FileSystem) last_dir(proc *Process, path string) (*Inode, string, os.E
 func (fs *FileSystem) advance(proc *Process, dirp *Inode, path string) *Inode {
 	// if there is no path, just return this inode
 	if len(path) == 0 {
-		rip, _ := fs.get_inode(dirp.dev, dirp.Inum())
+		rip, _ := fs.get_inode(dirp.dev, dirp.inum)
 		return rip
 	}
 
@@ -98,7 +98,7 @@ func (fs *FileSystem) advance(proc *Process, dirp *Inode, path string) *Inode {
 
 	// don't go beyond the current root directory, ever
 	if dirp == proc.rootdir && path == ".." {
-		rip, _ := fs.get_inode(dirp.dev, dirp.Inum())
+		rip, _ := fs.get_inode(dirp.dev, dirp.inum)
 		return rip
 	}
 
