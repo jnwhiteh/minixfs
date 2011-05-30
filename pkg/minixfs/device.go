@@ -50,7 +50,8 @@ func NewFileDevice(filename string, byteOrder binary.ByteOrder) (*FileDevice, os
 
 // Read implements the BlockDevice.Read method
 func (dev FileDevice) Read(buf interface{}, pos int64) os.Error {
-	dev.m.RLock() // acquire the read mutex
+	dev.m.RLock()         // acquire the read mutex
+	defer dev.m.RUnlock() // release the read mutex
 	newPos, err := dev.file.Seek(pos, 0)
 	if err != nil {
 		return err
@@ -59,13 +60,13 @@ func (dev FileDevice) Read(buf interface{}, pos int64) os.Error {
 	}
 
 	err = binary.Read(dev.file, dev.byteOrder, buf)
-	dev.m.RUnlock() // release the read mutex
 	return err
 }
 
 // Write implements the BlockDevice.Write method
 func (dev FileDevice) Write(buf interface{}, pos int64) os.Error {
 	dev.m.Lock() // acquire the write mutex
+	defer dev.m.Unlock()
 	newPos, err := dev.file.Seek(pos, 0)
 	if err != nil {
 		return err
@@ -91,8 +92,8 @@ func (dev FileDevice) Gather() os.Error {
 // Close implements the BlockDevice.Close method
 func (dev FileDevice) Close() {
 	dev.m.Lock() // acquire the write mutex
+	defer dev.m.Unlock()
 	dev.file.Close()
-	dev.m.Unlock() // release the write mutex
 }
 
 // DelayFileDevice represents a file-backed block device that has a static

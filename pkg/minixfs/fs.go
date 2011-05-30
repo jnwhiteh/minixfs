@@ -16,7 +16,7 @@ type FileSystem struct {
 
 	procs []*Process // an array of processes that have been opened
 
-	mutex *sync.RWMutex // mutex for reading/writing the above arrays
+	m *sync.RWMutex // mutex for reading/writing the above arrays
 }
 
 // Create a new FileSystem from a given file on the filesystem
@@ -41,7 +41,7 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	fs.cache = NewLRUCache()
 	fs.icache = NewInodeCache(fs, NR_INODES)
 
-	fs.mutex = new(sync.RWMutex)
+	fs.m = new(sync.RWMutex)
 
 	fs.devs[ROOT_DEVICE] = dev
 	fs.supers[ROOT_DEVICE] = super
@@ -70,7 +70,8 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 
 // Close the filesystem
 func (fs *FileSystem) Close() {
-	fs.mutex.Lock()
+	fs.m.Lock()         // acquire the mutex
+	defer fs.m.Unlock() // release the mutex (deferred)
 	for i := 0; i < NR_SUPERS; i++ {
 		if fs.devs[i] != nil {
 			fs.cache.Flush(i)
@@ -78,7 +79,6 @@ func (fs *FileSystem) Close() {
 			fs.devs[i] = nil
 		}
 	}
-	fs.mutex.Unlock()
 }
 
 // The GetBlock method is a wrapper for fs.cache.GetBlock()

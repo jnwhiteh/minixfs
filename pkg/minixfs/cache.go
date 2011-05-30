@@ -292,33 +292,33 @@ func (c *LRUCache) put_block(bp *buf, btype BlockType) os.Error {
 
 func (c *LRUCache) Invalidate(dev int) {
 	c.m.Lock()
+	defer c.m.Unlock()
 	for i := 0; i < NR_BUFS; i++ {
 		if c.buf[i].dev == dev {
 			c.buf[i].dev = NO_DEV
 		}
 	}
-	c.m.Unlock()
 }
 
 func (c *LRUCache) Flush(dev int) {
 	c.m.Lock()
+	defer c.m.Unlock()
 	c._NL_flushall(dev)
-	c.m.Unlock()
 }
 
 func (c *LRUCache) ReadBlock(bp *buf) os.Error {
 	c.m.RLock()
+	defer c.m.RUnlock()
 	err := c._NL_read_block(bp)
-	c.m.Unlock()
 	return err
 }
 
 func (c *LRUCache) WriteBlock(bp *buf) os.Error {
 	c.m.RLock()
+	defer c.m.RUnlock()
 	blocksize := c.supers[bp.dev].Block_size
 	pos := int64(blocksize) * int64(bp.blocknr)
 	err := c.devs[bp.dev].Write(bp.block, pos)
-	c.m.RUnlock()
 	return err
 }
 
