@@ -7,7 +7,7 @@ import (
 )
 
 // Return the device number corresponding to a given device or NO_DEV
-var _getdevnum = func (fs *FileSystem, dev BlockDevice) int {
+var _getdevnum = func(fs *FileSystem, dev BlockDevice) int {
 	fs.m.devs.RLock()
 	defer fs.m.devs.RUnlock()
 

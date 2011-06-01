@@ -12,16 +12,16 @@ type Superblock struct {
 	// but normnalised to use uint/int directly rather than use the sized
 	// versions. This is done to simplify the code and remove the need for
 	// excessive casting when making calculations.
-	Ninodes           uint // # of usable inodes on the minor device
-	Nzones            uint // total device size, including bit maps, etc.
-	Imap_blocks       uint // # of blocks used by inode bit map
-	Zmap_blocks       uint // # of blocks used by zone bit map
-	Firstdatazone_old uint // number of first data zone
-	Log_zone_size     uint // log2 of blocks/zone
-	Pad               uint // try to avoid compiler-dependent padding
-	Max_size          uint // maximum file size on this device
-	Zones             uint // number of zones (replaces s_nzones in V2+)
-	Magic             uint // magic number to recognize super-blocks
+	Ninodes       uint // # of usable inodes on the minor device
+	Nzones        uint // total device size, including bit maps, etc.
+	Imap_blocks   uint // # of blocks used by inode bit map
+	Zmap_blocks   uint // # of blocks used by zone bit map
+	Firstdatazone uint // number of first data zone
+	Log_zone_size uint // log2 of blocks/zone
+	Pad           uint // try to avoid compiler-dependent padding
+	Max_size      uint // maximum file size on this device
+	Zones         uint // number of zones (replaces s_nzones in V2+)
+	Magic         uint // magic number to recognize super-blocks
 
 	Block_size   uint // block size in bytes
 	Disk_version byte // filesystem format sub-version
@@ -58,21 +58,21 @@ func ReadSuperblock(dev BlockDevice) (*Superblock, os.Error) {
 
 	ipb := sup_disk.Block_size / V2_INODE_SIZE
 	sup := &Superblock{
-		diskblock:         sup_disk,
-		inodes_per_block:  uint(ipb),
-		Ninodes:           uint(sup_disk.Ninodes),
-		Nzones:            uint(sup_disk.Nzones),
-		Imap_blocks:       uint(sup_disk.Imap_blocks),
-		Zmap_blocks:       uint(sup_disk.Zmap_blocks),
-		Firstdatazone_old: uint(sup_disk.Firstdatazone_old),
-		Log_zone_size:     uint(sup_disk.Log_zone_size),
-		Pad:               uint(sup_disk.Pad),
-		Max_size:          uint(sup_disk.Max_size),
-		Zones:             uint(sup_disk.Zones),
-		Magic:             uint(sup_disk.Magic),
-		Block_size:        uint(sup_disk.Block_size),
-		Disk_version:      sup_disk.Disk_version,
-		m:                 new(sync.RWMutex),
+		diskblock:        sup_disk,
+		inodes_per_block: uint(ipb),
+		Ninodes:          uint(sup_disk.Ninodes),
+		Nzones:           uint(sup_disk.Nzones),
+		Imap_blocks:      uint(sup_disk.Imap_blocks),
+		Zmap_blocks:      uint(sup_disk.Zmap_blocks),
+		Firstdatazone:    uint(sup_disk.Firstdatazone),
+		Log_zone_size:    uint(sup_disk.Log_zone_size),
+		Pad:              uint(sup_disk.Pad),
+		Max_size:         uint(sup_disk.Max_size),
+		Zones:            uint(sup_disk.Zones),
+		Magic:            uint(sup_disk.Magic),
+		Block_size:       uint(sup_disk.Block_size),
+		Disk_version:     sup_disk.Disk_version,
+		m:                new(sync.RWMutex),
 	}
 	return sup, nil
 }
@@ -133,13 +133,13 @@ func NewSuperblock(blocks, inodes, block_size uint) (*Superblock, os.Error) {
 	if nb >= zones {
 		return nil, os.NewError("Bitmaps are too large")
 	}
-	sup.Firstdatazone_old = uint(nb)
-	if uint(sup.Firstdatazone_old) != nb {
+	sup.Firstdatazone = uint(nb)
+	if uint(sup.Firstdatazone) != nb {
 		// The field is too small to store the value. Fortunately, the value
 		// can be computed from other fields. We set the on-disk field to zero
 		// to indicate that it must not be u sed. Eventually we can always set
 		// the on-disk field to zero, and stop using it.
-		sup.Firstdatazone_old = 0
+		sup.Firstdatazone = 0
 	}
 	sup.Log_zone_size = ZONE_SHIFT
 
@@ -180,7 +180,7 @@ func (fs *FileSystem) alloc_bit(dev int, bmap uint, origin uint) uint {
 		bit_blocks = super.Imap_blocks
 	} else {
 		start_block = START_BLOCK + super.Imap_blocks
-		map_bits = super.Zones - (super.Firstdatazone_old - 1)
+		map_bits = super.Zones - (super.Firstdatazone - 1)
 		bit_blocks = super.Zmap_blocks
 	}
 
@@ -289,10 +289,10 @@ func (fs *FileSystem) free_bit(dev int, bmap uint, bit_returned uint) {
 // Return a zone
 func (fs *FileSystem) free_zone(dev int, numb uint) {
 	super := fs.supers[dev]
-	if numb < super.Firstdatazone_old || numb >= super.Nzones {
+	if numb < super.Firstdatazone || numb >= super.Nzones {
 		return
 	}
-	bit := numb - super.Firstdatazone_old - 1
+	bit := numb - super.Firstdatazone - 1
 	fs.free_bit(dev, ZMAP, bit)
 
 	super.m.Lock() // examining/altering super.Z_Search

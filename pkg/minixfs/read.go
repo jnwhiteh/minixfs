@@ -68,9 +68,9 @@ func (fs *FileSystem) rd_indir(bp *buf, index uint) uint {
 	super := fs.supers[bp.dev]
 
 	zone := uint(bpdata[index])
-	if zone != NO_ZONE && (zone < super.Firstdatazone_old || zone >= super.Zones) {
+	if zone != NO_ZONE && (zone < super.Firstdatazone || zone >= super.Zones) {
 		log.Printf("Illegal zone number %ld in indirect block, index %d\n", zone, index)
-		log.Printf("Firstdatazone_old: %d", super.Firstdatazone_old)
+		log.Printf("Firstdatazone_old: %d", super.Firstdatazone)
 		log.Printf("Nzones: %d", super.Nzones)
 		panic("check file system")
 	}

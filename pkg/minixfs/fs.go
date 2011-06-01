@@ -212,8 +212,8 @@ func (proc *Process) Chdir(path string) os.Error {
 // File represents an open file and is the OO equivalent of the file
 // descriptor.
 type File struct {
-	*filp    // the current position in the file
-	proc *Process // the process in which this file is opened
+	*filp          // the current position in the file
+	proc  *Process // the process in which this file is opened
 }
 
 // Seek sets the position for the next read or write to pos, interpreted
