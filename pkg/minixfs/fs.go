@@ -140,6 +140,9 @@ func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Proce
 
 // NewProcess acquires the 'fs.filp' lock in write mode.
 func (proc *Process) Open(path string, flags int, mode uint16) (*File, os.Error) {
+	proc.fs.m.devs.RLock() // acquire device lock (syscall:open)
+	defer proc.fs.m.devs.RUnlock()
+
 	// Get the inode for the file
 	rip, err := proc.fs.eat_path(proc, path)
 	if err != nil {
@@ -186,14 +189,23 @@ func (proc *Process) Open(path string, flags int, mode uint16) (*File, os.Error)
 }
 
 func (proc *Process) Unlink(path string) os.Error {
+	proc.fs.m.devs.RLock() // acquire device lock (syscall:unlink)
+	defer proc.fs.m.devs.RUnlock()
+
 	panic("NYI: Process.Unlink")
 }
 
 func (proc *Process) Mkdir(path string, mode mode_t) os.Error {
+	proc.fs.m.devs.RLock() // acquire device lock (syscall:mkdir)
+	defer proc.fs.m.devs.RUnlock()
+
 	panic("NYI: Process.Mkdir")
 }
 
 func (proc *Process) Chdir(path string) os.Error {
+	proc.fs.m.devs.RLock() // acquire device lock (syscall:chdir)
+	defer proc.fs.m.devs.RUnlock()
+
 	panic("NYI: Process.Chdir")
 }
 
@@ -212,6 +224,9 @@ type File struct {
 // TODO: Implement end of file seek and error checking
 
 func (file *File) Seek(pos int, whence int) (int, os.Error) {
+	file.proc.fs.m.devs.RLock() // acquire device lock (syscall)
+	defer file.proc.fs.m.devs.RUnlock()
+
 	switch whence {
 	case 1:
 		file.pos += pos
@@ -225,6 +240,9 @@ func (file *File) Seek(pos int, whence int) (int, os.Error) {
 }
 
 func (file *File) Read(b []byte) (int, os.Error) {
+	file.proc.fs.m.devs.RLock() // acquire device lock (syscall)
+	defer file.proc.fs.m.devs.RUnlock()
+
 	// We want to read at most len(b) bytes from the given file. This data
 	// will almost certainly be split up amongst multiple blocks.
 
@@ -303,11 +321,17 @@ func (file *File) Read(b []byte) (int, os.Error) {
 }
 
 func (file *File) Write(data []byte) (n int, err os.Error) {
+	file.proc.fs.m.devs.RLock() // acquire device lock (syscall:write)
+	defer file.proc.fs.m.devs.RUnlock()
+
 	panic("NYI: File.Write")
 }
 
 // TODO: Should this always be succesful?
 func (file *File) Close() {
+	file.proc.fs.m.devs.RLock() // acquire device lock (syscall:close)
+	defer file.proc.fs.m.devs.RUnlock()
+
 	file.proc.fs.put_inode(file.inode)
 	file.proc = nil
 }
