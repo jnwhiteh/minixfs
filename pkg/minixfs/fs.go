@@ -94,12 +94,12 @@ func (fs *FileSystem) Close() {
 	}
 }
 
-// The GetBlock method is a wrapper for fs.cache.GetBlock()
+// The get_block method is a wrapper for fs.cache.GetBlock()
 func (fs *FileSystem) get_block(dev, bnum int, btype BlockType) *buf {
 	return fs.cache.GetBlock(dev, bnum, btype, NORMAL)
 }
 
-// The PutBlock method is a wrapper for fs.cache.PutBlock()
+// The put_block method is a wrapper for fs.cache.PutBlock()
 func (fs *FileSystem) put_block(bp *buf, btype BlockType) {
 	fs.cache.put_block(bp, btype)
 }

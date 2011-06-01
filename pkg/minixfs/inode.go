@@ -89,10 +89,6 @@ func (fs *FileSystem) wipe_inode(inode *Inode) {
 }
 
 func (fs *FileSystem) dup_inode(inode *Inode) {
-	// Acquire the icache mutex to ensure we don't increment an inode that is
-	// about to be re-used.
-	fs.icache.m.Lock() // acquire the write mutex
-	defer fs.icache.m.Unlock()
 	inode.count++
 }
 
@@ -103,11 +99,6 @@ func (fs *FileSystem) put_inode(rip *Inode) {
 	if rip == nil {
 		return
 	}
-
-	// Acquire the icache mutex to ensure this inode can be re-used when we
-	// are done with it.
-	fs.icache.m.Lock() // acquire the write mutex
-	defer fs.icache.m.Unlock()
 
 	rip.count--
 	if rip.count == 0 { // means no one is using it now
