@@ -968,7 +968,7 @@ func chkilist() {
 		if !bitset(imap, ino) {
 			devread(inoblock(ino), inooff(ino), &mode, Sizeof_mode_t)
 			if mode != I_NOT_ALLOC {
-				fmt.Printf("mode inode %d not cleared", ino)
+				fmt.Printf("mode inode %d not cleared\n", ino)
 				if yes(". clear") {
 					devwrite(inoblock(ino), inooff(ino), new(disk_inode), INODE_SIZE)
 				}
