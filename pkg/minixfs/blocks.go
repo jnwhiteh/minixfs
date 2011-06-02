@@ -4,12 +4,12 @@ type Block interface {
 	isBlockType()
 }
 
-type InodeBlock []*disk_inode      // block containing a series of inodes
-type DirectoryBlock []*disk_dirent // block containing directory entries
-type IndirectBlock []*uint32       // block containing 32-bit zone numbers
-type MapBlock []*uint16            // block containing bitmaps (in 16-bit chunks)
-type FullDataBlock []*uint8        // block containing data (in bytes)
-type PartialDataBlock []*uint8     // block containing data (in bytes)
+type InodeBlock []disk_inode      // block containing a series of inodes
+type DirectoryBlock []disk_dirent // block containing directory entries
+type IndirectBlock []uint32       // block containing 32-bit zone numbers
+type MapBlock []uint16            // block containing bitmaps (in 16-bit chunks)
+type FullDataBlock []uint8        // block containing data (in bytes)
+type PartialDataBlock []uint8     // block containing data (in bytes)
 
 func (b InodeBlock) isBlockType()       {}
 func (b DirectoryBlock) isBlockType()   {}

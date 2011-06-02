@@ -206,14 +206,14 @@ func (fs *FileSystem) alloc_bit(dev int, bmap uint, origin uint) uint {
 			num := bitmaps[i]
 
 			// Does this word contain a free bit?
-			if *num == math.MaxUint16 {
+			if num == math.MaxUint16 {
 				// No bits free, move to next word
 				continue
 			}
 
 			// Find and allocate the free bit
 			var bit uint
-			for bit = 0; (*num & (1 << bit)) != 0; bit++ {
+			for bit = 0; (num & (1 << bit)) != 0; bit++ {
 			}
 
 			// Get the bit number from the start of the bit map
@@ -225,7 +225,7 @@ func (fs *FileSystem) alloc_bit(dev int, bmap uint, origin uint) uint {
 			}
 
 			// Allocate and return bit number
-			*num = *num | (1 << bit)
+			num = num | (1 << bit)
 			bitmaps[i] = num
 
 			bp.dirty = true
@@ -272,7 +272,7 @@ func (fs *FileSystem) free_bit(dev int, bmap uint, bit_returned uint) {
 	bitmaps := bp.block.(MapBlock)
 
 	k := bitmaps[word]
-	if (*k & mask) == 0 {
+	if (k & mask) == 0 {
 		if bmap == IMAP {
 			panic("tried to free unused inode")
 		} else if bmap == ZMAP {
@@ -280,7 +280,7 @@ func (fs *FileSystem) free_bit(dev int, bmap uint, bit_returned uint) {
 		}
 	}
 
-	*k = *k & (^mask)
+	k = k & (^mask)
 	bitmaps[word] = k
 	bp.dirty = true
 	fs.put_block(bp, MAP_BLOCK)

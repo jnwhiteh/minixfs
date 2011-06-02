@@ -268,7 +268,7 @@ func (file *File) Read(b []byte) (int, os.Error) {
 
 	if len(b) < blocksize-offset { // this block contains all the data we need
 		for i := 0; i < len(b); i++ {
-			b[i] = *bdata[offset+i]
+			b[i] = bdata[offset+i]
 		}
 		file.pos += len(b)
 		fs.put_block(bp, FULL_DATA_BLOCK)
@@ -278,7 +278,7 @@ func (file *File) Read(b []byte) (int, os.Error) {
 	// we need this entire first block, so start filling
 	var numBytes int = 0
 	for i := 0; i < blocksize-offset; i++ {
-		b[i] = *bdata[offset+i]
+		b[i] = bdata[offset+i]
 		numBytes++
 	}
 
@@ -298,7 +298,7 @@ func (file *File) Read(b []byte) (int, os.Error) {
 		if bytesLeft < blocksize {
 
 			for i := 0; i < bytesLeft; i++ {
-				b[numBytes] = *bdata[i]
+				b[numBytes] = bdata[i]
 				numBytes++
 			}
 
@@ -309,7 +309,7 @@ func (file *File) Read(b []byte) (int, os.Error) {
 
 		// We need this whole block
 		for i := 0; i < len(bdata); i++ {
-			b[numBytes] = *bdata[i]
+			b[numBytes] = bdata[i]
 			numBytes++
 		}
 
