@@ -224,7 +224,25 @@ func (proc *Process) Unlink(path string) os.Error {
 	proc.fs.m.devs.RLock() // acquire device lock (syscall:unlink)
 	defer proc.fs.m.devs.RUnlock()
 
-	panic("NYI: Process.Unlink")
+	fs := proc.fs
+	// Call a helper function to do most of the dirty work for us
+	rldirp, rip, rest, err := fs.unlink(proc, path)
+	if err != nil || rldirp == nil || rip == nil {
+		return err
+	}
+
+	// Now test if the call is allowed (altered from Minix)
+	if rip.inum == ROOT_INODE {
+		err = EBUSY
+	}
+	if err == nil {
+		err = fs.unlink_file(rldirp, rip, rest)
+	}
+
+	// If unlink was possible, it has been done, otherwise it has not
+	fs.put_inode(rip)
+	fs.put_inode(rldirp)
+	return err
 }
 
 func (proc *Process) Mkdir(path string, mode mode_t) os.Error {
@@ -232,6 +250,13 @@ func (proc *Process) Mkdir(path string, mode mode_t) os.Error {
 	defer proc.fs.m.devs.RUnlock()
 
 	panic("NYI: Process.Mkdir")
+}
+
+func (proc *Process) Rmdir(path string) os.Error {
+	proc.fs.m.devs.RLock() // acquire device lock (syscall:rmdir)
+	defer proc.fs.m.devs.RUnlock()
+
+	panic("NYI: Process.Rmdir")
 }
 
 func (proc *Process) Chdir(path string) os.Error {

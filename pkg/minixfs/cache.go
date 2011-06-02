@@ -352,20 +352,23 @@ func (c *LRUCache) _NL_flushall(dev int) {
 	var dirty = make([]*buf, NR_BUFS) // a slice of dirty blocks
 	ndirty := 0
 
+	// TODO: Remove these control variables
+	var _showdebug = false
+	var _actuallywrite = true
+
 	var bp *buf
 	for i := 0; i < NR_BUFS; i++ {
 		bp = c.buf[i]
 		if bp.dirty && bp.dev == dev {
-			log.Printf("Found a dirty block: %d", bp.blocknr)
-			log.Printf("Block type: %T", bp.block)
-			_debugPrintBlock(bp, c.supers[bp.dev])
+			if _showdebug {
+				log.Printf("Found a dirty block: %d", bp.blocknr)
+				log.Printf("Block type: %T", bp.block)
+				_debugPrintBlock(bp, c.supers[bp.dev])
+			}
 			dirty[ndirty] = bp
 			ndirty++
 		}
 	}
-
-	// TODO: Remove this NOW
-	actuallyWrite := true
 
 	if ndirty > 0 {
 		blocksize := int64(c.supers[dirty[0].dev].Block_size)
@@ -374,7 +377,7 @@ func (c *LRUCache) _NL_flushall(dev int) {
 		for i := 0; i < ndirty; i++ {
 			bp = dirty[i]
 			pos := blocksize * int64(bp.blocknr)
-			if actuallyWrite {
+			if _actuallywrite {
 				err := dev.Write(bp.block, pos)
 				if err != nil {
 					panic("something went wrong during _NL_flushall")

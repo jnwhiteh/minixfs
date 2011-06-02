@@ -17,23 +17,46 @@ import (
 //
 func Test_Proc_Syscalls(test *testing.T) {
 	_Test_Creat_Syscall(test) // create several new files
+	_Test_Unlink_Syscall(test) // remove the newly created files
 }
 
-var fileList = []string{
-	"/tmp/foo0.txt",
-	"/sample/europarl-br.txt",
-	"/var/run/myapp.pid",
-	"/etc/myapp.conf",
+type fileEntry struct {
+	filename string
+	inode uint
+}
+
+var fileList = []fileEntry{
+	{"/tmp/foo0.txt", 546},
+	{"/sample/europarl-br.txt", 547},
+	{"/var/run/myapp.pid", 549},
+	{"/etc/myapp.conf", 550},
 }
 
 func _Test_Creat_Syscall(test *testing.T) {
 	fs, proc := OpenMinix3(test)
-	for _, fname := range fileList {
+	for _, entry := range fileList {
+		fname := entry.filename
 		file, err := proc.Open(fname, O_CREAT, 0666)
 		if err != nil {
 			test.Fatalf("Could not create file %s: %s", fname, err)
 		}
+		if file.inode.inum != entry.inode {
+			test.Errorf("Inode mismatch, expected %d, got %d", entry.inode, file.inode.inum)
+		}
 		file.Close()
+	}
+
+	fs.Close()
+}
+
+func _Test_Unlink_Syscall(test *testing.T) {
+	fs, proc := OpenMinix3(test)
+	for _, entry := range fileList {
+		fname := entry.filename
+		err := proc.Unlink(fname)
+		if err != nil {
+			test.Fatalf("Could not unlink file %s: %s", fname, err)
+		}
 	}
 
 	fs.Close()
