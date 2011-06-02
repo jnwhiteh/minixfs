@@ -617,6 +617,7 @@ func chkdirzone(ino int, ip *disk_inode, pos, zno int) bool {
 	if size > int(ip.Size) {
 		fmt.Printf("size not updated of directory ")
 		printpath(2, false)
+		fmt.Printf("\n")
 		if yes(". extend") {
 			setbit(spec_imap, ino)
 			ip.Size = int32(size)
@@ -936,7 +937,7 @@ func counterror(ino int) {
 	}
 	devread(inoblock(ino), inooff(ino), inode, INODE_SIZE)
 	count[ino] += int(inode.Nlinks)
-	fmt.Printf("%5d %5d %5d", ino, inode.Nlinks, count[ino])
+	fmt.Printf("%5d %5d %5d\n", ino, inode.Nlinks, count[ino])
 	if yes(" adjust") {
 		inode.Nlinks = uint16(count[ino])
 		if inode.Nlinks == 0 {
