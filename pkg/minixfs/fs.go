@@ -135,56 +135,88 @@ func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Proce
 	rinode := rip
 	winode := rinode
 	filp := make([]*filp, OPEN_MAX)
+	umask = ^umask // convert it so its actually usable as a mask
+
 	return &Process{fs, pid, umask, rinode, winode, filp}, nil
 }
 
+var mode_map = []uint16{R_BIT, W_BIT, R_BIT | W_BIT, 0}
+
 // NewProcess acquires the 'fs.filp' lock in write mode.
-func (proc *Process) Open(path string, flags int, mode uint16) (*File, os.Error) {
+func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Error) {
 	proc.fs.m.devs.RLock() // acquire device lock (syscall:open)
 	defer proc.fs.m.devs.RUnlock()
 
-	// Get the inode for the file
-	rip, err := proc.fs.eat_path(proc, path)
+	// Remap the bottom two bits of oflags
+	bits := mode_map[oflags&O_ACCMODE]
+
+	var err os.Error = nil
+	var rip *Inode = nil
+	var exist bool = false
+
+	// If O_CREATE is set, try to make the file
+	if oflags&O_CREAT > 0 {
+		// Create a new node by calling new_node()
+		omode := I_REGULAR | (omode & ALL_MODES & proc.umask)
+		rip, err = proc.fs.new_node(proc, path, omode, NO_ZONE)
+		if err == nil {
+			exist = false
+		} else if err != EEXIST {
+			return nil, err
+		} else {
+			exist = (oflags&O_EXCL == 0)
+		}
+	} else {
+		// scan path name
+		rip, err = proc.fs.eat_path(proc, path)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// See if a file descriptor and filp slots are available. Unlike the
+	// original source, this does allocate a filp slot for us so we need to
+	// release it if the open/creat is unsuccessful.
+	fd, filpidx, filp, err := proc.fs.get_fd(proc, 0, bits)
+
+	err = nil
+	if exist {
+		// TODO: Check permissions
+		switch rip.GetType() {
+		case I_REGULAR:
+			if oflags&O_TRUNC > 0 {
+				proc.fs.truncate(rip)
+				proc.fs.wipe_inode(rip)
+				// Send the inode from the inode cache to the block cache, so
+				// it gets written on the next cache flush
+				proc.fs.icache.WriteInode(rip)
+			}
+		case I_DIRECTORY:
+			// Directories may be read, but not written
+			if bits&W_BIT > 0 {
+				err = EISDIR
+			}
+		default:
+			// TODO: Add other cases
+			panic("NYI: Process.Open with non regular/directory")
+		}
+	}
+
 	if err != nil {
-		return nil, err
+		// Release the allocated fd
+		proc.fs.m.filp.Lock()
+		proc.filp[fd] = nil
+		proc.fs.filp[filpidx] = nil
+		proc.fs.m.filp.Unlock()
+	} else {
+		// fill in the allocated filp entry
+		filp.count = 1
+		filp.inode = rip
+		filp.pos = 0
+		filp.flags = oflags
+		filp.mode = bits
 	}
 
-	// Find an available file descriptor slot
-	var fd int = -1
-	for i := 0; i < OPEN_MAX; i++ {
-		if proc.filp[i] == nil {
-			fd = i
-			break
-		}
-	}
-
-	if fd < 0 {
-		return nil, EMFILE
-	}
-
-	// Find a slot in the global filp table
-	proc.fs.m.filp.Lock()
-	defer proc.fs.m.filp.Unlock()
-	var filpi int = -1
-	for i := 0; i < NR_FILPS; i++ {
-		if proc.fs.filp[i] == nil {
-			filpi = i
-			break
-		}
-	}
-
-	if filpi < 0 {
-		return nil, ENFILE
-	}
-
-	filp := new(filp)
-	filp.count = 1
-	filp.inode = rip
-	filp.pos = 0
-	filp.flags = flags
-	filp.mode = mode
-
-	proc.fs.filp[filpi] = filp
 	return &File{filp, proc}, nil
 }
 
