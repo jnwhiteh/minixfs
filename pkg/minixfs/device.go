@@ -75,11 +75,13 @@ func (dev FileDevice) Write(buf interface{}, pos int64) os.Error {
 	}
 
 	err = binary.Write(dev.file, dev.byteOrder, buf)
-	dev.m.Unlock() // release the write mutex
 	return err
 }
 
-// Scatter implements the BlockDevice.Scatter method
+// Scatter implements the BlockDevice.Scatter method. We take a slice of
+// cache blocks that need to be written out to the device and ensure each of
+// them are written before returning. This differs significantly from the
+// default implementation.
 func (dev FileDevice) Scatter(bufq []*buf) os.Error {
 	panic("NYI: FileDevice.Scatter")
 }
