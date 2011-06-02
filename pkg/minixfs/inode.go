@@ -120,8 +120,7 @@ func (fs *FileSystem) put_inode(rip *Inode) {
 		}
 		// rip.pipe = false
 		if rip.dirty {
-			// TODO: Implement RWInode, which will write the inode block back
-			//fs.RWInode(rip, WRITING)
+			fs.icache.WriteInode(rip)
 		}
 	}
 }

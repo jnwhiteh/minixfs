@@ -198,7 +198,7 @@ func (fs *FileSystem) alloc_bit(dev int, bmap uint, origin uint) uint {
 	//wlim := FS_BITMAP_CHUNKS(fs.Block_size)
 
 	for {
-		bp := fs.get_block(dev, int(start_block+block), MAP_BLOCK)
+		bp := fs.get_block(dev, int(start_block+block), MAP_BLOCK, NORMAL)
 		bitmaps := bp.block.(MapBlock)
 
 		// Iterate over the words in a block
@@ -268,7 +268,7 @@ func (fs *FileSystem) free_bit(dev int, bmap uint, bit_returned uint) {
 	bit := bit_returned % FS_BITCHUNK_BITS
 	mask := uint16(1) << bit
 
-	bp := fs.get_block(dev, int(start_block+block), MAP_BLOCK)
+	bp := fs.get_block(dev, int(start_block+block), MAP_BLOCK, NORMAL)
 	bitmaps := bp.block.(MapBlock)
 
 	k := bitmaps[word]

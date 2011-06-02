@@ -83,7 +83,7 @@ func (c *InodeCache) GetInode(dev int, num uint) (*Inode, os.Error) {
 	block_num := ((num - 1) / super.inodes_per_block) + uint(block_offset)
 
 	// Load the inode from the disk and create in-memory version of it
-	bp := c.fs.get_block(dev, int(block_num), INODE_BLOCK)
+	bp := c.fs.get_block(dev, int(block_num), INODE_BLOCK, NORMAL)
 	inodeb := bp.block.(InodeBlock)
 
 	// We have the full block, now get the correct inode entry
@@ -98,6 +98,28 @@ func (c *InodeCache) GetInode(dev int, num uint) (*Inode, os.Error) {
 	c.inodes[avail] = xp
 
 	return xp, nil
+}
+
+// An entry in the inode table is to be written to disk (via the buffer cache)
+func (c *InodeCache) WriteInode(rip *Inode) {
+	// Get the super-block on which the inode resides
+	super := c.supers[rip.dev]
+
+	// For a 4096 block size, inodes 0-63 reside in the first block
+	block_offset := super.Imap_blocks + super.Zmap_blocks + 2
+	block_num := ((rip.inum - 1) / super.inodes_per_block) + uint(block_offset)
+
+	// Load the inode from the disk and create in-memory version of it
+	bp := c.fs.get_block(rip.dev, int(block_num), INODE_BLOCK, NORMAL)
+	inodeb := bp.block.(InodeBlock)
+
+	// TODO: Update times, handle read-only superblocks
+	bp.dirty = true
+
+	// Copy the disk_inode from rip into the inode block
+	inodeb[(rip.inum-1)%super.inodes_per_block] = *rip.disk_inode
+	rip.dirty = false
+	c.fs.put_block(bp, INODE_BLOCK)
 }
 
 // Returns whether or not a given device is current 'busy'. A non-busy device

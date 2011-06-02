@@ -14,6 +14,7 @@ const (
 	NR_PROCS  = 32  // # slots in the process table
 
 	OPEN_MAX = 20 // the maximum number of files that can be opened by a process
+	NAME_MAX = 60 // the maximum size of a filename
 
 	// The buffer cache should be made as large as you can afford
 	NR_BUFS     = 1280            // # blocks in the buffer cache
@@ -80,7 +81,13 @@ const (
 	O_WRONLY = 1 // open(name, O_WRONLY) opens write only
 	O_RDWR   = 2 // open(name, O_RDWR) opens read/write
 
+	// Mask for use with file access modes. POSIX Table 6-7.
+	O_ACCMODE = 03 /* mask for file access modes */
+
 	NORMAL   = 0 // forces get_block to do disk read
 	NO_READ  = 1 // prevents get_block from doing disk read
 	PREFETCH = 2 // tells get_block not to read or mark dev
+
+	READING = 0 // copy data from user
+	WRITING = 1 // copy data to user
 )

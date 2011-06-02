@@ -11,7 +11,6 @@ package minixfs
 import "fmt"
 import "log"
 import "os"
-import "runtime"
 import "sync"
 
 type BlockType int
@@ -116,11 +115,6 @@ func (c *LRUCache) UnmountDevice(devno int) os.Error {
 	c.devs[devno] = nil
 	c.supers[devno] = nil
 	return nil
-}
-
-var here = func() {
-	_, file, line, _ := runtime.Caller(1)
-	log.Printf("%s:%d", file, line)
 }
 
 // GetBlock obtains a specified block from a given device. This function
@@ -362,11 +356,63 @@ func (c *LRUCache) _NL_flushall(dev int) {
 	for i := 0; i < NR_BUFS; i++ {
 		bp = c.buf[i]
 		if bp.dirty && bp.dev == dev {
+			log.Printf("Found a dirty block: %d", bp.blocknr)
+			log.Printf("Block type: %T", bp.block)
+			_debugPrintBlock(bp, c.supers[bp.dev])
 			dirty[ndirty] = bp
 			ndirty++
 		}
 	}
+
+	// TODO: Remove this NOW
+	actuallyWrite := true
+
 	if ndirty > 0 {
-		c.devs[dev].Scatter(dirty[:ndirty]) // write the list of dirty blocks
+		blocksize := int64(c.supers[dirty[0].dev].Block_size)
+		dev := c.devs[dirty[0].dev]
+		// TODO: Use the 'Scatter' method instead, if we can
+		for i := 0; i < ndirty; i++ {
+			bp = dirty[i]
+			pos := blocksize * int64(bp.blocknr)
+			if actuallyWrite {
+				err := dev.Write(bp.block, pos)
+				if err != nil {
+					panic("something went wrong during _NL_flushall")
+				}
+			}
+		}
+		//c.devs[dev].Scatter(dirty[:ndirty]) // write the list of dirty blocks
 	}
+}
+
+// Filesystem functions
+
+func (fs *FileSystem) alloc_zone(dev int, zone int) (int, os.Error) {
+	var bit uint
+	var z uint
+	sp := fs.supers[dev]
+
+	// If z is 0, skip initial part of the map known to be fully in use
+	if z == sp.Firstdatazone {
+		bit = sp.Z_Search
+	} else {
+		bit = z - (sp.Firstdatazone - 1)
+	}
+
+	b := fs.alloc_bit(dev, ZMAP, bit)
+	if b == NO_BIT {
+		if dev == ROOT_DEVICE {
+			log.Printf("No space on rootdevice %d", dev)
+		} else {
+			log.Printf("No space on device %d", dev)
+		}
+		return NO_ZONE, ENOSPC
+	}
+	if z == sp.Firstdatazone {
+		sp.m.Lock()
+		sp.Z_Search = b
+		sp.m.Unlock()
+	}
+
+	return int(sp.Firstdatazone - 1 + b), nil
 }

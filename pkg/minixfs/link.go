@@ -41,7 +41,7 @@ func (fs *FileSystem) truncate(rip *Inode) {
 	if z := rip.Zone[single+1]; z != NO_ZONE {
 		// free all the single indirect zones pointed to by the double
 		b := int(z << scale)
-		bp := fs.get_block(rip.dev, b, INDIRECT_BLOCK)
+		bp := fs.get_block(rip.dev, b, INDIRECT_BLOCK, NORMAL)
 		for i := uint(0); i < nr_indirects; i++ {
 			z1 := fs.rd_indir(bp, i)
 			fs.free_zone(rip.dev, z1)

@@ -95,8 +95,8 @@ func (fs *FileSystem) Close() {
 }
 
 // The get_block method is a wrapper for fs.cache.GetBlock()
-func (fs *FileSystem) get_block(dev, bnum int, btype BlockType) *buf {
-	return fs.cache.GetBlock(dev, bnum, btype, NORMAL)
+func (fs *FileSystem) get_block(dev, bnum int, btype BlockType, only_search int) *buf {
+	return fs.cache.GetBlock(dev, bnum, btype, only_search)
 }
 
 // The put_block method is a wrapper for fs.cache.PutBlock()
@@ -295,7 +295,7 @@ func (file *File) Read(b []byte) (int, os.Error) {
 
 	// TODO: Error check this
 	// read the first data block and copy the portion of data we need
-	bp := fs.get_block(dev, int(bnum), FULL_DATA_BLOCK)
+	bp := fs.get_block(dev, int(bnum), FULL_DATA_BLOCK, NORMAL)
 	bdata := bp.block.(FullDataBlock)
 
 	if len(b) < blocksize-offset { // this block contains all the data we need
@@ -321,7 +321,7 @@ func (file *File) Read(b []byte) (int, os.Error) {
 	// will likely be a partial block, so handle that specially.
 	for numBytes < len(b) {
 		bnum = fs.read_map(file.inode, uint(file.pos))
-		bp := fs.get_block(dev, int(bnum), FULL_DATA_BLOCK)
+		bp := fs.get_block(dev, int(bnum), FULL_DATA_BLOCK, NORMAL)
 		bdata := bp.block.(FullDataBlock)
 
 		bytesLeft := len(b) - numBytes // the number of bytes still needed

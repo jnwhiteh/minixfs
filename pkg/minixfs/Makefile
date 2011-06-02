@@ -4,11 +4,13 @@ TARG=jnwhiteh/minixfs
 GOFILES=\
 		blocks.go \
 		bitmap.go \
+		debug.go \
 		device.go \
 		cache.go \
 		const.go \
 		errors.go \
 		file.go \
+		filedes.go \
 		fs.go \
 		icache.go \
 		link.go \
@@ -21,5 +23,6 @@ GOFILES=\
 		read.go \
 		super.go \
 		types.go \
+		write.go \
 
 include $(GOROOT)/src/Make.pkg

@@ -1,6 +1,7 @@
 package minixfs
 
 import (
+	"os"
 	"testing"
 )
 
@@ -9,26 +10,27 @@ func TestAdvance(test *testing.T) {
 
 	var dirp *Inode
 	var rip *Inode
+	var err os.Error
 
 	// Advance to /root/.ssh/known_hosts at inode 541
-	if dirp = fs.advance(proc, proc.rootdir, "root"); dirp == nil {
-		test.Logf("Failed to get /root directory inode")
+	if dirp, err = fs.advance(proc, proc.rootdir, "root"); dirp == nil {
+		test.Logf("Failed to get /root directory inode: %s", err)
 		test.FailNow()
 	}
 	if dirp.inum != 519 {
 		test.Errorf("Inodes did not match, expected %d, got %d", 519, dirp.inum)
 	}
 	// Advance to /root/.ssh
-	if dirp = fs.advance(proc, dirp, ".ssh"); dirp == nil {
-		test.Logf("Failed to get /root/.ssh directory inode")
+	if dirp, err = fs.advance(proc, dirp, ".ssh"); dirp == nil {
+		test.Logf("Failed to get /root/.ssh directory inode: %s", err)
 		test.FailNow()
 	}
 	if dirp.inum != 539 {
 		test.Errorf("Inodes did not match, expected %d, got %d", 539, dirp.inum)
 	}
 	// Advance to /root/.ssh/known_hosts
-	if rip = fs.advance(proc, dirp, "known_hosts"); rip == nil {
-		test.Logf("Failed to get /root/.ssh/known_hosts inode")
+	if rip, err = fs.advance(proc, dirp, "known_hosts"); rip == nil {
+		test.Logf("Failed to get /root/.ssh/known_hosts inode: %s", err)
 		test.FailNow()
 	}
 	if rip.inum != 540 {
@@ -43,23 +45,23 @@ func TestAdvance(test *testing.T) {
 	// predictable way
 
 	// Look up an entry that doesn't exist
-	if dirp = fs.advance(proc, proc.rootdir, "monkeybutt"); dirp != nil {
-		test.Errorf("Failed when looking up a missing entry, inode not nil")
+	if dirp, err = fs.advance(proc, proc.rootdir, "monkeybutt"); dirp != nil {
+		test.Errorf("Failed when looking up a missing entry, inode not nil: %s", err)
 	}
 
 	// Look up an entry on a nil inode
-	if dirp = fs.advance(proc, nil, "monkeybutt"); dirp != nil {
-		test.Errorf("Failed when looking up in a nil inode, inode not nil")
+	if dirp, err = fs.advance(proc, nil, "monkeybutt"); dirp != nil {
+		test.Errorf("Failed when looking up in a nil inode, inode not nil: %s", err)
 	}
 
 	// Look up an entry in a non-directory inode
-	if dirp = fs.advance(proc, rip, "monkeybutt"); dirp != nil {
-		test.Errorf("Failed when looking up on a non-directory inode, inode not nil")
+	if dirp, err = fs.advance(proc, rip, "monkeybutt"); dirp != nil {
+		test.Errorf("Failed when looking up on a non-directory inode, inode not nil: %s", err)
 	}
 
 	// Look up an empty path
-	if dirp = fs.advance(proc, proc.rootdir, ""); dirp != proc.rootdir {
-		test.Errorf("Failed when looking up with an empty path, inode not the same")
+	if dirp, err = fs.advance(proc, proc.rootdir, ""); dirp != proc.rootdir {
+		test.Errorf("Failed when looking up with an empty path, inode not the same: %s", err)
 		test.Logf("Got %q, expected %q", proc.rootdir, dirp)
 	}
 
