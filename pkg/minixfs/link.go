@@ -93,7 +93,7 @@ func (fs *FileSystem) unlink(proc *Process, path string) (*Inode, *Inode, string
 //   - The directory must be empty (except for . and ..)
 //   - The directory must not be the root of a mounted file system
 //   - The directory must not be anybody's root/working directory
-func (fs *FileSystem) remove_dir(proc Process, rldirp, rip *Inode, dir_name string) os.Error {
+func (fs *FileSystem) remove_dir(proc *Process, rldirp, rip *Inode, dir_name string) os.Error {
 	// check to see if the directory is empty
 	zeroinode := 0
 	if err := fs.search_dir(rip, "", &zeroinode, IS_EMPTY); err != nil {
@@ -110,7 +110,7 @@ func (fs *FileSystem) remove_dir(proc Process, rldirp, rip *Inode, dir_name stri
 	// Check and see if this is any processes working directory
 	fs.m.proc.RLock()
 	for _, proc := range fs.procs {
-		if proc.rootdir == rip || proc.workdir == rip {
+		if proc != nil && (proc.rootdir == rip || proc.workdir == rip) {
 			return EBUSY // can't remove anyone's working directory
 		}
 	}
@@ -136,7 +136,7 @@ func (fs *FileSystem) unlink_file(dirp, rip *Inode, file_name string) os.Error {
 	if rip == nil {
 		// Search for file in directory and try to get its inode
 		err := fs.search_dir(dirp, file_name, &numb, LOOK_UP)
-		if err != nil {
+		if err == nil {
 			rip, err = fs.get_inode(dirp.dev, uint(numb))
 		}
 		if err != nil || rip == nil {
