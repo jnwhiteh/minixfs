@@ -10,6 +10,7 @@ import (
 func (fs *FileSystem) new_block(rip *Inode, position uint, btype BlockType) (*buf, os.Error) {
 	var b uint
 	var z int
+	var err os.Error
 
 	if b = fs.read_map(rip, position); b == NO_BLOCK {
 		// Choose first zone if possible.
@@ -21,10 +22,10 @@ func (fs *FileSystem) new_block(rip *Inode, position uint, btype BlockType) (*bu
 		} else {
 			z = int(rip.Zone[0])
 		}
-		if z, err := fs.alloc_zone(rip.dev, z); z == NO_ZONE {
+		if z, err = fs.alloc_zone(rip.dev, z); z == NO_ZONE {
 			return nil, err
 		}
-		if err := fs.write_map(rip, position, uint(z)); err != nil {
+		if err = fs.write_map(rip, position, uint(z)); err != nil {
 			fs.free_zone(rip.dev, uint(z))
 			return nil, err
 		}

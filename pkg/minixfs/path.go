@@ -259,7 +259,8 @@ func (fs *FileSystem) search_dir(dirp *Inode, path string, numb *int, flag searc
 		if new_slots == 0 { // dir size limited by slot count (overflow?)
 			return EFBIG
 		}
-		bp, err := fs.new_block(dirp, uint(dirp.Size), DIRECTORY_BLOCK)
+		var err os.Error
+		bp, err = fs.new_block(dirp, uint(dirp.Size), DIRECTORY_BLOCK)
 		if err != nil {
 			return err
 		}

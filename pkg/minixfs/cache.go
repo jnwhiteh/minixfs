@@ -389,10 +389,10 @@ func (c *LRUCache) _NL_flushall(dev int) {
 }
 
 // Filesystem functions
-
 func (fs *FileSystem) alloc_zone(dev int, zone int) (int, os.Error) {
 	var bit uint
-	var z uint
+	z := uint(zone)
+
 	sp := fs.supers[dev]
 
 	// If z is 0, skip initial part of the map known to be fully in use
