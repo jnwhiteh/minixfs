@@ -77,6 +77,13 @@ func ReadSuperblock(dev BlockDevice) (*Superblock, os.Error) {
 	return sup, nil
 }
 
+// Write the superblock to the second 1024k block of the file
+func WriteSuperblock(dev BlockDevice, super *Superblock) os.Error {
+	sup_disk := super.diskblock
+	err := dev.Write(sup_disk, 1024)
+	return err
+}
+
 // Creates a new superblock data structure based on specified parameters
 func NewSuperblock(blocks, inodes, block_size uint) (*Superblock, os.Error) {
 	sup := new(Superblock)

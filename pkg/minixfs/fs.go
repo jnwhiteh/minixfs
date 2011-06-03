@@ -89,6 +89,7 @@ func (fs *FileSystem) Close() {
 	for i := 0; i < NR_SUPERS; i++ {
 		if fs.devs[i] != nil {
 			fs.cache.Flush(i)
+			WriteSuperblock(fs.devs[i], fs.supers[i]) // flush the superblock
 			fs.devs[i].Close()
 			fs.devs[i] = nil
 		}
