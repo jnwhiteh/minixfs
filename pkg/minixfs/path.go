@@ -18,10 +18,10 @@ func (fs *FileSystem) eat_path(proc *Process, path string) (*Inode, os.Error) {
 		return ldip, nil
 	}
 
-	// Get final compoennt of the path
-	rip, _ := fs.advance(proc, ldip, rest)
+	// Get final component of the path
+	rip, err := fs.advance(proc, ldip, rest)
 	fs.put_inode(ldip)
-	return rip, nil
+	return rip, err
 }
 
 // LastDir parses 'path' as far as the last directory, fetching the inode and
