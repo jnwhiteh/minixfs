@@ -742,7 +742,7 @@ func chkdots(ino int, pos int, dp *Directory, exp int) bool {
 		fmt.Printf("bad %s in ", printable_name)
 		printpath(1, false)
 		fmt.Printf("%s is linked to %d ", printable_name, dp.Inum)
-		fmt.Printf("instead of %d)", exp)
+		fmt.Printf("instead of %d)\n", exp)
 		setbit(spec_imap, ino)
 		setbit(spec_imap, int(dp.Inum))
 		setbit(spec_imap, exp)
