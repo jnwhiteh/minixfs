@@ -293,6 +293,34 @@ func (fs *FileSystem) free_bit(dev int, bmap uint, bit_returned uint) {
 	fs.put_block(bp, MAP_BLOCK)
 }
 
+// Deallocate an inode/zone in the bitmap, freeing it up for re-use
+func (fs *FileSystem) check_bit(dev int, bmap uint, bit_check uint) bool {
+	var start_block uint // first bit block
+
+	super := fs.supers[dev]
+	super.m.RLock() // we're altering the bitmaps
+	defer super.m.RUnlock()
+
+	if bmap == IMAP {
+		start_block = START_BLOCK
+	} else {
+		start_block = START_BLOCK + super.Imap_blocks
+	}
+
+	block := bit_check / _FS_BITS_PER_BLOCK(super.Block_size)
+	word := (bit_check % _FS_BITS_PER_BLOCK(super.Block_size)) / FS_BITCHUNK_BITS
+
+	bit := bit_check % FS_BITCHUNK_BITS
+	mask := uint16(1) << bit
+
+	bp := fs.get_block(dev, int(start_block+block), MAP_BLOCK, NORMAL)
+	bitmaps := bp.block.(MapBlock)
+
+	k := bitmaps[word]
+	fs.put_block(bp, MAP_BLOCK)
+	return k&mask > 0
+}
+
 // Return a zone
 func (fs *FileSystem) free_zone(dev int, numb uint) {
 	super := fs.supers[dev]

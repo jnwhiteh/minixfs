@@ -18,6 +18,8 @@ import (
 func Test_Proc_Syscalls(test *testing.T) {
 	_Test_Creat_Syscall(test)  // create several new files
 	_Test_Unlink_Syscall(test) // remove the newly created files
+	_Test_Mkdir_Syscall(test)  // create several new directories
+	_Test_Rmdir_Syscall(test)  // remove the newly created directories
 }
 
 type fileEntry struct {
@@ -33,12 +35,13 @@ var fileList = []fileEntry{
 }
 
 func _Test_Creat_Syscall(test *testing.T) {
+	test.Log("_Test_Creat_Syscall")
 	fs, proc := OpenMinix3(test)
 	for _, entry := range fileList {
 		fname := entry.filename
 		file, err := proc.Open(fname, O_CREAT, 0666)
 		if err != nil {
-			test.Fatalf("Could not create file %s: %s", fname, err)
+			test.Errorf("Could not create file %s: %s", fname, err)
 		}
 		if file.inode.inum != entry.inode {
 			test.Errorf("Inode mismatch, expected %d, got %d", entry.inode, file.inode.inum)
@@ -46,16 +49,28 @@ func _Test_Creat_Syscall(test *testing.T) {
 		file.Close()
 	}
 
+	// Check to make sure I_Search is set correctly (to 550)
+	super := fs.supers[ROOT_DEVICE]
+	if super.I_Search != 550 {
+		test.Errorf("I_Search mismatch: expected %d, got %d", 550, super.I_Search)
+	}
+
 	fs.Close()
 }
 
 func _Test_Unlink_Syscall(test *testing.T) {
+	test.Log("_Test_Unlink_Syscall")
 	fs, proc := OpenMinix3(test)
 	for _, entry := range fileList {
 		fname := entry.filename
 		err := proc.Unlink(fname)
 		if err != nil {
 			test.Fatalf("Could not unlink file %s: %s", fname, err)
+		}
+
+		// Ensure the bit in the IMAP was properly de-allocated
+		if fs.check_bit(ROOT_DEVICE, IMAP, entry.inode) {
+			test.Errorf("Inode bit %d not properly deallocated", entry.inode)
 		}
 	}
 
@@ -64,7 +79,7 @@ func _Test_Unlink_Syscall(test *testing.T) {
 
 type dirEntry struct {
 	name string
-	num uint
+	num  uint
 	size int32
 }
 
@@ -75,7 +90,8 @@ var dirList = []dirEntry{
 	{"/tmp/alpha/beta/gamma/delta", 550, 128},
 }
 
-func Test_Mkdir_Syscall(test *testing.T) {
+func _Test_Mkdir_Syscall(test *testing.T) {
+	test.Log("_Test_Mkdir_Syscall")
 	fs, proc := OpenMinix3(test)
 	for _, entry := range dirList {
 		dirname := entry.name
@@ -99,6 +115,42 @@ func Test_Mkdir_Syscall(test *testing.T) {
 			if inode.Size != entry.size {
 				test.Errorf("Size mismatch: expected %d, got %d", entry.size, inode.Size)
 			}
+		}
+	}
+
+	// Check to make sure I_Search is set correctly (to 550)
+	super := fs.supers[ROOT_DEVICE]
+	if super.I_Search != 550 {
+		test.Errorf("I_Search mismatch: expected %d, got %d", 550, super.I_Search)
+	}
+
+	fs.Close()
+}
+
+func _Test_Rmdir_Syscall(test *testing.T) {
+	test.Log("_Test_Rmdir_Syscall")
+	fs, proc := OpenMinix3(test)
+
+	// Directories must be removed in reverse order
+	for i := len(dirList) - 1; i >= 0; i-- {
+		dirname := dirList[i].name
+		err := proc.Rmdir(dirname)
+		if err != nil {
+			test.Errorf("Could not rmdir %s: %s", dirname, err)
+		}
+
+		// Ensure the bit in the IMAP was properly de-allocated
+		if fs.check_bit(ROOT_DEVICE, IMAP, dirList[i].num) {
+			test.Errorf("Inode bit %d not properly deallocated", dirList[i].num)
+		}
+	}
+
+	for _, entry := range dirList {
+		dirname := entry.name
+		// Run and get that inode
+		_, err := fs.eat_path(proc, dirname)
+		if err != ENOENT {
+			test.Errorf("Error when looking up %s, expected '%s', got '%s'", dirname, ENOENT, err)
 		}
 	}
 

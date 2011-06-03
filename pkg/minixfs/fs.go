@@ -313,7 +313,19 @@ func (proc *Process) Rmdir(path string) os.Error {
 	proc.fs.m.devs.RLock() // acquire device lock (syscall:rmdir)
 	defer proc.fs.m.devs.RUnlock()
 
-	panic("NYI: Process.Rmdir")
+	fs := proc.fs
+	// Call a helper function to do most of the dirty work for us
+	rldirp, rip, rest, err := fs.unlink(proc, path)
+	if err != nil || rldirp == nil || rip == nil {
+		return err
+	}
+
+	err = fs.remove_dir(proc, rldirp, rip, rest) // perform the rmdir
+
+	// If unlink was possible, it has been done, otherwise it has not
+	fs.put_inode(rip)
+	fs.put_inode(rldirp)
+	return err
 }
 
 func (proc *Process) Chdir(path string) os.Error {
