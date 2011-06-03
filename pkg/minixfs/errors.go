@@ -14,6 +14,7 @@ var (
 	EINVAL    = os.NewError("Invalid argument")
 	EISDIR    = os.NewError("Is a directory")
 	EMFILE    = os.NewError("Too many open files")
+	EMLINK    = os.NewError("Too many links")
 	ENFILE    = os.NewError("File table overflow")
 	ENOENT    = os.NewError("No such file or directory")
 	ENOSPC    = os.NewError("No space left on device")

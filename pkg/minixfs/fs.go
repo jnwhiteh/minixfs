@@ -2,6 +2,7 @@ package minixfs
 
 import "encoding/binary"
 import "log"
+import "math"
 import "os"
 import "sync"
 
@@ -245,11 +246,66 @@ func (proc *Process) Unlink(path string) os.Error {
 	return err
 }
 
-func (proc *Process) Mkdir(path string, mode mode_t) os.Error {
+
+// Perform the mkdir(name, mode) system call
+func (proc *Process) Mkdir(path string, mode uint16) os.Error {
 	proc.fs.m.devs.RLock() // acquire device lock (syscall:mkdir)
 	defer proc.fs.m.devs.RUnlock()
 
-	panic("NYI: Process.Mkdir")
+	fs := proc.fs
+	var dot, dotdot int
+	var err_code os.Error
+
+	// Check to see if it is possible to make another link in the parent
+	// directory.
+	ldirp, rest, err := fs.last_dir(proc, path) // pointer to new dir's parent
+	if ldirp == nil {
+		return err
+	}
+	if ldirp.Nlinks >= math.MaxUint16 {
+		fs.put_inode(ldirp)
+		return EMLINK
+	}
+
+	var rip *Inode
+
+	// Next make the inode. If that fails, return error code
+	bits := I_DIRECTORY | (mode & RWX_MODES & proc.umask)
+	rip, err_code = fs.new_node(proc, path, bits, 0)
+	if rip == nil || err == EEXIST {
+		fs.put_inode(rip)   // can't make dir: it already exists
+		fs.put_inode(ldirp) // return parent too
+		return err_code
+	}
+
+	// Get the inode numbers for . and .. to enter into the directory
+	dotdot = int(ldirp.inum) // parent's inode number
+	dot = int(rip.inum)      // inode number of the new dir itself
+
+	// Now make dir entries for . and .. unless the disk is completely full.
+	// Use dot1 and dot2 so the mode of the directory isn't important.
+	rip.Mode = bits                                  // set mode
+	err1 := fs.search_dir(rip, ".", &dot, ENTER)     // enter . in the new dir
+	err2 := fs.search_dir(rip, "..", &dotdot, ENTER) // enter .. in the new dir
+
+	// If both . and .. were successfully entered, increment the link counts
+	if err1 == nil && err2 == nil {
+		// Normal case. it was possible to enter . and .. in the new dir
+		rip.Nlinks++       // this accounts for .
+		ldirp.Nlinks++     // this accounts for ..
+		ldirp.dirty = true // mark parent's inode as dirty
+	} else {
+		// It was not possible to enter . and .. or probably the disk was full
+		nilinode := 0
+		fs.search_dir(ldirp, rest, &nilinode, DELETE) // remove the new directory
+		rip.Nlinks--                                  // undo the increment done in new_node
+	}
+
+	rip.dirty = true // either way, Nlinks has changed
+
+	fs.put_inode(ldirp)
+	fs.put_inode(rip)
+	return err_code
 }
 
 func (proc *Process) Rmdir(path string) os.Error {
