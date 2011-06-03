@@ -71,16 +71,19 @@ func (fs *FileSystem) alloc_inode(dev int, mode uint16) *Inode {
 }
 
 // Return an inode to the pool of free inodes
-func (fs *FileSystem) free_inode(inode *Inode) {
-	super := fs.supers[inode.dev]
-
-	fs.free_bit(inode.dev, IMAP, inode.inum)
-
-	super.m.Lock() // altering super.I_Search
-	if inode.inum < super.I_Search {
-		super.I_Search = inode.inum
+func (fs *FileSystem) free_inode(dev int, inumb uint) {
+	sp := fs.supers[dev]
+	if inumb <= 0 || inumb > sp.Ninodes {
+		return
 	}
-	super.m.Unlock()
+	b := inumb
+	fs.free_bit(dev, IMAP, b)
+
+	sp.m.Lock() // altering super.I_Search
+	if b < sp.I_Search {
+		sp.I_Search = b
+	}
+	sp.m.Unlock()
 }
 
 func (fs *FileSystem) wipe_inode(inode *Inode) {
@@ -111,7 +114,7 @@ func (fs *FileSystem) put_inode(rip *Inode) {
 			fs.truncate(rip) // return all the disk blocks
 			rip.Mode = I_NOT_ALLOC
 			rip.dirty = true
-			fs.free_inode(rip)
+			fs.free_inode(rip.dev, rip.inum)
 		} else {
 			// TODO: Handle the pipe case here
 			// if rip.pipe == true {
