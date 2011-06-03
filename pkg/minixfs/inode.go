@@ -50,8 +50,8 @@ func (fs *FileSystem) alloc_inode(dev int, mode uint16) *Inode {
 		return nil
 	}
 
-	super.m.Lock() // altering super.I_Search
-	super.I_Search = b
+	super.m.Lock()     // altering super.I_Search
+	super.I_Search = b // next time start here
 	super.m.Unlock()
 
 	// Try to acquire a slot in the inode table
