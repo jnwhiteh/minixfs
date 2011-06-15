@@ -332,7 +332,28 @@ func (proc *Process) Chdir(path string) os.Error {
 	proc.fs.m.devs.RLock() // acquire device lock (syscall:chdir)
 	defer proc.fs.m.devs.RUnlock()
 
-	panic("NYI: Process.Chdir")
+	rip, err := proc.fs.eat_path(proc, path)
+	if rip == nil || err != nil {
+		return err
+	}
+
+	var r os.Error
+
+	if rip.GetType() != I_DIRECTORY {
+		r = ENOTDIR
+	}
+	// TODO: Check permissions
+
+	// If error then return inode
+	if r != nil {
+		proc.fs.put_inode(rip)
+		return r
+	}
+
+	// Everything is OK. Make the change.
+	proc.fs.put_inode(proc.workdir)
+	proc.workdir = rip
+	return nil
 }
 
 // File represents an open file and is the OO equivalent of the file

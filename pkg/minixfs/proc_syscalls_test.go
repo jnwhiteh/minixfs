@@ -19,6 +19,7 @@ func Test_Proc_Syscalls(test *testing.T) {
 	_Test_Creat_Syscall(test)  // create several new files
 	_Test_Unlink_Syscall(test) // remove the newly created files
 	_Test_Mkdir_Syscall(test)  // create several new directories
+	_Test_Chdir_Syscall(test)  // move current directory around
 	_Test_Rmdir_Syscall(test)  // remove the newly created directories
 }
 
@@ -152,6 +153,54 @@ func _Test_Rmdir_Syscall(test *testing.T) {
 		if err != ENOENT {
 			test.Errorf("Error when looking up %s, expected '%s', got '%s'", dirname, ENOENT, err)
 		}
+	}
+
+	fs.Close()
+}
+
+func _Test_Chdir_Syscall(test *testing.T) {
+	test.Log("_Test_Chdir_Syscall")
+	fs, proc := OpenMinix3(test)
+
+	// Ensure the working directory is root
+	if proc.workdir.inum != ROOT_INODE {
+		test.Errorf("Working directory is not ROOT_INODE: %d", proc.workdir.inum)
+	}
+
+	// chdir through each directory in dirList
+	for _, entry := range dirList {
+		dirname := entry.name
+		err := proc.Chdir(dirname)
+		if err != nil {
+			test.Error("Unexpected error: %s", err)
+		}
+		if proc.workdir.inum != entry.num {
+			test.Errorf("Inode mismatch, expected %d, got %d", entry.num, proc.workdir.inum)
+		}
+	}
+
+	// take the last directory and split it
+	max := len(dirList)-1
+	for i := max; i > 0; i-- {
+		err := proc.Chdir("..")
+		if err != nil {
+			test.Errorf("Failed changing to ..: %s", err)
+		}
+		if proc.workdir.inum != dirList[i-1].num {
+			test.Errorf("Inode mismatch, expected %d, got %d", dirList[max-i+1].num, proc.workdir.inum)
+		}
+	}
+
+	// Chdir down to /tmp and then to /
+	for i := 0; i < 2; i++ {
+		err := proc.Chdir("..")
+		if err != nil {
+			test.Errorf("Failed changing to ..: %s", err)
+		}
+	}
+
+	if proc.workdir.inum != ROOT_INODE {
+		test.Errorf("Failed to return to /tmp working directory")
 	}
 
 	fs.Close()
