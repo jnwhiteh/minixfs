@@ -180,7 +180,7 @@ func _Test_Chdir_Syscall(test *testing.T) {
 	}
 
 	// take the last directory and split it
-	max := len(dirList)-1
+	max := len(dirList) - 1
 	for i := max; i > 0; i-- {
 		err := proc.Chdir("..")
 		if err != nil {
