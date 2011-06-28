@@ -3,7 +3,6 @@ package minixfs
 import (
 	"bytes"
 	"io/ioutil"
-	"log"
 	"os"
 	"rand"
 	"testing"
@@ -71,8 +70,8 @@ func openEuroparl(test *testing.T) ([]byte, *File) {
 
 	// Open the file on the mounted filesystem
 	mfile, err := proc.Open("/sample/europarl-en.txt", O_RDONLY, 0666)
-	log.Printf("Opened file /sample/europarl-en.txt, has size: %v", mfile.inode.Size)
-	log.Printf("File is located on inode: %v", mfile.inode.inum)
+	//log.Printf("Opened file /sample/europarl-en.txt, has size: %v", mfile.inode.Size)
+	//log.Printf("File is located on inode: %v", mfile.inode.inum)
 
 	return odata, mfile
 }
@@ -139,7 +138,7 @@ func TestReadCases(test *testing.T) {
 		total += c.size
 	}
 
-	log.Printf("Checked a total of %d bytes in %d read cases", total, len(readCases))
+	//log.Printf("Checked a total of %d bytes in %d read cases", total, len(readCases))
 }
 
 func TestRandomReads(test *testing.T) {
@@ -184,5 +183,5 @@ func TestRandomReads(test *testing.T) {
 		rtotal += size
 	}
 
-	log.Printf("Checked a total of %d bytes in %d random reads", rtotal, numTests)
+	//log.Printf("Checked a total of %d bytes in %d random reads", rtotal, numTests)
 }
