@@ -68,8 +68,8 @@ func TestWriteSyscall(test *testing.T) {
 	odata := GetEuroparlData(test)
 
 	_Test_Write_New(fs, proc, odata, test)
-	//_Test_Verify_Write(fs, proc, odata, test)
+	_Test_Verify_Write(fs, proc, odata, test)
 
-	//proc.Unlink("/tmp/europarl-en.txt")
+	proc.Unlink("/tmp/europarl-en.txt")
 	fs.Close()
 }

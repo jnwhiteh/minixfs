@@ -355,8 +355,8 @@ func (c *LRUCache) _NL_flushall(dev int) {
 	ndirty := 0
 
 	// TODO: Remove these control variables
-	var _showdebug = true
-	var _actuallywrite = false
+	var _showdebug = false
+	var _actuallywrite = true
 
 	var bp *buf
 	for i := 0; i < NR_BUFS; i++ {

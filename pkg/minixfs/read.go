@@ -21,7 +21,6 @@ func (fs *FileSystem) read_map(inode *Inode, position uint) uint {
 			return NO_BLOCK
 		}
 		b := (z << scale) + boff
-		log.Printf("Block for position %d found in direct block %d => %d", position, zone, b)
 		return b
 	}
 
@@ -43,7 +42,6 @@ func (fs *FileSystem) read_map(inode *Inode, position uint) uint {
 		bp := fs.get_block(inode.dev, int(b), INDIRECT_BLOCK, NORMAL) // get double indirect block
 		index := excess / nr_indirects
 		z = fs.rd_indir(bp, index)       // z= zone for single
-		log.Printf("*** Block for position %d via indirect block %d", position, b)
 		fs.put_block(bp, INDIRECT_BLOCK) // release double indirect block
 		excess = excess % nr_indirects   // index into single indirect block
 	}
@@ -56,7 +54,6 @@ func (fs *FileSystem) read_map(inode *Inode, position uint) uint {
 	b := z << scale // b is block number for single indirect
 	bp := fs.get_block(inode.dev, int(b), INDIRECT_BLOCK, NORMAL)
 	z = fs.rd_indir(bp, excess)
-	log.Printf("Block for position %d found in indirect block %d => %d", position, b, (z << scale) + boff)
 	fs.put_block(bp, INDIRECT_BLOCK)
 	if z == NO_ZONE {
 		return NO_BLOCK
