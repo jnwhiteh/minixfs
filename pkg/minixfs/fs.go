@@ -437,7 +437,12 @@ func (file *File) Read(b []byte) (int, os.Error) {
 	for numBytes < len(b) {
 		bnum = fs.read_map(file.inode, uint(file.pos))
 		bp := fs.get_block(dev, int(bnum), FULL_DATA_BLOCK, NORMAL)
-		bdata := bp.block.(FullDataBlock)
+		if _, sok := bp.block.(FullDataBlock); !sok {
+			log.Printf("block num: %d, count: %d", bp.blocknr, bp.count)
+			log.Panicf("When reading block %d for position %d, got IndirectBlock", bnum, file.pos)
+		}
+
+		bdata = bp.block.(FullDataBlock)
 
 		bytesLeft := len(b) - numBytes // the number of bytes still needed
 
@@ -467,11 +472,75 @@ func (file *File) Read(b []byte) (int, os.Error) {
 	return numBytes, nil
 }
 
+// Write a slice of bytes to the file at the current position. Returns the
+// number of bytes actually written and an error (if any).
 func (file *File) Write(data []byte) (n int, err os.Error) {
 	file.proc.fs.m.devs.RLock() // acquire device lock (syscall:write)
 	defer file.proc.fs.m.devs.RUnlock()
 
-	panic("NYI: File.Write")
+	// TODO: This implementation is direct and doesn't match the abstractions
+	// in the original source. At some point it should be reviewed.
+
+	cum_io := 0
+	position := int(file.pos)
+	fsize := int(file.inode.Size)
+
+	fs := file.proc.fs
+	super := fs.supers[file.inode.dev]
+	// Check in advance to see if file will grow too big
+	if position > (int(super.Max_size) - len(data)) {
+		return 0, EFBIG
+	}
+
+	// Check for O_APPEND flag
+	if file.flags & O_APPEND > 0 {
+		position = fsize
+	}
+
+	// Clear the zone containing the current present EOF if hole about to be
+	// created. This is necessary because all unwritten blocks prior to the
+	// EOF must read as zeros.
+	if position  > fsize {
+		fs.clear_zone(file.inode, uint(fsize), 0)
+	}
+
+	bsize := int(super.Block_size)
+	nbytes := len(data)
+	// Split the transfer into chunks that don't span two blocks.
+	for nbytes != 0 {
+		off := (position % bsize)
+		chunk := _MIN(nbytes, bsize - off)
+		if chunk < 0 {
+			chunk = bsize - off
+		}
+
+		// Read or write 'chunk' bytes, fetch the first block
+		err = fs.write_chunk(file.inode, position, off, chunk, data)
+		if err != nil {
+			break // EOF reached
+		}
+
+		// Update counters and pointers
+		data = data[chunk:] // user buffer
+		nbytes -= chunk // bytes yet to be written
+		cum_io += chunk // bytes written so far
+		position += chunk // position within the file
+	}
+
+	if file.inode.GetType() == I_REGULAR || file.inode.GetType() == I_DIRECTORY {
+		if position > fsize {
+			file.inode.Size = int32(position)
+		}
+	}
+
+	file.pos = position
+
+	// TODO: Update times
+	if err == nil {
+		file.inode.dirty = true
+	}
+
+	return cum_io, err
 }
 
 // TODO: Should this always be succesful?

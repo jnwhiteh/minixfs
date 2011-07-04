@@ -216,3 +216,60 @@ func (fs *FileSystem) wr_indir(bp *buf, index int, zone int) {
 	indb := bp.block.(IndirectBlock)
 	indb[index] = uint32(zone)
 }
+
+// Write 'chunk' bytes from 'buff' into 'rip' at position 'pos' in the file.
+// This is at offset 'off' within the current block.
+func (fs *FileSystem) write_chunk(rip *Inode, pos, off, chunk int, buff []byte) os.Error {
+	var bp *buf
+	var err os.Error
+
+	bsize := int(fs.supers[rip.dev].Block_size)
+	fsize := int(rip.Size)
+	b := fs.read_map(rip, uint(pos))
+
+	if b == NO_BLOCK {
+		// Writing to a nonexistent block. Create and enter in inode
+		bp, err = fs.new_block(rip, uint(pos), FULL_DATA_BLOCK)
+		if bp == nil || err != nil {
+			return err
+		}
+	} else {
+		// Normally an existing block to be parially overwritten is first read
+		// in. However, a full block need not be read in. If it is already in
+		// the cache, acquire it, otherwise just acquire a free buffer.
+		n := NORMAL
+		if chunk == bsize {
+			n = NO_READ
+		}
+		if off == 0 && pos >= fsize {
+			n = NO_READ
+		}
+		bp = fs.get_block(rip.dev, int(b), FULL_DATA_BLOCK, n)
+	}
+
+	// In all cases, bp now points to a valid buffer
+	if bp == nil {
+		panic("bp not valid in rw_chunk, this can't happen")
+	}
+
+	if chunk != bsize && pos >= fsize && off == 0 {
+		fs.zero_block(bp, FULL_DATA_BLOCK)
+	}
+
+	// Copy 'chunk' bytes from the user supplied buffer into the block
+	// starting at 'off'.
+	bdata := bp.block.(FullDataBlock)
+	for i := 0; i < chunk; i++ {
+		bdata[off+i] = buff[i]
+	}
+
+	bp.dirty = true
+
+	if off + chunk == bsize {
+		fs.put_block(bp, FULL_DATA_BLOCK)
+	} else {
+		fs.put_block(bp, PARTIAL_DATA_BLOCK)
+	}
+
+	return err
+}

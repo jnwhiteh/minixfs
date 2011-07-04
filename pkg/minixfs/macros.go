@@ -16,3 +16,10 @@ func _FS_BITS_PER_BLOCK(b uint) uint {
 func _FS_BITMAP_CHUNKS(b uint) uint {
 	return b / Sizeof_bitchunk_t
 }
+
+func _MIN(left, right int) int {
+	if right < left {
+		return right
+	}
+	return left
+}

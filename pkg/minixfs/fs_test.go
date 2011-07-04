@@ -50,6 +50,25 @@ type readCase struct {
 	pos  int
 }
 
+func GetEuroparlData(test *testing.T) ([]byte) {
+	// Read in the original data so we have something to compare against
+	dfile, err := os.Open("../../europarl-en.txt")
+
+	if err != nil {
+		test.Logf("Could not open sample file: %s", err)
+		test.FailNow()
+	}
+
+	odata, err := ioutil.ReadAll(dfile)
+	if err != nil {
+		test.Logf("Could not read data from sample file: %s", err)
+		test.FailNow()
+	}
+	dfile.Close()
+
+	return odata
+}
+
 func openEuroparl(test *testing.T) ([]byte, *File) {
 	// Read in the original data so we have something to compare against
 	file, err := os.Open("../../europarl-en.txt")

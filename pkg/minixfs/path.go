@@ -46,10 +46,10 @@ func (fs *FileSystem) last_dir(proc *Process, path string) (*Inode, string, os.E
 
 	var pathlist []string
 	if filepath.IsAbs(path) {
-		pathlist = strings.Split(path, filepath.SeparatorString, -1)
+		pathlist = strings.Split(path, string(filepath.Separator), -1)
 		pathlist = pathlist[1:]
 	} else {
-		pathlist = strings.Split(path, filepath.SeparatorString, -1)
+		pathlist = strings.Split(path, string(filepath.Separator), -1)
 	}
 
 	for i := 0; i < len(pathlist)-1; i++ {

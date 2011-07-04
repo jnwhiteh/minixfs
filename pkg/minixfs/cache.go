@@ -126,6 +126,8 @@ func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *bu
 
 	var bp *buf
 
+	// TODO: What do we do if someone asks for NO_BLOCK
+
 	// Search the hash chain for (dev, block). Each block number is hashed to
 	// a bucket in c.buf_hash and the blocks stored there are linked via the
 	// b_hash pointers in the *buf struct.
@@ -353,8 +355,8 @@ func (c *LRUCache) _NL_flushall(dev int) {
 	ndirty := 0
 
 	// TODO: Remove these control variables
-	var _showdebug = false
-	var _actuallywrite = true
+	var _showdebug = true
+	var _actuallywrite = false
 
 	var bp *buf
 	for i := 0; i < NR_BUFS; i++ {
