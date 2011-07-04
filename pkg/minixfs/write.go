@@ -103,7 +103,7 @@ func (fs *FileSystem) write_map(rip *Inode, position uint, new_zone uint) os.Err
 		// 'position' can be located via the double indirect block
 		if z = int(rip.Zone[zones+1]); z == NO_ZONE {
 			// Create the double indirect block
-			z, err := fs.alloc_zone(rip.dev, int(rip.Zone[0]))
+			z, err = fs.alloc_zone(rip.dev, int(rip.Zone[0]))
 			if z == NO_ZONE || err != nil {
 				return err
 			}
