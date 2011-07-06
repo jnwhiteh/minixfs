@@ -18,21 +18,12 @@ func (f astVisitor) Visit(n ast.Node) ast.Visitor {
 	return nil
 }
 
-func debug(fmt string) {
-        if *showDebug {
-                log.Print(fmt)
-        }
-}
-
-func debugf(fmt string, args ... interface{}) {
-        if *showDebug {
-                log.Printf(fmt, args...)
-        }
-}
-
-func checkType(e ast.Expr) {
+func checkTypes(e ast.Expr) {
 	// Fetch the type of this expression
-	obj, objtype := types.ExprType(e, types.DefaultImporter)
+	obj, objType := types.ExprType(e, types.DefaultImporter)
+	pos := types.FileSet.Position(e.Pos())
+	log.Printf("%s: %T: %T: %q", pos, obj, objType, objType)
+/*
 	if e != nil {
 		pos := types.FileSet.Position(e.Pos())
 
@@ -44,13 +35,14 @@ func checkType(e ast.Expr) {
 				// Check to see if the type of Elt is a star expression
 				star, ok := arr.Elt.(*ast.StarExpr)
 				if ok {
-					checkType(star.X)
+					checkTypes(star.X)
 				}
 			}
 		} else {
 			debugf("%s: Could not determine type %T", pos, e)
 		}
 	}
+	*/
 }
 
 func checkExprs(pkg *ast.File) {
@@ -62,11 +54,8 @@ func checkExprs(pkg *ast.File) {
 
 		switch n := n.(type) {
 		case *ast.KeyValueExpr:
-			// Do not try to resolve
-		case *ast.ArrayType:
-			checkType(n)
 		case ast.Expr:
-			checkType(n)
+			checkTypes(n)
 		}
 
 		switch n := n.(type) {
