@@ -26,7 +26,7 @@ func debug(fmt string) {
 
 func debugf(fmt string, args ... interface{}) {
         if *showDebug {
-                debugf(fmt, args...)
+                log.Printf(fmt, args...)
         }
 }
 
