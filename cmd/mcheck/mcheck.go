@@ -4,16 +4,31 @@ import (
 	"flag"
 	"fmt"
 	"go/ast"
-	"log"
 	"rog-go.googlecode.com/hg/exp/go/parser"
 	"rog-go.googlecode.com/hg/exp/go/types"
 )
 
-func checkTypes(e ast.Expr) {
+// Really, everything gets narrowed down to an ast.Ident
+func checkTypes(e ast.Expr, p ast.Expr) {
 	// Fetch the type of this expression
-	obj, objType := types.ExprType(e, types.DefaultImporter)
+	_, objType := types.ExprType(e, types.DefaultImporter)
 	pos := types.FileSet.Position(e.Pos())
-	log.Printf("%s: %T: %T: %q", pos, obj, objType, objType)
+	if objType.Kind != ast.Bad {
+		switch n := objType.Node.(type) {
+		case *ast.Ident:
+			// If we have a parent expression, use that position
+			if p != nil {
+				pos = types.FileSet.Position(p.Pos())
+			}
+			// Actually do the check against typeMatch here.
+			if n.Name == *typeMatch {
+				fmt.Printf("%s: Match for '%s'\n", pos, *typeMatch)
+			}
+		case *ast.StarExpr:
+			// Unwrap any star expressions
+			checkTypes(n.X, e)
+		}
+	}
 /*
 	if e != nil {
 		pos := types.FileSet.Position(e.Pos())
@@ -46,7 +61,7 @@ func checkExprs(pkg *ast.File) {
 		switch n := n.(type) {
 		case *ast.KeyValueExpr:
 		case ast.Expr:
-			checkTypes(n)
+			checkTypes(n, nil)
 		}
 
 		switch n := n.(type) {
