@@ -9,15 +9,6 @@ import (
 	"rog-go.googlecode.com/hg/exp/go/types"
 )
 
-type astVisitor func(n ast.Node) bool
-
-func (f astVisitor) Visit(n ast.Node) ast.Visitor {
-	if f(n) {
-		return f
-	}
-	return nil
-}
-
 func checkTypes(e ast.Expr) {
 	// Fetch the type of this expression
 	obj, objType := types.ExprType(e, types.DefaultImporter)
