@@ -21,13 +21,13 @@ func TestCache(test *testing.T) {
 	cache.MountDevice(0, dev, super)
 
 	bp := cache.GetBlock(0, 0, FULL_DATA_BLOCK, NORMAL)
-	cache.put_block(bp, FULL_DATA_BLOCK)
+	cache.PutBlock(bp, FULL_DATA_BLOCK)
 
 	bp2 := cache.GetBlock(0, 0, FULL_DATA_BLOCK, NORMAL)
 	if bp != bp2 {
 		test.Errorf("Blcok not cached, got %p, expected %p", bp2, bp)
 	}
-	cache.put_block(bp, FULL_DATA_BLOCK)
+	cache.PutBlock(bp, FULL_DATA_BLOCK)
 
 	orig := make([]*buf, NR_BUFS)
 
@@ -51,7 +51,7 @@ func TestCache(test *testing.T) {
 			hadPanic <- (r != nil)
 		}()
 		foo := cache.GetBlock(0, NR_BUFS, FULL_DATA_BLOCK, NORMAL)
-		cache.put_block(foo, FULL_DATA_BLOCK)
+		cache.PutBlock(foo, FULL_DATA_BLOCK)
 	}()
 
 	if !(<-hadPanic) {
@@ -62,7 +62,7 @@ func TestCache(test *testing.T) {
 	// Dump all of the cache block, without actually releasing them from our
 	// array.
 	for i := 0; i < NR_BUFS; i++ {
-		cache.put_block(orig[i], FULL_DATA_BLOCK)
+		cache.PutBlock(orig[i], FULL_DATA_BLOCK)
 	}
 
 	// Request another NR_BUFS blocks (all different). We should see every
@@ -83,7 +83,7 @@ func TestCache(test *testing.T) {
 	// Put back 10 blocks and verify that they are used in reverse order
 	// (least recently used first).
 	for i := 0; i < 10; i++ {
-		cache.put_block(diff[i], FULL_DATA_BLOCK)
+		cache.PutBlock(diff[i], FULL_DATA_BLOCK)
 	}
 	for i := 0; i < 10; i++ {
 		bp := cache.GetBlock(0, i, FULL_DATA_BLOCK, NORMAL)

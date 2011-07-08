@@ -103,7 +103,7 @@ func (fs *FileSystem) get_block(dev, bnum int, btype BlockType, only_search int)
 
 // The put_block method is a wrapper for fs.cache.PutBlock()
 func (fs *FileSystem) put_block(bp *buf, btype BlockType) {
-	fs.cache.put_block(bp, btype)
+	fs.cache.PutBlock(bp, btype)
 }
 
 // Skeleton implementation of system calls required for tests in 'fs_test.go'
