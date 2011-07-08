@@ -11,7 +11,6 @@ package minixfs
 import "fmt"
 import "log"
 import "os"
-import "sync"
 
 type BlockType int
 
@@ -55,8 +54,6 @@ type LRUCache struct {
 
 	front *buf // a pointer to the least recently used block
 	rear  *buf // a pointer to the most recently used block
-
-	m *sync.RWMutex
 }
 
 // NewLRUCache creates a new LRUCache with the given size
@@ -66,7 +63,6 @@ func NewLRUCache() *LRUCache {
 		supers:   make([]*Superblock, NR_SUPERS),
 		buf:      make([]*buf, NR_BUFS),
 		buf_hash: make([]*buf, NR_BUF_HASH),
-		m:        new(sync.RWMutex),
 	}
 
 	// Create all of the entries in buf ahead of time
@@ -97,8 +93,6 @@ func NewLRUCache() *LRUCache {
 // used internally. This operation requires the write portion of the RWMutex
 // since it alters the devs and supers arrays.
 func (c *LRUCache) MountDevice(devno int, dev BlockDevice, super *Superblock) os.Error {
-	c.m.Lock()         // acquire the write mutex (+++)
-	defer c.m.Unlock() // defer release of the write mutex (---)
 	if c.devs[devno] != nil || c.supers[devno] != nil {
 		return EBUSY
 	}
@@ -110,8 +104,6 @@ func (c *LRUCache) MountDevice(devno int, dev BlockDevice, super *Superblock) os
 // Clear an association between a BlockDevice/*Superblock pair and a device
 // number.
 func (c *LRUCache) UnmountDevice(devno int) os.Error {
-	c.m.Lock()         // acquire the write mutex (+++)
-	defer c.m.Unlock() // defer release of the write mutex (---)
 	c.devs[devno] = nil
 	c.supers[devno] = nil
 	return nil
@@ -121,9 +113,6 @@ func (c *LRUCache) UnmountDevice(devno int) os.Error {
 // requires that the device specific is a mounted valid device, no further
 // error checking is performed here.
 func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *buf {
-	c.m.Lock()         // acquire the write mutex (+++)
-	defer c.m.Unlock() // defer release of the write mutex (---)
-
 	var bp *buf
 
 	// TODO: What do we do if someone asks for NO_BLOCK
@@ -287,8 +276,6 @@ func (c *LRUCache) PutBlock(bp *buf, btype BlockType) os.Error {
 }
 
 func (c *LRUCache) Invalidate(dev int) {
-	c.m.Lock()
-	defer c.m.Unlock()
 	for i := 0; i < NR_BUFS; i++ {
 		if c.buf[i].dev == dev {
 			c.buf[i].dev = NO_DEV
@@ -297,21 +284,15 @@ func (c *LRUCache) Invalidate(dev int) {
 }
 
 func (c *LRUCache) Flush(dev int) {
-	c.m.Lock()
-	defer c.m.Unlock()
 	c._NL_flushall(dev)
 }
 
 func (c *LRUCache) ReadBlock(bp *buf) os.Error {
-	c.m.RLock()
-	defer c.m.RUnlock()
 	err := c._NL_read_block(bp)
 	return err
 }
 
 func (c *LRUCache) WriteBlock(bp *buf) os.Error {
-	c.m.RLock()
-	defer c.m.RUnlock()
 	blocksize := c.supers[bp.dev].Block_size
 	pos := int64(blocksize) * int64(bp.blocknr)
 	err := c.devs[bp.dev].Write(bp.block, pos)
