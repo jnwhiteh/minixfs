@@ -389,35 +389,3 @@ func (c *LRUCache) _NL_flushall(dev int) {
 		//c.devs[dev].Scatter(dirty[:ndirty]) // write the list of dirty blocks
 	}
 }
-
-// Filesystem functions
-func (fs *FileSystem) alloc_zone(dev int, zone int) (int, os.Error) {
-	var bit uint
-	z := uint(zone)
-
-	sp := fs.supers[dev]
-
-	// If z is 0, skip initial part of the map known to be fully in use
-	if z == sp.Firstdatazone {
-		bit = sp.Z_Search
-	} else {
-		bit = z - (sp.Firstdatazone - 1)
-	}
-
-	b := fs.alloc_bit(dev, ZMAP, bit)
-	if b == NO_BIT {
-		if dev == ROOT_DEVICE {
-			log.Printf("No space on rootdevice %d", dev)
-		} else {
-			log.Printf("No space on device %d", dev)
-		}
-		return NO_ZONE, ENOSPC
-	}
-	if z == sp.Firstdatazone {
-		sp.m.Lock()
-		sp.Z_Search = b
-		sp.m.Unlock()
-	}
-
-	return int(sp.Firstdatazone - 1 + b), nil
-}

@@ -1,5 +1,6 @@
 package minixfs
 
+import "log"
 import "math"
 import "os"
 import "sync"
@@ -319,6 +320,38 @@ func (fs *FileSystem) check_bit(dev int, bmap uint, bit_check uint) bool {
 	k := bitmaps[word]
 	fs.put_block(bp, MAP_BLOCK)
 	return k&mask > 0
+}
+
+// Allocate a new zone
+func (fs *FileSystem) alloc_zone(dev int, zone int) (int, os.Error) {
+	var bit uint
+	z := uint(zone)
+
+	sp := fs.supers[dev]
+
+	// If z is 0, skip initial part of the map known to be fully in use
+	if z == sp.Firstdatazone {
+		bit = sp.Z_Search
+	} else {
+		bit = z - (sp.Firstdatazone - 1)
+	}
+
+	b := fs.alloc_bit(dev, ZMAP, bit)
+	if b == NO_BIT {
+		if dev == ROOT_DEVICE {
+			log.Printf("No space on rootdevice %d", dev)
+		} else {
+			log.Printf("No space on device %d", dev)
+		}
+		return NO_ZONE, ENOSPC
+	}
+	if z == sp.Firstdatazone {
+		sp.m.Lock()
+		sp.Z_Search = b
+		sp.m.Unlock()
+	}
+
+	return int(sp.Firstdatazone - 1 + b), nil
 }
 
 // Return a zone
