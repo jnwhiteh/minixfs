@@ -1,0 +1,51 @@
+N=4
+Clients = {0..N-1}
+
+channel read_block, write_block
+channel get_block, put_block
+channel sc_mount, sc_unmount, sc_open, sc_unlink : Clients
+channel sc_close, sc_read, sc_write, sc_seek : Clients
+
+-- Block device, able to read and write blocks in hardware
+Device = read_block -> Device
+      [] write_block -> Device
+
+-- A cache that performs no caching
+PassCache = get_block -> read_block -> PassCache
+         [] put_block -> write_block -> PassCache
+
+-- A single threaded client that can open exactly one file at a time.
+SimpleClient(n) = sc_mount!n -> SimpleClient(n)
+               [] sc_unmount!n -> SimpleClient(n)
+               [] sc_unlink!n -> SimpleClient(n)
+               [] sc_open!n -> SimpleClientOpen(n)
+
+-- A single threaded client with exactly one file open
+SimpleClientOpen(n) = sc_close!n -> SimpleClient(n)
+                   [] sc_read!n -> SimpleClientOpen(n)
+                   [] sc_write!n -> SimpleClientOpen(n)
+                   [] sc_seek!n -> SimpleClientOpen(n)
+
+-- A single-threaded file server that
+SimpleFS = sc_mount?n -> SimpleFS
+        [] sc_unmount?n -> SimpleFS
+        [] sc_open?n -> SimpleFS
+        [] sc_unlink?n -> SimpleFS
+        [] sc_close?n -> SimpleFS
+        [] sc_read?n -> SimpleFS
+        [] sc_write?n -> SimpleFS
+        [] sc_seek?n -> SimpleFS
+
+allevents = {|sc_mount, sc_unmount, sc_open, sc_unlink, sc_close, sc_read, sc_write, sc_seek|}
+openhide = {|sc_mount, sc_unmount, sc_unlink, sc_read, sc_write, sc_seek|}
+
+OpenClose(n) = sc_open!n -> sc_close!n -> OpenClose(n)
+OpenOpen(n) = sc_open!n -> sc_open!n -> OpenOpen(n)
+
+SimpleSystem = SimpleClient(0) [allevents||allevents] SimpleFS
+SimpleSystemH = SimpleSystem \ openhide
+
+-- Trace refinement indicates that the left can perform at least everything in right
+assert SimpleSystemH [T= STOP               -- can do nothing
+assert SimpleSystemH [T= OpenClose(0)       -- can open and close files
+assert SimpleSystemH [T= OpenOpen(0)        -- (fail) cannot open file twice
