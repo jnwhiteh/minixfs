@@ -4,7 +4,6 @@ import "encoding/binary"
 import "log"
 import "math"
 import "os"
-import "sync"
 
 // FileSystem encapsulates a minix file system, including the shared data
 // structures associated with the file system. It abstracts away from the file
@@ -20,12 +19,6 @@ type FileSystem struct {
 
 	filp  []*filp    // the filp table
 	procs []*Process // an array of processes that have been opened
-
-	m struct { // a struct containing mutexes for the volatile parts of the system
-		devs *sync.RWMutex // mutex for both dev/super
-		filp *sync.RWMutex
-		proc *sync.RWMutex
-	}
 }
 
 // Create a new FileSystem from a given file on the filesystem
@@ -51,10 +44,6 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 
 	fs.filp = make([]*filp, NR_FILPS)
 	fs.procs = make([]*Process, NR_PROCS)
-
-	fs.m.devs = new(sync.RWMutex)
-	fs.m.filp = new(sync.RWMutex)
-	fs.m.proc = new(sync.RWMutex)
 
 	fs.devs[ROOT_DEVICE] = dev
 	fs.supers[ROOT_DEVICE] = super
@@ -83,9 +72,6 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 
 // Close the filesystem
 func (fs *FileSystem) Close() {
-	fs.m.devs.Lock()
-	defer fs.m.devs.Unlock()
-
 	for i := 0; i < NR_SUPERS; i++ {
 		if fs.devs[i] != nil {
 			fs.cache.Flush(i)
@@ -121,9 +107,6 @@ var ERR_PATH_LOOKUP = os.NewError("Could not lookup path")
 
 // NewProcess acquires the 'fs.proc' lock in write mode.
 func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Process, os.Error) {
-	fs.m.proc.Lock()
-	defer fs.m.proc.Unlock()
-
 	if fs.procs[pid] != nil {
 		return nil, ERR_PID_EXISTS
 	}
@@ -146,9 +129,6 @@ var mode_map = []uint16{R_BIT, W_BIT, R_BIT | W_BIT, 0}
 
 // NewProcess acquires the 'fs.filp' lock in write mode.
 func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Error) {
-	proc.fs.m.devs.RLock() // acquire device lock (syscall:open)
-	defer proc.fs.m.devs.RUnlock()
-
 	// Remap the bottom two bits of oflags
 	bits := mode_map[oflags&O_ACCMODE]
 
@@ -206,10 +186,8 @@ func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Erro
 
 	if err != nil {
 		// Release the allocated fd
-		proc.fs.m.filp.Lock()
 		proc.filp[fd] = nil
 		proc.fs.filp[filpidx] = nil
-		proc.fs.m.filp.Unlock()
 	} else {
 		// fill in the allocated filp entry
 		filp.count = 1
@@ -223,9 +201,6 @@ func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Erro
 }
 
 func (proc *Process) Unlink(path string) os.Error {
-	proc.fs.m.devs.RLock() // acquire device lock (syscall:unlink)
-	defer proc.fs.m.devs.RUnlock()
-
 	fs := proc.fs
 	// Call a helper function to do most of the dirty work for us
 	rldirp, rip, rest, err := fs.unlink(proc, path)
@@ -250,9 +225,6 @@ func (proc *Process) Unlink(path string) os.Error {
 
 // Perform the mkdir(name, mode) system call
 func (proc *Process) Mkdir(path string, mode uint16) os.Error {
-	proc.fs.m.devs.RLock() // acquire device lock (syscall:mkdir)
-	defer proc.fs.m.devs.RUnlock()
-
 	fs := proc.fs
 	var dot, dotdot int
 	var err_code os.Error
@@ -310,9 +282,6 @@ func (proc *Process) Mkdir(path string, mode uint16) os.Error {
 }
 
 func (proc *Process) Rmdir(path string) os.Error {
-	proc.fs.m.devs.RLock() // acquire device lock (syscall:rmdir)
-	defer proc.fs.m.devs.RUnlock()
-
 	fs := proc.fs
 	// Call a helper function to do most of the dirty work for us
 	rldirp, rip, rest, err := fs.unlink(proc, path)
@@ -329,9 +298,6 @@ func (proc *Process) Rmdir(path string) os.Error {
 }
 
 func (proc *Process) Chdir(path string) os.Error {
-	proc.fs.m.devs.RLock() // acquire device lock (syscall:chdir)
-	defer proc.fs.m.devs.RUnlock()
-
 	rip, err := proc.fs.eat_path(proc, path)
 	if rip == nil || err != nil {
 		return err
@@ -371,9 +337,6 @@ type File struct {
 // TODO: Implement end of file seek and error checking
 
 func (file *File) Seek(pos int, whence int) (int, os.Error) {
-	file.proc.fs.m.devs.RLock() // acquire device lock (syscall)
-	defer file.proc.fs.m.devs.RUnlock()
-
 	switch whence {
 	case 1:
 		file.pos += pos
@@ -387,9 +350,6 @@ func (file *File) Seek(pos int, whence int) (int, os.Error) {
 }
 
 func (file *File) Read(b []byte) (int, os.Error) {
-	file.proc.fs.m.devs.RLock() // acquire device lock (syscall)
-	defer file.proc.fs.m.devs.RUnlock()
-
 	// We want to read at most len(b) bytes from the given file. This data
 	// will almost certainly be split up amongst multiple blocks.
 
@@ -475,9 +435,6 @@ func (file *File) Read(b []byte) (int, os.Error) {
 // Write a slice of bytes to the file at the current position. Returns the
 // number of bytes actually written and an error (if any).
 func (file *File) Write(data []byte) (n int, err os.Error) {
-	file.proc.fs.m.devs.RLock() // acquire device lock (syscall:write)
-	defer file.proc.fs.m.devs.RUnlock()
-
 	// TODO: This implementation is direct and doesn't match the abstractions
 	// in the original source. At some point it should be reviewed.
 
@@ -545,9 +502,6 @@ func (file *File) Write(data []byte) (n int, err os.Error) {
 
 // TODO: Should this always be succesful?
 func (file *File) Close() {
-	file.proc.fs.m.devs.RLock() // acquire device lock (syscall:close)
-	defer file.proc.fs.m.devs.RUnlock()
-
 	file.proc.fs.put_inode(file.inode)
 	file.proc = nil
 }

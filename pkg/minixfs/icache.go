@@ -2,7 +2,6 @@ package minixfs
 
 import (
 	"os"
-	"sync"
 )
 
 // The InodeCache provides a way to retrieve inodes and to cache open inodes.
@@ -28,8 +27,6 @@ type InodeCache struct {
 
 	inodes []*Inode // the list of in-memory inodes
 	size   int
-
-	m *sync.RWMutex
 }
 
 // Create a new InodeCache with a given size. This cache is internally
@@ -42,15 +39,11 @@ func NewInodeCache(fs *FileSystem, size int) *InodeCache {
 
 	cache.inodes = make([]*Inode, size)
 	cache.size = size
-	cache.m = new(sync.RWMutex)
 
 	return cache
 }
 
 func (c *InodeCache) GetInode(dev int, num uint) (*Inode, os.Error) {
-	c.m.Lock()         // acquire the write mutex
-	defer c.m.Unlock() // release the write mutex
-
 	avail := -1
 	for i := 0; i < c.size; i++ {
 		rip := c.inodes[i]
@@ -140,8 +133,6 @@ func (c *InodeCache) IsDeviceBusy(devno int) bool {
 // used internally. This operation requires the write portion of the RWMutex
 // since it alters the devs and supers arrays.
 func (c *InodeCache) MountDevice(devno int, dev BlockDevice, super *Superblock) os.Error {
-	c.m.Lock()         // acquire the write mutex (+++)
-	defer c.m.Unlock() // defer release of the write mutex (---)
 	if c.devs[devno] != nil || c.supers[devno] != nil {
 		return EBUSY
 	}
@@ -153,8 +144,6 @@ func (c *InodeCache) MountDevice(devno int, dev BlockDevice, super *Superblock) 
 // Clear an association between a BlockDevice/*Superblock pair and a device
 // number.
 func (c *InodeCache) UnmountDevice(devno int) os.Error {
-	c.m.Lock()         // acquire the write mutex (+++)
-	defer c.m.Unlock() // defer release of the write mutex (---)
 	c.devs[devno] = nil
 	c.supers[devno] = nil
 	return nil

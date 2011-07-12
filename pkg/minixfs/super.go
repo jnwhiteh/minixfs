@@ -3,7 +3,6 @@ package minixfs
 import "log"
 import "math"
 import "os"
-import "sync"
 
 type Superblock struct {
 	diskblock        *disk_superblock
@@ -32,8 +31,6 @@ type Superblock struct {
 
 	isup   *Inode // inode for root dir of mounted file system
 	imount *Inode // inode mounted on
-
-	m *sync.RWMutex // r/w mutex for working with bitmaps/I_Search
 }
 
 func bitmapsize(nr_bits uint, block_size uint) uint {
@@ -73,7 +70,6 @@ func ReadSuperblock(dev BlockDevice) (*Superblock, os.Error) {
 		Magic:            uint(sup_disk.Magic),
 		Block_size:       uint(sup_disk.Block_size),
 		Disk_version:     sup_disk.Disk_version,
-		m:                new(sync.RWMutex),
 	}
 	return sup, nil
 }
@@ -168,7 +164,6 @@ func NewSuperblock(blocks, inodes, block_size uint) (*Superblock, os.Error) {
 			return nil, os.NewError("Maximum file size is too large")
 		}
 	}
-	sup.m = new(sync.RWMutex)
 	return sup, nil
 }
 
@@ -179,8 +174,6 @@ func (fs *FileSystem) alloc_bit(dev int, bmap uint, origin uint) uint {
 	var bit_blocks uint  // how many blocks are there in the bit map
 
 	super := fs.supers[dev]
-	super.m.Lock() // we're altering the bitmaps
-	defer super.m.Unlock()
 
 	if bmap == IMAP {
 		start_block = START_BLOCK
@@ -261,8 +254,6 @@ func (fs *FileSystem) free_bit(dev int, bmap uint, bit_returned uint) {
 	var start_block uint // first bit block
 
 	super := fs.supers[dev]
-	super.m.Lock() // we're altering the bitmaps
-	defer super.m.Unlock()
 
 	if bmap == IMAP {
 		start_block = START_BLOCK
@@ -299,8 +290,6 @@ func (fs *FileSystem) check_bit(dev int, bmap uint, bit_check uint) bool {
 	var start_block uint // first bit block
 
 	super := fs.supers[dev]
-	super.m.RLock() // we're altering the bitmaps
-	defer super.m.RUnlock()
 
 	if bmap == IMAP {
 		start_block = START_BLOCK
@@ -346,9 +335,7 @@ func (fs *FileSystem) alloc_zone(dev int, zone int) (int, os.Error) {
 		return NO_ZONE, ENOSPC
 	}
 	if z == sp.Firstdatazone {
-		sp.m.Lock()
 		sp.Z_Search = b
-		sp.m.Unlock()
 	}
 
 	return int(sp.Firstdatazone - 1 + b), nil
@@ -363,9 +350,7 @@ func (fs *FileSystem) free_zone(dev int, numb uint) {
 	bit := numb - super.Firstdatazone - 1
 	fs.free_bit(dev, ZMAP, bit)
 
-	super.m.Lock() // examining/altering super.Z_Search
 	if bit < super.Z_Search {
 		super.Z_Search = bit
 	}
-	super.m.Unlock()
 }

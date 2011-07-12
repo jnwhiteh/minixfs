@@ -8,9 +8,6 @@ import (
 
 // Return the device number corresponding to a given device or NO_DEV
 var _getdevnum = func(fs *FileSystem, dev BlockDevice) int {
-	fs.m.devs.RLock()
-	defer fs.m.devs.RUnlock()
-
 	for i := 0; i < NR_SUPERS; i++ {
 		if fs.devs[i] == dev {
 			return i

@@ -5,10 +5,6 @@ import (
 )
 
 func (fs *FileSystem) get_fd(proc *Process, start int, mode uint16) (int, int, *filp, os.Error) {
-	// Find a slot in the global filp table
-	proc.fs.m.filp.Lock()
-	defer proc.fs.m.filp.Unlock()
-
 	// Find an available file descriptor slot
 	var fd int = -1
 	for i := 0; i < OPEN_MAX; i++ {

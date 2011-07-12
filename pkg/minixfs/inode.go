@@ -50,9 +50,7 @@ func (fs *FileSystem) alloc_inode(dev int, mode uint16) *Inode {
 		return nil
 	}
 
-	super.m.Lock()     // altering super.I_Search
 	super.I_Search = b // next time start here
-	super.m.Unlock()
 
 	// Try to acquire a slot in the inode table
 	inode, err := fs.get_inode(dev, b)
@@ -79,11 +77,9 @@ func (fs *FileSystem) free_inode(dev int, inumb uint) {
 	b := inumb
 	fs.free_bit(dev, IMAP, b)
 
-	sp.m.Lock() // altering super.I_Search
 	if b < sp.I_Search {
 		sp.I_Search = b
 	}
-	sp.m.Unlock()
 }
 
 func (fs *FileSystem) wipe_inode(inode *Inode) {

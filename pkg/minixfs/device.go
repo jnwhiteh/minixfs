@@ -3,7 +3,6 @@ package minixfs
 import (
 	"encoding/binary"
 	"os"
-	"sync"
 	"time"
 )
 
@@ -34,7 +33,6 @@ type FileDevice struct {
 	file      *os.File         // the file that represents this device
 	filename  string           // the path to the given file
 	byteOrder binary.ByteOrder // the byte order of the given file
-	m         *sync.RWMutex
 }
 
 // NewFileDevice creates a new file-backed block device, given a filename
@@ -45,13 +43,11 @@ func NewFileDevice(filename string, byteOrder binary.ByteOrder) (*FileDevice, os
 		return nil, err
 	}
 
-	return &FileDevice{file, filename, byteOrder, new(sync.RWMutex)}, nil
+	return &FileDevice{file, filename, byteOrder}, nil
 }
 
 // Read implements the BlockDevice.Read method
 func (dev FileDevice) Read(buf interface{}, pos int64) os.Error {
-	dev.m.RLock()         // acquire the read mutex
-	defer dev.m.RUnlock() // release the read mutex
 	newPos, err := dev.file.Seek(pos, 0)
 	if err != nil {
 		return err
@@ -65,8 +61,6 @@ func (dev FileDevice) Read(buf interface{}, pos int64) os.Error {
 
 // Write implements the BlockDevice.Write method
 func (dev FileDevice) Write(buf interface{}, pos int64) os.Error {
-	dev.m.Lock() // acquire the write mutex
-	defer dev.m.Unlock()
 	newPos, err := dev.file.Seek(pos, 0)
 	if err != nil {
 		return err
@@ -93,8 +87,6 @@ func (dev FileDevice) Gather() os.Error {
 
 // Close implements the BlockDevice.Close method
 func (dev FileDevice) Close() {
-	dev.m.Lock() // acquire the write mutex
-	defer dev.m.Unlock()
 	dev.file.Close()
 }
 
@@ -114,7 +106,7 @@ func NewDelayFileDevice(filename string, byteOrder binary.ByteOrder, seekDelay i
 		return nil, err
 	}
 
-	fdev := &FileDevice{file, filename, byteOrder, new(sync.RWMutex)}
+	fdev := &FileDevice{file, filename, byteOrder}
 	return &DelayFileDevice{seekDelay, fdev}, nil
 }
 
