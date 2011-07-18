@@ -377,7 +377,11 @@ func (file *File) Read(b []byte) (int, os.Error) {
 	// TODO: Error check this
 	// read the first data block and copy the portion of data we need
 	bp := fs.get_block(dev, int(bnum), FULL_DATA_BLOCK, NORMAL)
-	bdata := bp.block.(FullDataBlock)
+	bdata, bok := bp.block.(FullDataBlock)
+	if !bok {
+		// TODO: Attempt to read from an invalid location, what should happen?
+		return 0, EINVAL
+	}
 
 	if len(b) < blocksize-offset { // this block contains all the data we need
 		for i := 0; i < len(b); i++ {
