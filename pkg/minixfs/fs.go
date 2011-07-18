@@ -156,10 +156,12 @@ func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Erro
 		}
 	}
 
-	// See if a file descriptor and filp slots are available. Unlike the
-	// original source, this does allocate a filp slot for us so we need to
-	// release it if the open/creat is unsuccessful.
-	fd, filpidx, filp, err := proc.fs.get_fd(proc, 0, bits)
+	// Allocate a file descriptor and filp slot. This function will put a
+	// static 'inUse' filp entry into both the fs/proc tables to prevent
+	// re-allocation of the slot returned. As a result, if the open/creat
+	// fails, this allocation needs to be reversed.
+	fd, filpidx, err := proc.fs.reserve_fd(proc, 0, bits)
+	var filp *filp
 
 	err = nil
 	if exist {
@@ -185,16 +187,16 @@ func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Erro
 	}
 
 	if err != nil {
-		// Release the allocated fd
+		// Something went wrong, release the filp reservation
 		proc.filp[fd] = nil
 		proc.fs.filp[filpidx] = nil
+
+		return nil, err
 	} else {
-		// fill in the allocated filp entry
-		filp.count = 1
-		filp.inode = rip
-		filp.pos = 0
-		filp.flags = oflags
-		filp.mode = bits
+		// Allocate a proper filp entry and update fs/filp tables
+		filp = NewFilp(bits, oflags, rip, 1, 0)
+		proc.filp[fd] = filp
+		proc.fs.filp[filpidx] = filp
 	}
 
 	return &File{filp, proc}, nil
@@ -339,22 +341,26 @@ type File struct {
 func (file *File) Seek(pos int, whence int) (int, os.Error) {
 	switch whence {
 	case 1:
-		file.pos += pos
+		file.SetPosDelta(pos)
 	case 0:
-		file.pos = pos
+		file.SetPos(pos)
 	default:
 		panic("NYI: file.Seek with whence > 1")
 	}
 
-	return file.pos, nil
+	return file.Pos(), nil
 }
 
+// Read up to len(b) bytes from 'file' from the current position within the
+// file.
 func (file *File) Read(b []byte) (int, os.Error) {
 	// We want to read at most len(b) bytes from the given file. This data
 	// will almost certainly be split up amongst multiple blocks.
 
+	curpos := file.Pos()
+
 	// Determine what the ending position to be read is
-	endpos := file.pos + len(b)
+	endpos := curpos + len(b)
 	if endpos >= int(file.inode.Size) {
 		endpos = int(file.inode.Size) - 1
 	}
@@ -365,8 +371,8 @@ func (file *File) Read(b []byte) (int, os.Error) {
 
 	// We can't just start reading at the start of a block, since we may be at
 	// an offset within that block. So work out the first chunk to read
-	offset := file.pos % blocksize
-	bnum := fs.read_map(file.inode, uint(file.pos))
+	offset := curpos % blocksize
+	bnum := fs.read_map(file.inode, uint(curpos))
 
 	// TODO: Error check this
 	// read the first data block and copy the portion of data we need
@@ -377,7 +383,7 @@ func (file *File) Read(b []byte) (int, os.Error) {
 		for i := 0; i < len(b); i++ {
 			b[i] = bdata[offset+i]
 		}
-		file.pos += len(b)
+		curpos += len(b)
 		fs.put_block(bp, FULL_DATA_BLOCK)
 		return len(b), nil
 	}
@@ -390,16 +396,16 @@ func (file *File) Read(b []byte) (int, os.Error) {
 	}
 
 	fs.put_block(bp, FULL_DATA_BLOCK)
-	file.pos += numBytes
+	curpos += numBytes
 
 	// At this stage, all reads should be on block boundaries. The final block
 	// will likely be a partial block, so handle that specially.
 	for numBytes < len(b) {
-		bnum = fs.read_map(file.inode, uint(file.pos))
+		bnum = fs.read_map(file.inode, uint(curpos))
 		bp := fs.get_block(dev, int(bnum), FULL_DATA_BLOCK, NORMAL)
 		if _, sok := bp.block.(FullDataBlock); !sok {
 			log.Printf("block num: %d, count: %d", bp.blocknr, bp.count)
-			log.Panicf("When reading block %d for position %d, got IndirectBlock", bnum, file.pos)
+			log.Panicf("When reading block %d for position %d, got IndirectBlock", bnum, curpos)
 		}
 
 		bdata = bp.block.(FullDataBlock)
@@ -414,7 +420,7 @@ func (file *File) Read(b []byte) (int, os.Error) {
 				numBytes++
 			}
 
-			file.pos += bytesLeft
+			curpos += bytesLeft
 			fs.put_block(bp, FULL_DATA_BLOCK)
 			return numBytes, nil
 		}
@@ -425,9 +431,12 @@ func (file *File) Read(b []byte) (int, os.Error) {
 			numBytes++
 		}
 
-		file.pos += len(bdata)
+		curpos += len(bdata)
 		fs.put_block(bp, FULL_DATA_BLOCK)
 	}
+
+	// TODO: Update this as we read block after block?
+	file.SetPos(curpos)
 
 	return numBytes, nil
 }
@@ -439,7 +448,7 @@ func (file *File) Write(data []byte) (n int, err os.Error) {
 	// in the original source. At some point it should be reviewed.
 
 	cum_io := 0
-	position := int(file.pos)
+	position := int(file.Pos())
 	fsize := int(file.inode.Size)
 
 	fs := file.proc.fs
@@ -490,7 +499,7 @@ func (file *File) Write(data []byte) (n int, err os.Error) {
 		}
 	}
 
-	file.pos = position
+	file.SetPos(position)
 
 	// TODO: Update times
 	if err == nil {
