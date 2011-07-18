@@ -4,6 +4,7 @@ import "encoding/binary"
 import "log"
 import "math"
 import "os"
+import "sync"
 
 // FileSystem encapsulates a minix file system, including the shared data
 // structures associated with the file system. It abstracts away from the file
@@ -19,6 +20,14 @@ type FileSystem struct {
 
 	filp  []*filp    // the filp table
 	procs []*Process // an array of processes that have been opened
+
+	m struct {
+		// A device lock to be used at the system-call level. All system calls
+		// must be performed under this mutex, with any system calls that
+		// alter the device table (Mount, Unmount and Close) holding the write
+		// lock as well as the read lock.
+		device *sync.RWMutex
+	}
 }
 
 // Create a new FileSystem from a given file on the filesystem
@@ -67,11 +76,16 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	}
 
 	fs.procs[ROOT_PROCESS] = &Process{fs, 0, 022, rip, rip, make([]*filp, OPEN_MAX)}
+
+	fs.m.device = new(sync.RWMutex)
 	return fs, nil
 }
 
 // Close the filesystem
 func (fs *FileSystem) Close() {
+	fs.m.device.Lock()
+	defer fs.m.device.Unlock()
+
 	for i := 0; i < NR_SUPERS; i++ {
 		if fs.devs[i] != nil {
 			fs.cache.Flush(i)
@@ -107,6 +121,9 @@ var ERR_PATH_LOOKUP = os.NewError("Could not lookup path")
 
 // NewProcess acquires the 'fs.proc' lock in write mode.
 func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Process, os.Error) {
+	fs.m.device.RLock()
+	defer fs.m.device.RUnlock()
+
 	if fs.procs[pid] != nil {
 		return nil, ERR_PID_EXISTS
 	}
@@ -129,6 +146,9 @@ var mode_map = []uint16{R_BIT, W_BIT, R_BIT | W_BIT, 0}
 
 // NewProcess acquires the 'fs.filp' lock in write mode.
 func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Error) {
+	proc.fs.m.device.RLock()
+	defer proc.fs.m.device.RUnlock()
+
 	// Remap the bottom two bits of oflags
 	bits := mode_map[oflags&O_ACCMODE]
 
@@ -203,6 +223,9 @@ func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Erro
 }
 
 func (proc *Process) Unlink(path string) os.Error {
+	proc.fs.m.device.RLock()
+	defer proc.fs.m.device.RUnlock()
+
 	fs := proc.fs
 	// Call a helper function to do most of the dirty work for us
 	rldirp, rip, rest, err := fs.unlink(proc, path)
@@ -227,6 +250,9 @@ func (proc *Process) Unlink(path string) os.Error {
 
 // Perform the mkdir(name, mode) system call
 func (proc *Process) Mkdir(path string, mode uint16) os.Error {
+	proc.fs.m.device.RLock()
+	defer proc.fs.m.device.RUnlock()
+
 	fs := proc.fs
 	var dot, dotdot int
 	var err_code os.Error
@@ -284,6 +310,9 @@ func (proc *Process) Mkdir(path string, mode uint16) os.Error {
 }
 
 func (proc *Process) Rmdir(path string) os.Error {
+	proc.fs.m.device.RLock()
+	defer proc.fs.m.device.RUnlock()
+
 	fs := proc.fs
 	// Call a helper function to do most of the dirty work for us
 	rldirp, rip, rest, err := fs.unlink(proc, path)
@@ -300,6 +329,9 @@ func (proc *Process) Rmdir(path string) os.Error {
 }
 
 func (proc *Process) Chdir(path string) os.Error {
+	proc.fs.m.device.RLock()
+	defer proc.fs.m.device.RUnlock()
+
 	rip, err := proc.fs.eat_path(proc, path)
 	if rip == nil || err != nil {
 		return err
@@ -339,6 +371,9 @@ type File struct {
 // TODO: Implement end of file seek and error checking
 
 func (file *File) Seek(pos int, whence int) (int, os.Error) {
+	file.proc.fs.m.device.RLock()
+	defer file.proc.fs.m.device.RUnlock()
+
 	switch whence {
 	case 1:
 		file.SetPosDelta(pos)
@@ -354,6 +389,9 @@ func (file *File) Seek(pos int, whence int) (int, os.Error) {
 // Read up to len(b) bytes from 'file' from the current position within the
 // file.
 func (file *File) Read(b []byte) (int, os.Error) {
+	file.proc.fs.m.device.RLock()
+	defer file.proc.fs.m.device.RUnlock()
+
 	// We want to read at most len(b) bytes from the given file. This data
 	// will almost certainly be split up amongst multiple blocks.
 
@@ -448,6 +486,9 @@ func (file *File) Read(b []byte) (int, os.Error) {
 // Write a slice of bytes to the file at the current position. Returns the
 // number of bytes actually written and an error (if any).
 func (file *File) Write(data []byte) (n int, err os.Error) {
+	file.proc.fs.m.device.RLock()
+	defer file.proc.fs.m.device.RUnlock()
+
 	// TODO: This implementation is direct and doesn't match the abstractions
 	// in the original source. At some point it should be reviewed.
 
@@ -515,6 +556,9 @@ func (file *File) Write(data []byte) (n int, err os.Error) {
 
 // TODO: Should this always be succesful?
 func (file *File) Close() {
+	file.proc.fs.m.device.RLock()
+	defer file.proc.fs.m.device.RUnlock()
+
 	file.proc.fs.put_inode(file.inode)
 	file.proc = nil
 }

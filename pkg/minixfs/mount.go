@@ -6,6 +6,9 @@ import (
 
 // Mount the filesystem on 'dev' at 'path' in the root filesystem
 func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
+	fs.m.device.Lock()
+	defer fs.m.device.Unlock()
+
 	// argument check
 	if dev == nil {
 		return EINVAL
@@ -115,6 +118,9 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
 
 // Unmount a file system by device
 func (fs *FileSystem) Unmount(dev BlockDevice) os.Error {
+	fs.m.device.Lock()
+	defer fs.m.device.Unlock()
+
 	// Deteremine the numeric index of this device
 	devnum := -1
 	for i := 0; i < NR_SUPERS; i++ {
