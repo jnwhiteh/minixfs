@@ -50,7 +50,7 @@ type readCase struct {
 	pos  int
 }
 
-func GetEuroparlData(test *testing.T) ([]byte) {
+func GetEuroparlData(test *testing.T) []byte {
 	// Read in the original data so we have something to compare against
 	dfile, err := os.Open("../../europarl-en.txt")
 

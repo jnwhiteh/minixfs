@@ -450,14 +450,14 @@ func (file *File) Write(data []byte) (n int, err os.Error) {
 	}
 
 	// Check for O_APPEND flag
-	if file.flags & O_APPEND > 0 {
+	if file.flags&O_APPEND > 0 {
 		position = fsize
 	}
 
 	// Clear the zone containing the current present EOF if hole about to be
 	// created. This is necessary because all unwritten blocks prior to the
 	// EOF must read as zeros.
-	if position  > fsize {
+	if position > fsize {
 		fs.clear_zone(file.inode, uint(fsize), 0)
 	}
 
@@ -466,7 +466,7 @@ func (file *File) Write(data []byte) (n int, err os.Error) {
 	// Split the transfer into chunks that don't span two blocks.
 	for nbytes != 0 {
 		off := (position % bsize)
-		chunk := _MIN(nbytes, bsize - off)
+		chunk := _MIN(nbytes, bsize-off)
 		if chunk < 0 {
 			chunk = bsize - off
 		}
@@ -479,9 +479,9 @@ func (file *File) Write(data []byte) (n int, err os.Error) {
 
 		// Update counters and pointers
 		data = data[chunk:] // user buffer
-		nbytes -= chunk // bytes yet to be written
-		cum_io += chunk // bytes written so far
-		position += chunk // position within the file
+		nbytes -= chunk     // bytes yet to be written
+		cum_io += chunk     // bytes written so far
+		position += chunk   // position within the file
 	}
 
 	if file.inode.GetType() == I_REGULAR || file.inode.GetType() == I_DIRECTORY {

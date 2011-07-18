@@ -265,7 +265,7 @@ func (fs *FileSystem) write_chunk(rip *Inode, pos, off, chunk int, buff []byte) 
 
 	bp.dirty = true
 
-	if off + chunk == bsize {
+	if off+chunk == bsize {
 		fs.put_block(bp, FULL_DATA_BLOCK)
 	} else {
 		fs.put_block(bp, PARTIAL_DATA_BLOCK)
