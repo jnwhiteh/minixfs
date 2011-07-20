@@ -18,8 +18,8 @@ type FileSystem struct {
 	cache  *LRUCache   // the block cache (shared across all devices)
 	icache *InodeCache // the inode cache (shared across all devices)
 
-	filp  []*filp    // the filp table
-	procs []*Process // an array of processes that have been opened
+	_filp  []*filp    // the filp table
+	_procs []*Process // an array of processes that have been opened
 
 	m struct {
 		// A device lock to be used at the system-call level. All system calls
@@ -27,6 +27,8 @@ type FileSystem struct {
 		// alter the device table (Mount, Unmount and Close) holding the write
 		// lock as well as the read lock.
 		device *sync.RWMutex
+		procs  *sync.RWMutex
+		filp   *sync.RWMutex
 	}
 }
 
@@ -51,8 +53,8 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 	fs.cache = NewLRUCache()
 	fs.icache = NewInodeCache(fs, NR_INODES)
 
-	fs.filp = make([]*filp, NR_FILPS)
-	fs.procs = make([]*Process, NR_PROCS)
+	fs._filp = make([]*filp, NR_FILPS)
+	fs._procs = make([]*Process, NR_PROCS)
 
 	fs.devs[ROOT_DEVICE] = dev
 	fs.supers[ROOT_DEVICE] = super
@@ -75,9 +77,12 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 		return nil, err
 	}
 
-	fs.procs[ROOT_PROCESS] = &Process{fs, 0, 022, rip, rip, make([]*filp, OPEN_MAX)}
+	fs._procs[ROOT_PROCESS] = &Process{fs, 0, 022, rip, rip, make([]*filp, OPEN_MAX)}
 
 	fs.m.device = new(sync.RWMutex)
+	fs.m.procs = new(sync.RWMutex)
+	fs.m.filp = new(sync.RWMutex)
+
 	return fs, nil
 }
 
@@ -119,17 +124,19 @@ type Process struct {
 var ERR_PID_EXISTS = os.NewError("Process already exists")
 var ERR_PATH_LOOKUP = os.NewError("Could not lookup path")
 
-// NewProcess acquires the 'fs.proc' lock in write mode.
 func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Process, os.Error) {
 	fs.m.device.RLock()
 	defer fs.m.device.RUnlock()
 
-	if fs.procs[pid] != nil {
+	fs.m.procs.Lock()
+	defer fs.m.procs.Unlock()
+
+	if fs._procs[pid] != nil {
 		return nil, ERR_PID_EXISTS
 	}
 
 	// Get an inode from a path
-	rip, err := fs.eat_path(fs.procs[ROOT_PROCESS], rootpath)
+	rip, err := fs.eat_path(fs._procs[ROOT_PROCESS], rootpath)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +146,14 @@ func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Proce
 	filp := make([]*filp, OPEN_MAX)
 	umask = ^umask // convert it so its actually usable as a mask
 
-	return &Process{fs, pid, umask, rinode, winode, filp}, nil
+	proc := &Process{fs, pid, umask, rinode, winode, filp}
+	fs._procs[pid] = proc
+	return proc, nil
+}
+
+func (proc *Process) Exit() {
+	proc.fs.m.device.RLock()
+	defer proc.fs.m.device.RUnlock()
 }
 
 var mode_map = []uint16{R_BIT, W_BIT, R_BIT | W_BIT, 0}
@@ -206,17 +220,21 @@ func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Erro
 		}
 	}
 
+	// We need to alter the filp table here, so grab the mutex again
+	proc.fs.m.filp.Lock()
+	defer proc.fs.m.filp.Unlock()
+
 	if err != nil {
 		// Something went wrong, release the filp reservation
 		proc.filp[fd] = nil
-		proc.fs.filp[filpidx] = nil
+		proc.fs._filp[filpidx] = nil
 
 		return nil, err
 	} else {
 		// Allocate a proper filp entry and update fs/filp tables
 		filp = NewFilp(bits, oflags, rip, 1, 0)
 		proc.filp[fd] = filp
-		proc.fs.filp[filpidx] = filp
+		proc.fs._filp[filpidx] = filp
 	}
 
 	return &File{filp, proc}, nil

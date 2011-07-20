@@ -107,11 +107,14 @@ func (fs *FileSystem) remove_dir(proc *Process, rldirp, rip *Inode, dir_name str
 		return EBUSY
 	}
 
-	for _, proc := range fs.procs {
+	fs.m.procs.RLock()
+	for _, proc := range fs._procs {
 		if proc != nil && (proc.rootdir == rip || proc.workdir == rip) {
+			fs.m.procs.RUnlock()
 			return EBUSY // can't remove anyone's working directory
 		}
 	}
+	fs.m.procs.RUnlock()
 
 	// Actually try to unlink the file; fails if parent is mode 0, etc.
 	if err := fs.unlink_file(rldirp, rip, dir_name); err != nil {

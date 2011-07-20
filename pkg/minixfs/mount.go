@@ -53,7 +53,10 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
 	fs.icache.MountDevice(freeIndex, dev, sp)
 
 	// Get the inode of the file to be mounted on
-	rip, err := fs.eat_path(fs.procs[ROOT_PROCESS], path)
+	fs.m.procs.RLock()
+	rip, err := fs.eat_path(fs._procs[ROOT_PROCESS], path)
+	fs.m.procs.RUnlock()
+
 	if err != nil {
 		fs.devs[freeIndex] = nil
 		fs.supers[freeIndex] = nil
