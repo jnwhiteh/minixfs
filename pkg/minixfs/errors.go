@@ -8,6 +8,7 @@ import (
 // specifically from lib/ansi/errlist.c.
 
 var (
+	EBADF     = os.NewError("Bad file number")
 	EBUSY     = os.NewError("Resource busy")
 	EEXIST    = os.NewError("File exists")
 	EFBIG     = os.NewError("File too large")

@@ -239,7 +239,7 @@ func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Erro
 		proc.fs._filp[filpidx] = filp
 	}
 
-	return &File{filp, proc}, nil
+	file := &File{filp, proc, fd}
 }
 
 func (proc *Process) Unlink(path string) os.Error {
@@ -381,6 +381,7 @@ func (proc *Process) Chdir(path string) os.Error {
 type File struct {
 	*filp          // the current position in the file
 	proc  *Process // the process in which this file is opened
+	fd    int      // the numeric file descriptor in the process for this file
 }
 
 // Seek sets the position for the next read or write to pos, interpreted
@@ -391,6 +392,10 @@ type File struct {
 // TODO: Implement end of file seek and error checking
 
 func (file *File) Seek(pos int, whence int) (int, os.Error) {
+	if file.fd == NO_FILE {
+		return 0, EBADF
+	}
+
 	file.proc.fs.m.device.RLock()
 	defer file.proc.fs.m.device.RUnlock()
 
@@ -409,12 +414,15 @@ func (file *File) Seek(pos int, whence int) (int, os.Error) {
 // Read up to len(b) bytes from 'file' from the current position within the
 // file.
 func (file *File) Read(b []byte) (int, os.Error) {
+	if file.fd == NO_FILE {
+		return 0, EBADF
+	}
+
 	file.proc.fs.m.device.RLock()
 	defer file.proc.fs.m.device.RUnlock()
 
 	// We want to read at most len(b) bytes from the given file. This data
 	// will almost certainly be split up amongst multiple blocks.
-
 	curpos := file.Pos()
 
 	// Determine what the ending position to be read is
@@ -507,12 +515,15 @@ func (file *File) Read(b []byte) (int, os.Error) {
 // Write a slice of bytes to the file at the current position. Returns the
 // number of bytes actually written and an error (if any).
 func (file *File) Write(data []byte) (n int, err os.Error) {
+	if file.fd == NO_FILE {
+		return 0, EBADF
+	}
+
 	file.proc.fs.m.device.RLock()
 	defer file.proc.fs.m.device.RUnlock()
 
 	// TODO: This implementation is direct and doesn't match the abstractions
 	// in the original source. At some point it should be reviewed.
-
 	cum_io := 0
 	position := int(file.Pos())
 	fsize := int(file.inode.Size())
@@ -576,7 +587,11 @@ func (file *File) Write(data []byte) (n int, err os.Error) {
 }
 
 // TODO: Should this always be succesful?
-func (file *File) Close() {
+func (file *File) Close() os.Error {
+	if file.fd == NO_FILE {
+		return EBADF
+	}
+
 	file.proc.fs.m.device.RLock()
 	defer file.proc.fs.m.device.RUnlock()
 
