@@ -77,7 +77,10 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 		return nil, err
 	}
 
-	fs._procs[ROOT_PROCESS] = &Process{fs, 0, 022, rip, rip, make([]*filp, OPEN_MAX), new(sync.RWMutex)}
+	fs._procs[ROOT_PROCESS] = &Process{fs, 0, 022, rip, rip,
+		make([]*filp, OPEN_MAX),
+		make([]*File, OPEN_MAX),
+		new(sync.RWMutex)}
 
 	fs.m.device = new(sync.RWMutex)
 	fs.m.procs = new(sync.RWMutex)
@@ -119,6 +122,7 @@ type Process struct {
 	rootdir *Inode      // root directory of the process
 	workdir *Inode      // working directory of the process
 	_filp   []*filp     // the list of file descriptors
+	_files  []*File     // the list of open files
 
 	m_filp *sync.RWMutex
 }
@@ -146,9 +150,10 @@ func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Proce
 	rinode := rip
 	winode := rinode
 	filp := make([]*filp, OPEN_MAX)
+	files := make([]*File, OPEN_MAX)
 	umask = ^umask // convert it so its actually usable as a mask
 
-	proc := &Process{fs, pid, umask, rinode, winode, filp, new(sync.RWMutex)}
+	proc := &Process{fs, pid, umask, rinode, winode, filp, files, new(sync.RWMutex)}
 	fs._procs[pid] = proc
 	return proc, nil
 }
@@ -156,6 +161,27 @@ func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Proce
 func (proc *Process) Exit() {
 	proc.fs.m.device.RLock()
 	defer proc.fs.m.device.RUnlock()
+
+	fs := proc.fs
+
+	// For each file that is open, close it
+	proc.m_filp.Lock()
+	for i := 0; i < len(proc._files); i++ {
+		if proc._files[i] != nil {
+			file := proc._files[i]
+			file.close()
+		}
+	}
+	proc.m_filp.Unlock()
+
+	fs.m.procs.Lock()
+	fs._procs[proc.pid] = nil
+	fs.m.procs.Unlock()
+
+	if proc.workdir != proc.rootdir {
+		fs.put_inode(proc.workdir)
+	}
+	fs.put_inode(proc.rootdir)
 }
 
 var mode_map = []uint16{R_BIT, W_BIT, R_BIT | W_BIT, 0}
@@ -240,6 +266,8 @@ func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Erro
 	}
 
 	file := &File{filp, proc, fd}
+	proc._files[fd] = file
+	return file, nil
 }
 
 func (proc *Process) Unlink(path string) os.Error {
@@ -586,6 +614,20 @@ func (file *File) Write(data []byte) (n int, err os.Error) {
 	return cum_io, err
 }
 
+// A non-locking version of the close logic, to be called from proc.Exit and
+// file.Close().
+func (file *File) close() {
+	file.proc.fs.put_inode(file.inode)
+
+	proc := file.proc
+	proc._filp[file.fd] = nil
+	proc._files[file.fd] = nil
+
+	file.filp.SetCountDelta(-1)
+	file.proc = nil
+	file.fd = NO_FILE
+}
+
 // TODO: Should this always be succesful?
 func (file *File) Close() os.Error {
 	if file.fd == NO_FILE {
@@ -595,6 +637,9 @@ func (file *File) Close() os.Error {
 	file.proc.fs.m.device.RLock()
 	defer file.proc.fs.m.device.RUnlock()
 
-	file.proc.fs.put_inode(file.inode)
-	file.proc = nil
+	file.proc.m_filp.Lock()
+	defer file.proc.m_filp.Unlock()
+
+	file.close()
+	return nil
 }
