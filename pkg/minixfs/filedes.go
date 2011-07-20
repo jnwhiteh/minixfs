@@ -14,10 +14,13 @@ func (fs *FileSystem) reserve_fd(proc *Process, start int, mode uint16) (int, in
 	fs.m.filp.Lock()
 	defer fs.m.filp.Unlock()
 
+	proc.m_filp.Lock()
+	defer proc.m_filp.Unlock()
+
 	// Find an available file descriptor slot
 	var fd int = -1
 	for i := 0; i < OPEN_MAX; i++ {
-		if proc.filp[i] == nil && proc.filp[i] != inUse {
+		if proc._filp[i] == nil && proc._filp[i] != inUse {
 			fd = i
 			break
 		}
@@ -39,7 +42,7 @@ func (fs *FileSystem) reserve_fd(proc *Process, start int, mode uint16) (int, in
 		return -1, -1, ENFILE
 	}
 
-	proc.filp[fd] = inUse
+	proc._filp[fd] = inUse
 	proc.fs._filp[filpi] = inUse
 
 	return fd, filpi, nil

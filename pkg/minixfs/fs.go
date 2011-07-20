@@ -77,7 +77,7 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 		return nil, err
 	}
 
-	fs._procs[ROOT_PROCESS] = &Process{fs, 0, 022, rip, rip, make([]*filp, OPEN_MAX)}
+	fs._procs[ROOT_PROCESS] = &Process{fs, 0, 022, rip, rip, make([]*filp, OPEN_MAX), new(sync.RWMutex)}
 
 	fs.m.device = new(sync.RWMutex)
 	fs.m.procs = new(sync.RWMutex)
@@ -118,7 +118,9 @@ type Process struct {
 	umask   uint16      // file creation mask
 	rootdir *Inode      // root directory of the process
 	workdir *Inode      // working directory of the process
-	filp    []*filp     // the list of file descriptors
+	_filp   []*filp     // the list of file descriptors
+
+	m_filp *sync.RWMutex
 }
 
 var ERR_PID_EXISTS = os.NewError("Process already exists")
@@ -146,7 +148,7 @@ func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Proce
 	filp := make([]*filp, OPEN_MAX)
 	umask = ^umask // convert it so its actually usable as a mask
 
-	proc := &Process{fs, pid, umask, rinode, winode, filp}
+	proc := &Process{fs, pid, umask, rinode, winode, filp, new(sync.RWMutex)}
 	fs._procs[pid] = proc
 	return proc, nil
 }
@@ -226,14 +228,14 @@ func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Erro
 
 	if err != nil {
 		// Something went wrong, release the filp reservation
-		proc.filp[fd] = nil
+		proc._filp[fd] = nil
 		proc.fs._filp[filpidx] = nil
 
 		return nil, err
 	} else {
 		// Allocate a proper filp entry and update fs/filp tables
 		filp = NewFilp(bits, oflags, rip, 1, 0)
-		proc.filp[fd] = filp
+		proc._filp[fd] = filp
 		proc.fs._filp[filpidx] = filp
 	}
 
