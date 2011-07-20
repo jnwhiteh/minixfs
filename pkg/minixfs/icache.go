@@ -47,10 +47,10 @@ func (c *InodeCache) GetInode(dev int, num uint) (*Inode, os.Error) {
 	avail := -1
 	for i := 0; i < c.size; i++ {
 		rip := c.inodes[i]
-		if rip != nil && rip.count > 0 { // only check used slots for (dev, numb)
+		if rip != nil && rip.Count() > 0 { // only check used slots for (dev, numb)
 			if int(rip.dev) == dev && rip.inum == num {
 				// this is the inode that we are looking for
-				rip.count++
+				rip.IncCount()
 				return rip, nil
 			}
 		} else {
@@ -66,7 +66,7 @@ func (c *InodeCache) GetInode(dev int, num uint) (*Inode, os.Error) {
 	// A free inode slot has been located. Load the inode into it
 	xp := c.inodes[avail]
 	if xp == nil {
-		xp = new(Inode)
+		xp = NewInode()
 	}
 
 	super := c.supers[dev]
@@ -81,11 +81,11 @@ func (c *InodeCache) GetInode(dev int, num uint) (*Inode, os.Error) {
 
 	// We have the full block, now get the correct inode entry
 	inode_d := &inodeb[(num-1)%super.inodes_per_block]
-	xp.disk_inode = inode_d
+	xp._disk = inode_d
 	xp.dev = dev
 	xp.inum = num
-	xp.count = 1
-	xp.dirty = false
+	xp.SetCount(1)
+	xp.SetDirty(false)
 
 	// add the inode to the cache
 	c.inodes[avail] = xp
@@ -110,8 +110,8 @@ func (c *InodeCache) WriteInode(rip *Inode) {
 	bp.dirty = true
 
 	// Copy the disk_inode from rip into the inode block
-	inodeb[(rip.inum-1)%super.inodes_per_block] = *rip.disk_inode
-	rip.dirty = false
+	inodeb[(rip.inum-1)%super.inodes_per_block] = *rip._disk
+	rip.SetDirty(false)
 	c.fs.put_block(bp, INODE_BLOCK)
 }
 
@@ -122,8 +122,8 @@ func (c *InodeCache) IsDeviceBusy(devno int) bool {
 	count := 0
 	for i := 0; i < c.size; i++ {
 		rip := c.inodes[i]
-		if rip != nil && rip.count > 0 && rip.dev == devno {
-			count += int(rip.count)
+		if rip != nil && rip.Count() > 0 && rip.dev == devno {
+			count += int(rip.Count())
 		}
 	}
 	return count > 1

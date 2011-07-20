@@ -6,7 +6,7 @@ import (
 
 // Remove all the zones from the inode and mark it as dirty
 func (fs *FileSystem) truncate(rip *Inode) {
-	file_type := rip.Mode & I_TYPE
+	file_type := rip.Mode() & I_TYPE
 
 	// check to see if the file is special
 	if file_type == I_CHAR_SPECIAL || file_type == I_BLOCK_SPECIAL {
@@ -26,7 +26,7 @@ func (fs *FileSystem) truncate(rip *Inode) {
 	// }
 
 	// step through the file a zone at a time, finding and freeing the zones
-	for position := uint(0); position < uint(rip.Size); position += zone_size {
+	for position := uint(0); position < uint(rip.Size()); position += zone_size {
 		if b := fs.read_map(rip, position); b != NO_BLOCK {
 			z := b >> scale
 			fs.free_zone(rip.dev, z)
@@ -34,15 +34,15 @@ func (fs *FileSystem) truncate(rip *Inode) {
 	}
 
 	// all the dirty zones have been freed. Now free the indirect zones
-	rip.dirty = true
+	rip.SetDirty(true)
 	// PIPE:
 	// if waspipe {
 	// 	fs.WipeInode(rip)
 	// 	return
 	// }
 	single := V2_NR_DZONES
-	fs.free_zone(rip.dev, uint(rip.Zone[single]))
-	if z := rip.Zone[single+1]; z != NO_ZONE {
+	fs.free_zone(rip.dev, uint(rip.Zone(single)))
+	if z := rip.Zone(single + 1); z != NO_ZONE {
 		// free all the single indirect zones pointed to by the double
 		b := int(z << scale)
 		bp := fs.get_block(rip.dev, b, INDIRECT_BLOCK, NORMAL)
@@ -147,10 +147,10 @@ func (fs *FileSystem) unlink_file(dirp, rip *Inode, file_name string) os.Error {
 	err := fs.search_dir(dirp, file_name, &zeroinode, DELETE)
 
 	if err == nil {
-		rip.Nlinks--
+		rip.DecNlinks()
 		// TODO: update times
 		// rip.update |= CTIME
-		rip.dirty = true
+		rip.SetDirty(true)
 	}
 
 	fs.put_inode(rip)

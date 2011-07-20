@@ -38,7 +38,7 @@ func (fs *FileSystem) last_dir(proc *Process, path string) (*Inode, string, os.E
 	}
 
 	// If directory has been removed or path is empty, return ENOENT
-	if rip.Nlinks == 0 || len(path) == 0 {
+	if rip.Nlinks() == 0 || len(path) == 0 {
 		return nil, "", ENOENT
 	}
 
@@ -127,7 +127,7 @@ func (fs *FileSystem) advance(proc *Process, dirp *Inode, path string) (*Inode, 
 	// See if the inode is mounted on. If so, switch to the root directory of
 	// the mounted file system. The super_block provides the linkage between
 	// the inode mounted on and the root directory of the mounted file system.
-	for rip != nil && rip.mount {
+	for rip != nil && rip.Mount() {
 		// The inode is indeed mounted on
 		for i := 0; i < NR_SUPERS; i++ {
 			if fs.supers[i] != nil && fs.supers[i].imount == rip {
@@ -171,13 +171,13 @@ func (fs *FileSystem) search_dir(dirp *Inode, path string, numb *int, flag searc
 	// step through the directory on block at a time
 	var bp *buf
 	var dp *disk_dirent
-	old_slots := int(dirp.Size / DIR_ENTRY_SIZE)
+	old_slots := int(dirp.Size() / DIR_ENTRY_SIZE)
 	new_slots := 0
 	e_hit := false
 	match := false
 	extended := false
 
-	for pos := 0; pos < int(dirp.Size); pos += int(super.Block_size) {
+	for pos := 0; pos < int(dirp.Size()); pos += int(super.Block_size) {
 		b := fs.read_map(dirp, uint(pos)) // get block number
 		bp = fs.get_block(dirp.dev, int(b), DIRECTORY_BLOCK, NORMAL)
 		if bp == nil {
@@ -220,7 +220,7 @@ func (fs *FileSystem) search_dir(dirp *Inode, path string, numb *int, flag searc
 					// TODO: Save inode for recovery
 					dp.Inum = 0 // erase entry
 					bp.dirty = true
-					dirp.dirty = true
+					dirp.SetDirty(true)
 				} else {
 					*numb = int(dp.Inum)
 				}
@@ -260,7 +260,7 @@ func (fs *FileSystem) search_dir(dirp *Inode, path string, numb *int, flag searc
 			return EFBIG
 		}
 		var err os.Error
-		bp, err = fs.new_block(dirp, uint(dirp.Size), DIRECTORY_BLOCK)
+		bp, err = fs.new_block(dirp, uint(dirp.Size()), DIRECTORY_BLOCK)
 		if err != nil {
 			return err
 		}
@@ -284,9 +284,9 @@ func (fs *FileSystem) search_dir(dirp *Inode, path string, numb *int, flag searc
 	bp.dirty = true
 	fs.put_block(bp, DIRECTORY_BLOCK)
 	// TODO: update times
-	dirp.dirty = true
+	dirp.SetDirty(true)
 	if new_slots > old_slots {
-		dirp.Size = int32(new_slots * DIR_ENTRY_SIZE)
+		dirp.SetSize(int32(new_slots * DIR_ENTRY_SIZE))
 		// Send the change to disk if the directory is extended
 		if extended {
 			fs.icache.WriteInode(dirp)

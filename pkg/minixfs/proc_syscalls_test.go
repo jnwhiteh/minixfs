@@ -113,8 +113,8 @@ func _Test_Mkdir_Syscall(test *testing.T) {
 			if inode.inum != entry.num {
 				test.Errorf("Inode mismatch: expected %d, got %d", entry.num, inode.inum)
 			}
-			if inode.Size != entry.size {
-				test.Errorf("Size mismatch: expected %d, got %d", entry.size, inode.Size)
+			if inode.Size() != entry.size {
+				test.Errorf("Size mismatch: expected %d, got %d", entry.size, inode.Size())
 			}
 		}
 	}

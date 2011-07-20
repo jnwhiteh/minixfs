@@ -63,7 +63,7 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
 	var r os.Error = nil
 
 	// It may not be busy
-	if rip.count > 1 {
+	if rip.Count() > 1 {
 		r = EBUSY
 	}
 
@@ -82,7 +82,7 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
 		}
 	}
 
-	if root_ip != nil && root_ip.Mode == 0 {
+	if root_ip != nil && root_ip.Mode() == 0 {
 		r = EINVAL
 	}
 
@@ -110,7 +110,7 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
 	}
 
 	// Nothing else can go wrong, so perform the mount
-	rip.mount = true
+	rip.SetMount(true)
 	sp.imount = rip
 	sp.isup = root_ip
 	return nil
@@ -150,9 +150,9 @@ func (fs *FileSystem) Unmount(dev BlockDevice) os.Error {
 	fs.devs[devnum].Close()
 
 	// Finish off the unmount
-	sp.imount.mount = false // inode returns to normal
-	fs.put_inode(sp.imount) // release the inode mounted on
-	fs.put_inode(sp.isup)   // release the root inode of the mounted fs
+	sp.imount.SetMount(false) // inode returns to normal
+	fs.put_inode(sp.imount)   // release the inode mounted on
+	fs.put_inode(sp.isup)     // release the root inode of the mounted fs
 	sp.imount = nil
 
 	fs.devs[devnum] = nil

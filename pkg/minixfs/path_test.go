@@ -37,8 +37,8 @@ func TestAdvance(test *testing.T) {
 		test.Errorf("Inodes did not match, expected %d, got %d", 540, dirp.inum)
 	}
 	// Verify the size of the file
-	if rip.Size != 395 {
-		test.Errorf("Size of file does not match, expected %d, got %d", 395, rip.Size)
+	if rip.Size() != 395 {
+		test.Errorf("Size of file does not match, expected %d, got %d", 395, rip.Size())
 	}
 
 	// Now test the bad or corner cases to ensure the function behaves in a

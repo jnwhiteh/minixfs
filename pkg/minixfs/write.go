@@ -17,10 +17,10 @@ func (fs *FileSystem) new_block(rip *Inode, position uint, btype BlockType) (*bu
 		// Lose if the file is non-empty but the first zone number is NO_ZONE,
 		// corresponding to a zone full of zeros. It would be better to search
 		// near the last real zone.
-		if rip.Zone[0] == NO_ZONE {
+		if rip.Zone(0) == NO_ZONE {
 			z = int(fs.supers[rip.dev].Firstdatazone)
 		} else {
-			z = int(rip.Zone[0])
+			z = int(rip.Zone(0))
 		}
 		if z, err = fs.alloc_zone(rip.dev, z); z == NO_ZONE {
 			return nil, err
@@ -31,7 +31,7 @@ func (fs *FileSystem) new_block(rip *Inode, position uint, btype BlockType) (*bu
 		}
 
 		// If we are not writing at EOF, clear the zone, just to be safe
-		if position != uint(rip.Size) {
+		if position != uint(rip.Size()) {
 			fs.clear_zone(rip, position, 1)
 		}
 		scale := fs.supers[rip.dev].Log_zone_size
@@ -65,7 +65,7 @@ func (fs *FileSystem) zero_block(bp *buf, btype BlockType) {
 
 // Write a new zone into an inode
 func (fs *FileSystem) write_map(rip *Inode, position uint, new_zone uint) os.Error {
-	rip.dirty = true // inode will be changed
+	rip.SetDirty(true) // inode will be changed
 	var bp *buf = nil
 	var z int
 	var z1 int
@@ -83,7 +83,7 @@ func (fs *FileSystem) write_map(rip *Inode, position uint, new_zone uint) os.Err
 	// Is 'position' to be found in the inode itself?
 	if zone < zones {
 		zindex = zone
-		rip.Zone[zindex] = uint32(new_zone)
+		rip.SetZone(zindex, uint32(new_zone))
 		return nil
 	}
 
@@ -97,17 +97,17 @@ func (fs *FileSystem) write_map(rip *Inode, position uint, new_zone uint) os.Err
 
 	if excess < int(nr_indirects) {
 		// 'position' can be located via the single indirect block
-		z1 = int(rip.Zone[zones]) // single indirect zone
+		z1 = int(rip.Zone(zones)) // single indirect zone
 		single = true
 	} else {
 		// 'position' can be located via the double indirect block
-		if z = int(rip.Zone[zones+1]); z == NO_ZONE {
+		if z = int(rip.Zone(zones + 1)); z == NO_ZONE {
 			// Create the double indirect block
-			z, err = fs.alloc_zone(rip.dev, int(rip.Zone[0]))
+			z, err = fs.alloc_zone(rip.dev, int(rip.Zone(0)))
 			if z == NO_ZONE || err != nil {
 				return err
 			}
-			rip.Zone[zones+1] = uint32(z)
+			rip.SetZone(zones+1, uint32(z))
 			new_dbl = true
 		}
 
@@ -136,9 +136,9 @@ func (fs *FileSystem) write_map(rip *Inode, position uint, new_zone uint) os.Err
 	// z1 is now single indirect zone; 'excess' is index
 	if z1 == NO_ZONE {
 		// Create indirect block and store zone # in inode or dbl indir block
-		z1, err = fs.alloc_zone(rip.dev, int(rip.Zone[0]))
+		z1, err = fs.alloc_zone(rip.dev, int(rip.Zone(0)))
 		if single {
-			rip.Zone[zones] = uint32(z1) // update inode
+			rip.SetZone(zones, uint32(z1)) // update inode
 		} else {
 			fs.wr_indir(bp, ind_ex, z1) // update dbl indir
 		}
@@ -224,7 +224,7 @@ func (fs *FileSystem) write_chunk(rip *Inode, pos, off, chunk int, buff []byte) 
 	var err os.Error
 
 	bsize := int(fs.supers[rip.dev].Block_size)
-	fsize := int(rip.Size)
+	fsize := int(rip.Size())
 	b := fs.read_map(rip, uint(pos))
 
 	if b == NO_BLOCK {

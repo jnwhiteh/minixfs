@@ -263,7 +263,7 @@ func (proc *Process) Mkdir(path string, mode uint16) os.Error {
 	if ldirp == nil {
 		return err
 	}
-	if ldirp.Nlinks >= math.MaxUint16 {
+	if ldirp.Nlinks() >= math.MaxUint16 {
 		fs.put_inode(ldirp)
 		return EMLINK
 	}
@@ -285,24 +285,24 @@ func (proc *Process) Mkdir(path string, mode uint16) os.Error {
 
 	// Now make dir entries for . and .. unless the disk is completely full.
 	// Use dot1 and dot2 so the mode of the directory isn't important.
-	rip.Mode = bits                                  // set mode
+	rip.SetMode(bits)                                // set mode
 	err1 := fs.search_dir(rip, ".", &dot, ENTER)     // enter . in the new dir
 	err2 := fs.search_dir(rip, "..", &dotdot, ENTER) // enter .. in the new dir
 
 	// If both . and .. were successfully entered, increment the link counts
 	if err1 == nil && err2 == nil {
 		// Normal case. it was possible to enter . and .. in the new dir
-		rip.Nlinks++       // this accounts for .
-		ldirp.Nlinks++     // this accounts for ..
-		ldirp.dirty = true // mark parent's inode as dirty
+		rip.IncNlinks()      // this accounts for .
+		ldirp.IncNlinks()    // this accounts for ..
+		ldirp.SetDirty(true) // mark parent's inode as dirty
 	} else {
 		// It was not possible to enter . and .. or probably the disk was full
 		nilinode := 0
 		fs.search_dir(ldirp, rest, &nilinode, DELETE) // remove the new directory
-		rip.Nlinks--                                  // undo the increment done in new_node
+		rip.DecNlinks()                               // undo the increment done in new_node
 	}
 
-	rip.dirty = true // either way, Nlinks has changed
+	rip.SetDirty(true) // either way, Nlinks has changed
 
 	fs.put_inode(ldirp)
 	fs.put_inode(rip)
@@ -399,8 +399,9 @@ func (file *File) Read(b []byte) (int, os.Error) {
 
 	// Determine what the ending position to be read is
 	endpos := curpos + len(b)
-	if endpos >= int(file.inode.Size) {
-		endpos = int(file.inode.Size) - 1
+	fsize := int(file.inode.Size())
+	if endpos >= int(fsize) {
+		endpos = int(fsize) - 1
 	}
 
 	fs := file.proc.fs
@@ -494,7 +495,7 @@ func (file *File) Write(data []byte) (n int, err os.Error) {
 
 	cum_io := 0
 	position := int(file.Pos())
-	fsize := int(file.inode.Size)
+	fsize := int(file.inode.Size())
 
 	fs := file.proc.fs
 	super := fs.supers[file.inode.dev]
@@ -540,7 +541,7 @@ func (file *File) Write(data []byte) (n int, err os.Error) {
 
 	if file.inode.GetType() == I_REGULAR || file.inode.GetType() == I_DIRECTORY {
 		if position > fsize {
-			file.inode.Size = int32(position)
+			file.inode.SetSize(int32(position))
 		}
 	}
 
@@ -548,7 +549,7 @@ func (file *File) Write(data []byte) (n int, err os.Error) {
 
 	// TODO: Update times
 	if err == nil {
-		file.inode.dirty = true
+		file.inode.SetDirty(true)
 	}
 
 	return cum_io, err

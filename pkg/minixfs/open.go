@@ -29,8 +29,8 @@ func (fs *FileSystem) new_node(proc *Process, path string, bits uint16, z0 uint)
 		// Force the inode to disk before making a directory entry to make the
 		// system more robust in the face of a crash: an inode with no
 		// directory entry is much better than the opposite.
-		rip.Nlinks++
-		rip.Zone[0] = uint32(z0)
+		rip.IncNlinks()
+		rip.SetZone(0, uint32(z0))
 		fs.icache.WriteInode(rip)
 
 		// New inode acquired. Try to make directory entry.
@@ -38,9 +38,9 @@ func (fs *FileSystem) new_node(proc *Process, path string, bits uint16, z0 uint)
 		err = fs.search_dir(dirp, rlast, &inum, ENTER)
 		if err != nil {
 			fs.put_inode(dirp)
-			rip.Nlinks--      // pity, have to free disk inode
-			rip.dirty = true  // dirty inodes are written out
-			fs.put_inode(rip) // this call frees the inode
+			rip.DecNlinks()    // pity, have to free disk inode
+			rip.SetDirty(true) // dirty inodes are written out
+			fs.put_inode(rip)  // this call frees the inode
 			return nil, err
 		}
 	} else {

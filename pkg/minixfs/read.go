@@ -14,9 +14,13 @@ func (fs *FileSystem) read_map(inode *Inode, position uint) uint {
 	dzones := uint(V2_NR_DZONES)                        // number of direct zones
 	nr_indirects := super.Block_size / V2_ZONE_NUM_SIZE // number of indirect zones
 
+	// Acquire the inode.m_disk mutex, to simplify repeated access to zones
+	inode.m_disk.Lock()
+	defer inode.m_disk.Unlock()
+
 	// Is the position to be found in the inode itself?
 	if zone < dzones {
-		z := uint(inode.Zone[zone])
+		z := uint(inode._disk.Zone[zone])
 		if z == NO_ZONE {
 			return NO_BLOCK
 		}
@@ -30,10 +34,10 @@ func (fs *FileSystem) read_map(inode *Inode, position uint) uint {
 
 	if excess < nr_indirects {
 		// 'position' can be located via the single indirect block
-		z = uint(inode.Zone[dzones])
+		z = uint(inode._disk.Zone[dzones])
 	} else {
 		// 'position' can be located via the double indirect block
-		z = uint(inode.Zone[dzones+1])
+		z = uint(inode._disk.Zone[dzones+1])
 		if z == NO_ZONE {
 			return NO_BLOCK
 		}

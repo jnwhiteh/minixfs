@@ -9,7 +9,7 @@ func _Test_Read_Europarl(fs *FileSystem, proc *Process, europarl []byte, test *t
 	if file == nil || err != nil {
 		test.Errorf("Failed opening file: %s", err)
 	}
-	size := int(file.inode.Size)
+	size := int(file.inode.Size())
 
 	file.Seek(0, 0)
 	data := make([]byte, size)

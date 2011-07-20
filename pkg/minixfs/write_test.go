@@ -19,8 +19,8 @@ func _Test_Write_New(fs *FileSystem, proc *Process, europarl []byte, test *testi
 	if err != nil {
 		test.Errorf("Got an error while writing: %s", err)
 	}
-	if int(file.inode.Size) != n {
-		test.Errorf("File size mismatch, got %d, expected %d", file.inode.Size, n)
+	if int(file.inode.Size()) != n {
+		test.Errorf("File size mismatch, got %d, expected %d", file.inode.Size(), n)
 	}
 	file.Close()
 }
@@ -32,7 +32,7 @@ func _Test_Verify_Write(fs *FileSystem, proc *Process, europarl []byte, test *te
 	if file == nil || err != nil {
 		test.Errorf("Failed opening file: %s", err)
 	}
-	size := int(file.inode.Size)
+	size := int(file.inode.Size())
 
 	file.Seek(0, 0)
 	data := make([]byte, size)
