@@ -41,5 +41,8 @@ func TestReadSyscall(test *testing.T) {
 
 	_Test_Read_Europarl(fs, proc, odata, test)
 
-	fs.Close()
+	proc.Exit()
+	if err := fs.Close(); err != nil {
+		test.Errorf("Failed when closing filesystem: %s", err)
+	}
 }

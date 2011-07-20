@@ -8,6 +8,13 @@ import (
 func TestAdvance(test *testing.T) {
 	fs, proc := OpenMinix3(test)
 
+	// Helper function to ensure filesystem gets cleaned up properly
+	advance := func(proc *Process, rip *Inode, path string) (*Inode, os.Error) {
+		inode, err := fs.advance(proc, rip, path)
+		fs.put_inode(rip)
+		return inode, err
+	}
+
 	var dirp *Inode
 	var rip *Inode
 	var err os.Error
@@ -21,7 +28,7 @@ func TestAdvance(test *testing.T) {
 		test.Errorf("Inodes did not match, expected %d, got %d", 519, dirp.inum)
 	}
 	// Advance to /root/.ssh
-	if dirp, err = fs.advance(proc, dirp, ".ssh"); dirp == nil {
+	if dirp, err = advance(proc, dirp, ".ssh"); dirp == nil {
 		test.Logf("Failed to get /root/.ssh directory inode: %s", err)
 		test.FailNow()
 	}
@@ -29,7 +36,7 @@ func TestAdvance(test *testing.T) {
 		test.Errorf("Inodes did not match, expected %d, got %d", 539, dirp.inum)
 	}
 	// Advance to /root/.ssh/known_hosts
-	if rip, err = fs.advance(proc, dirp, "known_hosts"); rip == nil {
+	if rip, err = advance(proc, dirp, "known_hosts"); rip == nil {
 		test.Logf("Failed to get /root/.ssh/known_hosts inode: %s", err)
 		test.FailNow()
 	}
@@ -45,25 +52,28 @@ func TestAdvance(test *testing.T) {
 	// predictable way
 
 	// Look up an entry that doesn't exist
-	if dirp, err = fs.advance(proc, proc.rootdir, "monkeybutt"); dirp != nil {
+	if dirp, err = advance(proc, proc.rootdir, "monkeybutt"); dirp != nil {
 		test.Errorf("Failed when looking up a missing entry, inode not nil: %s", err)
 	}
 
 	// Look up an entry on a nil inode
-	if dirp, err = fs.advance(proc, nil, "monkeybutt"); dirp != nil {
+	if dirp, err = advance(proc, nil, "monkeybutt"); dirp != nil {
 		test.Errorf("Failed when looking up in a nil inode, inode not nil: %s", err)
 	}
 
 	// Look up an entry in a non-directory inode
-	if dirp, err = fs.advance(proc, rip, "monkeybutt"); dirp != nil {
+	if dirp, err = advance(proc, rip, "monkeybutt"); dirp != nil {
 		test.Errorf("Failed when looking up on a non-directory inode, inode not nil: %s", err)
 	}
 
 	// Look up an empty path
-	if dirp, err = fs.advance(proc, proc.rootdir, ""); dirp != proc.rootdir {
+	if dirp, err = advance(proc, proc.rootdir, ""); dirp != proc.rootdir {
 		test.Errorf("Failed when looking up with an empty path, inode not the same: %s", err)
 		test.Logf("Got %q, expected %q", proc.rootdir, dirp)
 	}
 
-	fs.Close()
+	proc.Exit()
+	if err := fs.Close(); err != nil {
+		test.Errorf("Failed when closing filesystem: %s", err)
+	}
 }

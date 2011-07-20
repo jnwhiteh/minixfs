@@ -16,10 +16,27 @@ var _getdevnum = func(fs *FileSystem, dev BlockDevice) int {
 	return NO_DEV
 }
 
+func TestSimpleMount(test *testing.T) {
+	fs, proc := OpenMinix3(test)
+
+	err := fs.Close()
+	if err != EBUSY {
+		test.Fatalf("Unmount error mismatch, expected %d, got %d", err)
+	}
+
+	// We need to close the root process in order to close the filesystem
+
+	proc.Exit()
+
+	err = fs.Close()
+	if err != nil {
+		test.Fatalf("Could not unmount root filesystem: %s", err)
+	}
+}
+
 func TestMountUnmountUsr(test *testing.T) {
 	// Mount the root filesystem
 	fs, proc := OpenMinix3(test)
-	defer fs.Close()
 
 	// Mount the minix3usr.img on /usr
 	dev, err := NewFileDevice("../../minix3usr.img", binary.LittleEndian)
@@ -72,6 +89,13 @@ func TestMountUnmountUsr(test *testing.T) {
 	if rip.inum != 2 || rip.dev != ROOT_DEVICE {
 		test.Fatalf("Unmount of /usr not successful, got %q", rip)
 	}
+	fs.put_inode(rip)
+
+	proc.Exit()
+
+	if err := fs.Close(); err != nil {
+		test.Errorf("Failed when closing filesystem: %s", err)
+	}
 }
 
 func TestMountBad(test *testing.T) {
@@ -96,7 +120,6 @@ func TestMountBad(test *testing.T) {
 func TestMaxDevices(test *testing.T) {
 	// Mount the root filesystem
 	fs, proc := OpenMinix3(test)
-	defer fs.Close()
 
 	// Mount the same device over and over again on /mnt to fill the table
 	path := "/mnt"
@@ -127,5 +150,10 @@ func TestMaxDevices(test *testing.T) {
 	err = fs.Mount(dev, path)
 	if err != ENFILE {
 		test.Fatalf("When overflowing superblock table, got: %s", err)
+	}
+
+	proc.Exit()
+	if err := fs.Close(); err != nil {
+		test.Errorf("Failed when closing filesystem: %s", err)
 	}
 }

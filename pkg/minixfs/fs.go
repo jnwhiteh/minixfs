@@ -90,18 +90,39 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 }
 
 // Close the filesystem
-func (fs *FileSystem) Close() {
+func (fs *FileSystem) Close() (err os.Error) {
 	fs.m.device.Lock()
 	defer fs.m.device.Unlock()
 
-	for i := 0; i < NR_SUPERS; i++ {
-		if fs.devs[i] != nil {
+	devs := fs.devs
+	supers := fs.supers
+
+	// Unmount each non-root device
+	for i := ROOT_DEVICE + 1; i < NR_SUPERS; i++ {
+		if devs[i] != nil {
 			fs.cache.Flush(i)
-			WriteSuperblock(fs.devs[i], fs.supers[i]) // flush the superblock
-			fs.devs[i].Close()
-			fs.devs[i] = nil
+			WriteSuperblock(devs[i], supers[i]) // flush the superblock
+
+			err = fs.do_unmount(devs[i])
+			if err != nil {
+				return err
+			}
 		}
 	}
+
+	// Unmount the root device
+	if fs.icache.IsDeviceBusy(ROOT_DEVICE) {
+		// Cannot unmount this device, so we need to fail
+		return EBUSY
+	} else {
+		fs.cache.Flush(ROOT_DEVICE)
+		WriteSuperblock(devs[ROOT_DEVICE], supers[ROOT_DEVICE])
+		fs.devs[ROOT_DEVICE].Close()
+	}
+
+	return nil
+}
+
 // Mount the filesystem on 'dev' at 'path' in the root filesystem
 func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
 	fs.m.device.Lock()

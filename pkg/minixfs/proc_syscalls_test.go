@@ -56,7 +56,10 @@ func _Test_Creat_Syscall(test *testing.T) {
 		test.Errorf("I_Search mismatch: expected %d, got %d", 550, super.I_Search)
 	}
 
-	fs.Close()
+	proc.Exit()
+	if err := fs.Close(); err != nil {
+		test.Errorf("Failed when closing filesystem: %s", err)
+	}
 }
 
 func _Test_Unlink_Syscall(test *testing.T) {
@@ -75,7 +78,10 @@ func _Test_Unlink_Syscall(test *testing.T) {
 		}
 	}
 
-	fs.Close()
+	proc.Exit()
+	if err := fs.Close(); err != nil {
+		test.Errorf("Failed when closing filesystem: %s", err)
+	}
 }
 
 type dirEntry struct {
@@ -116,6 +122,8 @@ func _Test_Mkdir_Syscall(test *testing.T) {
 			if inode.Size() != entry.size {
 				test.Errorf("Size mismatch: expected %d, got %d", entry.size, inode.Size())
 			}
+
+			fs.put_inode(inode)
 		}
 	}
 
@@ -125,7 +133,10 @@ func _Test_Mkdir_Syscall(test *testing.T) {
 		test.Errorf("I_Search mismatch: expected %d, got %d", 550, super.I_Search)
 	}
 
-	fs.Close()
+	proc.Exit()
+	if err := fs.Close(); err != nil {
+		test.Errorf("Failed when closing filesystem: %s", err)
+	}
 }
 
 func _Test_Rmdir_Syscall(test *testing.T) {
@@ -155,7 +166,10 @@ func _Test_Rmdir_Syscall(test *testing.T) {
 		}
 	}
 
-	fs.Close()
+	proc.Exit()
+	if err := fs.Close(); err != nil {
+		test.Errorf("Failed when closing filesystem: %s", err)
+	}
 }
 
 func _Test_Chdir_Syscall(test *testing.T) {
@@ -203,5 +217,8 @@ func _Test_Chdir_Syscall(test *testing.T) {
 		test.Errorf("Failed to return to /tmp working directory")
 	}
 
-	fs.Close()
+	proc.Exit()
+	if err := fs.Close(); err != nil {
+		test.Errorf("Failed when closing filesystem: %s", err)
+	}
 }

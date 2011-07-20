@@ -151,7 +151,10 @@ func Test_Syscall_Locks(test *testing.T) {
 		},
 		Test{"FileSystem.Close", fs.m.device.RLocker(), false,
 			func() {
-				fs.Close()
+				proc.Exit()
+				if err := fs.Close(); err != nil {
+					test.Errorf("Failed when closing filesystem: %s", err)
+				}
 			},
 		},
 	}
