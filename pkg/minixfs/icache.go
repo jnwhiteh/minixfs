@@ -2,23 +2,15 @@ package minixfs
 
 import (
 	"os"
+	"sync"
 )
 
 // The InodeCache provides a way to retrieve inodes and to cache open inodes.
-// There is no explicit way of 'releasing' a cached inode, but the inode
-// management functions ensure that they obtain the icache mutex before
-// incrementing or decrementing the count. Since this is the only time that
-// the device/number/count can change, it ensures that the cache never
-// attempts to re-use an inode that is in the process of being 'acquired'.
-//
-// fs.put_inode
-// fs.dup_inode
-//
-// It is likely that this is too restrictive, but it provides a nice basis for
-// reasoning.
+// There is no explicit way of 'releasing' a cached inode, but an inode with 0
+// count may be re-used.
 type InodeCache struct {
-	// These struct elements are duplicates of those that can be found in
-	// the FileSystem struct. By duplicating them, we make InodeCache a
+	// These struct elements are duplicates of those that can be found in the
+	// FileSystem struct. By duplicating them, we make InodeCache a
 	// self-contained data structure that has a well-defined interface.
 	devs   []BlockDevice // the block devices that comprise the file system
 	supers []*Superblock // the superblocks for the given devices
@@ -27,6 +19,8 @@ type InodeCache struct {
 
 	inodes []*Inode // the list of in-memory inodes
 	size   int
+
+	m *sync.RWMutex
 }
 
 // Create a new InodeCache with a given size. This cache is internally
@@ -40,10 +34,16 @@ func NewInodeCache(fs *FileSystem, size int) *InodeCache {
 	cache.inodes = make([]*Inode, size)
 	cache.size = size
 
+	cache.m = new(sync.RWMutex)
+
 	return cache
 }
 
 func (c *InodeCache) GetInode(dev int, num uint) (*Inode, os.Error) {
+	// Acquire the mutex so we can alter the inode cache
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	avail := -1
 	for i := 0; i < c.size; i++ {
 		rip := c.inodes[i]
@@ -119,6 +119,10 @@ func (c *InodeCache) WriteInode(rip *Inode) {
 // will only have a single inode open, the ROOT_INODE, and it should only be
 // open once.
 func (c *InodeCache) IsDeviceBusy(devno int) bool {
+	// Acquire the icache mutex
+	c.m.RLock()
+	defer c.m.RUnlock()
+
 	count := 0
 	for i := 0; i < c.size; i++ {
 		rip := c.inodes[i]
