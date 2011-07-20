@@ -5,10 +5,7 @@ import (
 )
 
 // Mount the filesystem on 'dev' at 'path' in the root filesystem
-func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
-	fs.m.device.Lock()
-	defer fs.m.device.Unlock()
-
+func (fs *FileSystem) do_mount(dev BlockDevice, path string) os.Error {
 	// argument check
 	if dev == nil {
 		return EINVAL
@@ -119,12 +116,9 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
 	return nil
 }
 
-// Unmount a file system by device
-func (fs *FileSystem) Unmount(dev BlockDevice) os.Error {
-	fs.m.device.Lock()
-	defer fs.m.device.Unlock()
-
-	// Deteremine the numeric index of this device
+// Unmount a given block device
+func (fs *FileSystem) do_unmount(dev BlockDevice) os.Error {
+	// Determine the numeric index of this device
 	devnum := -1
 	for i := 0; i < NR_SUPERS; i++ {
 		if fs.devs[i] == dev {
@@ -144,6 +138,7 @@ func (fs *FileSystem) Unmount(dev BlockDevice) os.Error {
 
 	// Sync the disk and invalidate the cache
 	fs.do_sync()
+	fs.cache.Flush(devnum)
 	fs.cache.Invalidate(devnum)
 	if sp == nil {
 		return EINVAL

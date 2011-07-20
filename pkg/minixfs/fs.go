@@ -102,6 +102,20 @@ func (fs *FileSystem) Close() {
 			fs.devs[i] = nil
 		}
 	}
+// Mount the filesystem on 'dev' at 'path' in the root filesystem
+func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
+	fs.m.device.Lock()
+	defer fs.m.device.Unlock()
+
+	return fs.do_mount(dev, path)
+}
+
+// Unmount a file system by device
+func (fs *FileSystem) Unmount(dev BlockDevice) os.Error {
+	fs.m.device.Lock()
+	defer fs.m.device.Unlock()
+
+	return fs.do_unmount(dev)
 }
 
 // The get_block method is a wrapper for fs.cache.GetBlock()
