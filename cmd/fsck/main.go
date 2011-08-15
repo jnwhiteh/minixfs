@@ -1053,7 +1053,7 @@ func printtotal() {
 
 func chkdev(filename string) {
 	fsck_device = filename
-	initvars()        // initialize state
+	initvars() // initialize state
 
 	devopen(filename) // open the device
 
