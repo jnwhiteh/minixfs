@@ -29,25 +29,25 @@ func checkTypes(e ast.Expr, p ast.Expr) {
 			checkTypes(n.X, e)
 		}
 	}
-/*
-	if e != nil {
-		pos := types.FileSet.Position(e.Pos())
+	/*
+		if e != nil {
+			pos := types.FileSet.Position(e.Pos())
 
-		if obj != nil {
-			debugf("%s: %s %q <%T>", pos, objtype.Kind, objtype.Node, objtype.Node)
-			arr, ok := objtype.Node.(*ast.ArrayType)
-			if ok {
-				debugf("IT IS AN ARRAY TYPE")
-				// Check to see if the type of Elt is a star expression
-				star, ok := arr.Elt.(*ast.StarExpr)
+			if obj != nil {
+				debugf("%s: %s %q <%T>", pos, objtype.Kind, objtype.Node, objtype.Node)
+				arr, ok := objtype.Node.(*ast.ArrayType)
 				if ok {
-					checkTypes(star.X)
+					debugf("IT IS AN ARRAY TYPE")
+					// Check to see if the type of Elt is a star expression
+					star, ok := arr.Elt.(*ast.StarExpr)
+					if ok {
+						checkTypes(star.X)
+					}
 				}
+			} else {
+				debugf("%s: Could not determine type %T", pos, e)
 			}
-		} else {
-			debugf("%s: Could not determine type %T", pos, e)
 		}
-	}
 	*/
 }
 
