@@ -6,6 +6,7 @@ GOFILES=\
 		bitmap.go \
 		debug.go \
 		device.go \
+		dev_file.go \
 		cache.go \
 		const.go \
 		errors.go \
