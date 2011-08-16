@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
-	"rand"
 	"testing"
-	"time"
 )
 
 // Open the sample minix3 file system and create a process '1'
@@ -158,49 +156,4 @@ func TestReadCases(test *testing.T) {
 	}
 
 	//log.Printf("Checked a total of %d bytes in %d read cases", total, len(readCases))
-}
-
-func TestRandomReads(test *testing.T) {
-	odata, mfile := openEuroparl(test)
-
-	// Run some random tests to see if we can catch the system with its pants
-	// down.
-
-	maxDataSize := 4096 * 4 // the maximum size of the read (2 blocks)
-	numTests := 100         // the number of tests to run
-
-	rand.Seed(time.Nanoseconds())
-
-	rtotal := 0
-	for i := 0; i < numTests; i++ {
-		size := rand.Intn(maxDataSize)
-		pos := rand.Intn(len(odata) - size)
-		buf := make([]byte, size)
-
-		// Seek to the position in the file, and read a 32-byte block
-		npos, err := mfile.Seek(pos, 0)
-		if err != nil {
-			test.Errorf("Failed when seeking to position %d: %s", pos, err)
-		} else if npos != pos {
-			test.Errorf("Seek mismatch: got %d, expected %d", npos, pos)
-		}
-
-		// Perform the read
-		n, err := mfile.Read(buf)
-		if err != nil {
-			test.Errorf("Failed when reading from mfile: %s", err)
-		} else if n != size {
-			test.Errorf("Len mismatch: got %d, expected %d", n, size)
-		}
-
-		// Check and see if the data matches
-		obuf := odata[pos : pos+size]
-		if !bytes.Equal(obuf, buf) {
-			test.Errorf("When reading %d bytes from position %d", size, pos)
-			test.Errorf("Data does not match: \n===GOT===\n%s\n===EXPECTED===\n%s\n", buf, obuf)
-		}
-		rtotal += size
-	}
-
-	//log.Printf("Checked a total of %d bytes in %d random reads", rtotal, numTests)
 }

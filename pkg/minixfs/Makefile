@@ -7,6 +7,7 @@ GOFILES=\
 		debug.go \
 		device.go \
 		dev_file.go \
+		dev_ramdisk.go \
 		cache.go \
 		const.go \
 		errors.go \
