@@ -1,5 +1,9 @@
 package minixfs
 
+import (
+	"os"
+)
+
 // The buffer cache in the Minix file system is built on top of the raw device
 // and provides access to recently requested blocks served from memory.
 //
@@ -29,4 +33,13 @@ type CacheBlock struct {
 	dev     int   // the device number of this block
 	dirty   bool  // whether or not the block is dirty (needs to be written)
 	count   int   // the number of users of this block
+}
+
+type BlockCache interface {
+	MountDevice(devno int, dev BlockDevice, super *Superblock) os.Error
+	UnmountDevice(devno int) os.Error
+	GetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock
+	PutBlock(cb *CacheBlock, btype BlockType) os.Error
+	Invalidate(dev int)
+	Flush(dev int)
 }

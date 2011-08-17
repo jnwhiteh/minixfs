@@ -15,7 +15,7 @@ type FileSystem struct {
 
 	// These two members are individually locked and protected, although the
 	// icache can call into fs.get_block specifically.
-	cache  *LRUCache   // the block cache (shared across all devices)
+	cache  BlockCache  // the block cache (shared across all devices)
 	icache *InodeCache // the inode cache (shared across all devices)
 
 	_filp  []*filp    // the filp table

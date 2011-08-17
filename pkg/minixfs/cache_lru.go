@@ -33,7 +33,7 @@ type LRUCache struct {
 }
 
 // NewLRUCache creates a new LRUCache with the given size
-func NewLRUCache() *LRUCache {
+func NewLRUCache() BlockCache {
 	cache := &LRUCache{
 		devs:     make([]BlockDevice, NR_SUPERS),
 		supers:   make([]*Superblock, NR_SUPERS),
