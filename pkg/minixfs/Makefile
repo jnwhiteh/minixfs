@@ -6,6 +6,7 @@ GOFILES=\
 		bitmap.go \
 		cache.go \
 		cache_lru.go \
+		cache_lru_proto.go \
 		const.go \
 		debug.go \
 		device.go \

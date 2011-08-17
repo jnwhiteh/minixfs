@@ -23,6 +23,17 @@ const (
 	PARTIAL_DATA_BLOCK BlockType = 6 // data, partly used
 )
 
+// BlockCache is a thread-safe interface to a block cache, wrapping one or
+// more devices.
+type BlockCache interface {
+	MountDevice(devno int, dev BlockDevice, super *Superblock) os.Error
+	UnmountDevice(devno int) os.Error
+	GetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock
+	PutBlock(cb *CacheBlock, btype BlockType) os.Error
+	Invalidate(dev int)
+	Flush(dev int)
+}
+
 // Buf is a generic 'buffer cache struct that is used throughout the file
 // server. We need some metadata in order to make things nicer, so we include
 // the block, the block number and the other metadata we need. These will be
@@ -33,13 +44,4 @@ type CacheBlock struct {
 	dev     int   // the device number of this block
 	dirty   bool  // whether or not the block is dirty (needs to be written)
 	count   int   // the number of users of this block
-}
-
-type BlockCache interface {
-	MountDevice(devno int, dev BlockDevice, super *Superblock) os.Error
-	UnmountDevice(devno int) os.Error
-	GetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock
-	PutBlock(cb *CacheBlock, btype BlockType) os.Error
-	Invalidate(dev int)
-	Flush(dev int)
 }

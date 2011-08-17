@@ -30,7 +30,12 @@ type LRUCache struct {
 
 	front *lru_buf // a pointer to the least recently used block
 	rear  *lru_buf // a pointer to the most recently used block
+
+	in  chan lru_Request  // an incoming channel for requests
+	out chan lru_Response // an outgoing channel for response
 }
+
+var LRU_ALLINUSE *CacheBlock = new(CacheBlock)
 
 // NewLRUCache creates a new LRUCache with the given size
 func NewLRUCache() BlockCache {
@@ -39,6 +44,8 @@ func NewLRUCache() BlockCache {
 		supers:   make([]*Superblock, NR_SUPERS),
 		buf:      make([]*lru_buf, NR_BUFS),
 		buf_hash: make([]*lru_buf, NR_BUF_HASH),
+		in:       make(chan lru_Request),
+		out:      make(chan lru_Response),
 	}
 
 	// Create all of the entries in buf ahead of time
@@ -63,13 +70,82 @@ func NewLRUCache() BlockCache {
 	}
 
 	cache.buf_hash[0] = cache.front
+
+	// Start the main processing loop
+	go cache.loop()
+
 	return cache
+}
+
+func (c *LRUCache) loop() {
+	var in <-chan lru_Request = c.in
+	var out chan<- lru_Response = c.out
+
+	for req := range in {
+		switch req := req.(type) {
+		case lru_mountRequest:
+			err := c.mountDevice(req.devno, req.dev, req.super)
+			out <- lru_errResponse{err}
+		case lru_unmountRequest:
+			err := c.unmountDevice(req.dev)
+			out <- lru_errResponse{err}
+		case lru_getRequest:
+			block := c.getBlock(req.devno, req.bnum, req.btype, req.only_search)
+			out <- lru_getResponse{block}
+		case lru_putRequest:
+			err := c.putBlock(req.cb, req.btype)
+			out <- lru_errResponse{err}
+		case lru_invalidateRequest:
+			c.invalidate(req.dev)
+			out <- lru_emptyResponse{}
+		case lru_flushRequest:
+			c.flush(req.dev)
+			out <- lru_emptyResponse{}
+		}
+	}
+}
+
+func (c *LRUCache) MountDevice(devno int, dev BlockDevice, super *Superblock) os.Error {
+	c.in <- lru_mountRequest{devno, dev, super}
+	res := (<-c.out).(lru_errResponse)
+	return res.err
+}
+
+func (c *LRUCache) UnmountDevice(devno int) os.Error {
+	c.in <- lru_unmountRequest{devno}
+	res := (<-c.out).(lru_errResponse)
+	return res.err
+}
+
+func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
+	c.in <- lru_getRequest{dev, bnum, btype, only_search}
+	res := (<-c.out).(lru_getResponse)
+	if res.cb == LRU_ALLINUSE {
+		panic("all buffers in use")
+	}
+	return res.cb
+}
+
+func (c *LRUCache) PutBlock(cb *CacheBlock, btype BlockType) os.Error {
+	c.in <- lru_putRequest{cb, btype}
+	res := (<-c.out).(lru_errResponse)
+	return res.err
+}
+
+func (c *LRUCache) Invalidate(dev int) {
+	c.in <- lru_invalidateRequest{dev}
+	<-c.out
+}
+
+func (c *LRUCache) Flush(dev int) {
+	c.in <- lru_flushRequest{dev}
+	<-c.out
 }
 
 // Associate a BlockDevice and *Superblock with a device number so it can be
 // used internally. This operation requires the write portion of the RWMutex
 // since it alters the devs and supers arrays.
-func (c *LRUCache) MountDevice(devno int, dev BlockDevice, super *Superblock) os.Error {
+func (c *LRUCache) mountDevice(devno int, dev BlockDevice, super *Superblock) os.Error {
 	if c.devs[devno] != nil || c.supers[devno] != nil {
 		return EBUSY
 	}
@@ -80,7 +156,7 @@ func (c *LRUCache) MountDevice(devno int, dev BlockDevice, super *Superblock) os
 
 // Clear an association between a BlockDevice/*Superblock pair and a device
 // number.
-func (c *LRUCache) UnmountDevice(devno int) os.Error {
+func (c *LRUCache) unmountDevice(devno int) os.Error {
 	c.devs[devno] = nil
 	c.supers[devno] = nil
 	return nil
@@ -89,7 +165,7 @@ func (c *LRUCache) UnmountDevice(devno int) os.Error {
 // GetBlock obtains a specified block from a given device. This function
 // requires that the device specific is a mounted valid device, no further
 // error checking is performed here.
-func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
+func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
 	var bp *lru_buf
 
 	// TODO: What do we do if someone asks for NO_BLOCK
@@ -104,7 +180,7 @@ func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 			if bp.blocknr == bnum && bp.dev == dev {
 				// Block needed has been found
 				if bp.count == 0 {
-					c._NL_rm_lru(bp)
+					c.rm_lru(bp)
 				}
 				bp.count++
 				return bp.CacheBlock
@@ -118,9 +194,11 @@ func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 	// Desired block is not available on chain. Take oldest block ('front')
 	bp = c.front
 	if bp == nil {
-		panic("all buffers in use")
+		// This panic can no longer be raised here, it crashes the server.
+		// Instead we need to return an error, and panic from the handler.
+		return LRU_ALLINUSE
 	}
-	c._NL_rm_lru(bp)
+	c.rm_lru(bp)
 
 	// Remove the block that was just taken from its hash chain
 	b := bp.blocknr & HASH_MASK
@@ -147,7 +225,7 @@ func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 		// we are currently holding it. So we refactor that function into
 		// flushall(), which does not require the mutex, and then utilize that
 		// in c.Flush().
-		c._NL_flushall(bp.dev)
+		c.flushall(bp.dev)
 	}
 
 	// We use the garbage collector for the actual block data, so invalidate
@@ -189,7 +267,7 @@ func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 			bp.dev = NO_DEV
 		} else {
 			if only_search == NORMAL {
-				c._NL_read_block(bp) // call non-locking worker function
+				c.read_block(bp) // call non-locking worker function
 			}
 		}
 	}
@@ -204,7 +282,7 @@ func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 // blocks) go on the front. Blocks whose loss can hurt the integrity of the
 // file system (e.g., inode blocks) are written to the disk immediately if
 // they are dirty.
-func (c *LRUCache) PutBlock(cb *CacheBlock, btype BlockType) os.Error {
+func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) os.Error {
 	if cb == nil {
 		return nil
 	}
@@ -269,7 +347,7 @@ func (c *LRUCache) PutBlock(cb *CacheBlock, btype BlockType) os.Error {
 	return nil
 }
 
-func (c *LRUCache) Invalidate(dev int) {
+func (c *LRUCache) invalidate(dev int) {
 	for i := 0; i < NR_BUFS; i++ {
 		if c.buf[i].dev == dev {
 			c.buf[i].dev = NO_DEV
@@ -277,8 +355,8 @@ func (c *LRUCache) Invalidate(dev int) {
 	}
 }
 
-func (c *LRUCache) Flush(dev int) {
-	c._NL_flushall(dev)
+func (c *LRUCache) flush(dev int) {
+	c.flushall(dev)
 }
 
 func (c *LRUCache) WriteBlock(bp *lru_buf) os.Error {
@@ -288,13 +366,8 @@ func (c *LRUCache) WriteBlock(bp *lru_buf) os.Error {
 	return err
 }
 
-// The following functions are non-locking utility functions. This is
-// indicated by the _NL at the start of their names. These functions are only
-// meant to be called from other functions that have already obtained the
-// buffer cache mutex.
-
 // Remove a block from its LRU chain
-func (c *LRUCache) _NL_rm_lru(bp *lru_buf) {
+func (c *LRUCache) rm_lru(bp *lru_buf) {
 	nextp := bp.next
 	prevp := bp.prev
 	if prevp != nil {
@@ -311,14 +384,14 @@ func (c *LRUCache) _NL_rm_lru(bp *lru_buf) {
 }
 
 // Read a block from the underlying device
-func (c *LRUCache) _NL_read_block(bp *lru_buf) os.Error {
+func (c *LRUCache) read_block(bp *lru_buf) os.Error {
 	blocksize := c.supers[bp.dev].Block_size
 	pos := int64(blocksize) * int64(bp.blocknr)
 	return c.devs[bp.dev].Read(bp.block, pos)
 }
 
 // Flush all dirty blocks for one device
-func (c *LRUCache) _NL_flushall(dev int) {
+func (c *LRUCache) flushall(dev int) {
 	// TODO: These should be static (or pre-created) so the file server can't
 	// possible panic due to failed memory allocation.
 	var dirty = make([]*lru_buf, NR_BUFS) // a slice of dirty blocks
@@ -352,7 +425,7 @@ func (c *LRUCache) _NL_flushall(dev int) {
 			if _actuallywrite {
 				err := dev.Write(bp.block, pos)
 				if err != nil {
-					panic("something went wrong during _NL_flushall")
+					panic("something went wrong during flushall")
 				}
 			}
 		}
