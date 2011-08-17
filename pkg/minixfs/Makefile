@@ -4,12 +4,13 @@ TARG=jnwhiteh/minixfs
 GOFILES=\
 		blocks.go \
 		bitmap.go \
+		cache.go \
+		cache_lru.go \
+		const.go \
 		debug.go \
 		device.go \
 		dev_file.go \
 		dev_ramdisk.go \
-		cache.go \
-		const.go \
 		errors.go \
 		file.go \
 		filedes.go \

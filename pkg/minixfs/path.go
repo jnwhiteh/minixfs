@@ -169,7 +169,7 @@ func (fs *FileSystem) search_dir(dirp *Inode, path string, numb *int, flag searc
 	super := fs.supers[dirp.dev]
 
 	// step through the directory on block at a time
-	var bp *buf
+	var bp *CacheBlock
 	var dp *disk_dirent
 	old_slots := int(dirp.Size() / DIR_ENTRY_SIZE)
 	new_slots := 0

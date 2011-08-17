@@ -12,7 +12,7 @@ func here() {
 	log.Printf("here: %s:%d", file, line)
 }
 
-func _debugPrintBlock(bp *buf, super *Superblock) {
+func _debugPrintBlock(bp *CacheBlock, super *Superblock) {
 	switch bp.block.(type) {
 	case DirectoryBlock:
 		buf := bytes.NewBuffer(nil)

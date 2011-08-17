@@ -26,7 +26,6 @@ func OpenMinix3(test *testing.T) (*FileSystem, *Process) {
 	return fs, proc
 }
 
-
 func TestOpen(test *testing.T) {
 	fs, err := OpenFileSystemFile("../../minix3root.img")
 	if err != nil {

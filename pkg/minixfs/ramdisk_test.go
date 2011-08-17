@@ -125,7 +125,7 @@ func Test_RamdiskWriteblock(test *testing.T) {
 		test.Errorf("wrong ordering, expected 'write', got %v", v)
 	}
 
-    // 'reada' and 'readb' should both happen first
+	// 'reada' and 'readb' should both happen first
 	if v := <-log; v != "reada" {
 		test.Errorf("wrong ordering, expected 'reada', got %v", v)
 	}

@@ -67,7 +67,7 @@ func (fs *FileSystem) read_map(inode *Inode, position uint) uint {
 }
 
 // Given a pointer to an indirect block, read one entry.
-func (fs *FileSystem) rd_indir(bp *buf, index uint) uint {
+func (fs *FileSystem) rd_indir(bp *CacheBlock, index uint) uint {
 	bpdata := bp.block.(IndirectBlock)
 	super := fs.supers[bp.dev]
 

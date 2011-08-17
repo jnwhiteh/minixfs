@@ -29,7 +29,7 @@ func TestCache(test *testing.T) {
 	}
 	cache.PutBlock(bp, FULL_DATA_BLOCK)
 
-	orig := make([]*buf, NR_BUFS)
+	orig := make([]*CacheBlock, NR_BUFS)
 
 	// Fill the cache
 	for i := 0; i < NR_BUFS; i++ {
@@ -67,7 +67,7 @@ func TestCache(test *testing.T) {
 
 	// Request another NR_BUFS blocks (all different). We should see every
 	// block be overwritten.
-	diff := make([]*buf, NR_BUFS)
+	diff := make([]*CacheBlock, NR_BUFS)
 	for i := 0; i < NR_BUFS; i++ {
 		diff[i] = cache.GetBlock(0, NR_BUFS+i, FULL_DATA_BLOCK, NORMAL)
 	}

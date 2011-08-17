@@ -145,12 +145,12 @@ func (fs *FileSystem) Unmount(dev BlockDevice) os.Error {
 }
 
 // The get_block method is a wrapper for fs.cache.GetBlock()
-func (fs *FileSystem) get_block(dev, bnum int, btype BlockType, only_search int) *buf {
+func (fs *FileSystem) get_block(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
 	return fs.cache.GetBlock(dev, bnum, btype, only_search)
 }
 
 // The put_block method is a wrapper for fs.cache.PutBlock()
-func (fs *FileSystem) put_block(bp *buf, btype BlockType) {
+func (fs *FileSystem) put_block(bp *CacheBlock, btype BlockType) {
 	fs.cache.PutBlock(bp, btype)
 }
 
@@ -334,7 +334,6 @@ func (proc *Process) Unlink(path string) os.Error {
 	fs.put_inode(rldirp)
 	return err
 }
-
 
 // Perform the mkdir(name, mode) system call
 func (proc *Process) Mkdir(path string, mode uint16) os.Error {
