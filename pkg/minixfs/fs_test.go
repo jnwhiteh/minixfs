@@ -17,7 +17,7 @@ func OpenMinix3(test *testing.T) (*FileSystem, *Process) {
 	}
 
 	// Register a new process to use as context (umask, rootpath)
-	proc, err := fs.NewProcess(1, 022, "/")
+	proc, err := fs.Spawn(1, 022, "/")
 	if err != nil {
 		test.Logf("Failed to register a new process: %s", err)
 		test.FailNow()

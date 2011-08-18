@@ -65,7 +65,7 @@ func Test_RamdiskRead(test *testing.T) {
 		test.Errorf("magic number mismatch: got 0x%x, expected 0x%x", fs.supers[0].Magic, 0x4d5a)
 	}
 
-	proc, err := fs.NewProcess(1, 022, "/")
+	proc, err := fs.Spawn(1, 022, "/")
 	if err != nil {
 		test.Errorf("Failed to create new process: %s", err)
 	}

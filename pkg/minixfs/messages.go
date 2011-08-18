@@ -98,16 +98,17 @@ type m_fs_res interface {
 }
 
 // Request messages
-type m_fs_req_close struct {}
+type m_fs_req_close struct{}
 type m_fs_req_mount struct {
-	dev BlockDevice
+	dev  BlockDevice
 	path string
 }
 type m_fs_req_unmount struct {
 	dev BlockDevice
 }
 type m_fs_req_spawn struct {
-	umask uint16
+	pid      int
+	umask    uint16
 	rootpath string
 }
 
@@ -117,17 +118,17 @@ type m_fs_res_err struct {
 }
 type m_fs_res_spawn struct {
 	proc *Process
-	err os.Error
+	err  os.Error
 }
 
 // For type-checking
-func (m m_fs_req_close) is_m_fs_req() { }
-func (m m_fs_req_mount) is_m_fs_req() { }
-func (m m_fs_req_unmount) is_m_fs_req() { }
-func (m m_fs_req_spawn) is_m_fs_req() { }
+func (m m_fs_req_close) is_m_fs_req()   {}
+func (m m_fs_req_mount) is_m_fs_req()   {}
+func (m m_fs_req_unmount) is_m_fs_req() {}
+func (m m_fs_req_spawn) is_m_fs_req()   {}
 
-func (m m_fs_res_err) is_m_fs_res() { }
-func (m m_fs_res_spawn) is_m_fs_res() { }
+func (m m_fs_res_err) is_m_fs_res()   {}
+func (m m_fs_res_spawn) is_m_fs_res() {}
 
 // Check interface implementation
 var _ m_fs_req = m_fs_req_close{}

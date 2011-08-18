@@ -18,6 +18,9 @@ type FileSystem struct {
 
 	_filp  []*filp    // the filp table
 	_procs []*Process // an array of processes that have been opened
+
+	in  chan m_fs_req
+	out chan m_fs_res
 }
 
 // Create a new FileSystem from a given file on the filesystem
@@ -74,11 +77,62 @@ func NewFileSystem(dev BlockDevice) (*FileSystem, os.Error) {
 		make([]*filp, OPEN_MAX),
 		make([]*File, OPEN_MAX)}
 
+	fs.in = make(chan m_fs_req)
+	fs.out = make(chan m_fs_res)
+
+	go fs.loop()
+
 	return fs, nil
 }
 
+func (fs *FileSystem) loop() {
+	var in <-chan m_fs_req = fs.in
+	var out chan<- m_fs_res = fs.out
+
+	for req := range in {
+		switch req := req.(type) {
+		case m_fs_req_close:
+			err := fs.close()
+			out <- m_fs_res_err{err}
+		case m_fs_req_mount:
+			err := fs.mount(req.dev, req.path)
+			out <- m_fs_res_err{err}
+		case m_fs_req_unmount:
+			err := fs.unmount(req.dev)
+			out <- m_fs_res_err{err}
+		case m_fs_req_spawn:
+			proc, err := fs.spawn(req.pid, req.umask, req.rootpath)
+			out <- m_fs_res_spawn{proc, err}
+		}
+	}
+}
+
+func (fs *FileSystem) Close() os.Error {
+	fs.in <- m_fs_req_close{}
+	res := (<-fs.out).(m_fs_res_err)
+	return res.err
+}
+
+func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
+	fs.in <- m_fs_req_mount{dev, path}
+	res := (<-fs.out).(m_fs_res_err)
+	return res.err
+}
+
+func (fs *FileSystem) Unmount(dev BlockDevice) os.Error {
+	fs.in <- m_fs_req_unmount{dev}
+	res := (<-fs.out).(m_fs_res_err)
+	return res.err
+}
+
+func (fs *FileSystem) Spawn(pid int, umask uint16, rootpath string) (*Process, os.Error) {
+	fs.in <- m_fs_req_spawn{pid, umask, rootpath}
+	res := (<-fs.out).(m_fs_res_spawn)
+	return res.proc, res.err
+}
+
 // Close the filesystem
-func (fs *FileSystem) Close() (err os.Error) {
+func (fs *FileSystem) close() (err os.Error) {
 	devs := fs.devs
 	supers := fs.supers
 
@@ -109,12 +163,12 @@ func (fs *FileSystem) Close() (err os.Error) {
 }
 
 // Mount the filesystem on 'dev' at 'path' in the root filesystem
-func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
+func (fs *FileSystem) mount(dev BlockDevice, path string) os.Error {
 	return fs.do_mount(dev, path)
 }
 
 // Unmount a file system by device
-func (fs *FileSystem) Unmount(dev BlockDevice) os.Error {
+func (fs *FileSystem) unmount(dev BlockDevice) os.Error {
 	return fs.do_unmount(dev)
 }
 
@@ -131,7 +185,7 @@ func (fs *FileSystem) put_block(bp *CacheBlock, btype BlockType) {
 var ERR_PID_EXISTS = os.NewError("Process already exists")
 var ERR_PATH_LOOKUP = os.NewError("Could not lookup path")
 
-func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Process, os.Error) {
+func (fs *FileSystem) spawn(pid int, umask uint16, rootpath string) (*Process, os.Error) {
 	if fs._procs[pid] != nil {
 		return nil, ERR_PID_EXISTS
 	}
