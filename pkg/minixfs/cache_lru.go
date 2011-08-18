@@ -31,8 +31,8 @@ type LRUCache struct {
 	front *lru_buf // a pointer to the least recently used block
 	rear  *lru_buf // a pointer to the most recently used block
 
-	in  chan lru_Request  // an incoming channel for requests
-	out chan lru_Response // an outgoing channel for response
+	in  chan m_cache_req // an incoming channel for requests
+	out chan m_cache_res // an outgoing channel for response
 }
 
 var LRU_ALLINUSE *CacheBlock = new(CacheBlock)
@@ -44,8 +44,8 @@ func NewLRUCache() BlockCache {
 		supers:   make([]*Superblock, NR_SUPERS),
 		buf:      make([]*lru_buf, NR_BUFS),
 		buf_hash: make([]*lru_buf, NR_BUF_HASH),
-		in:       make(chan lru_Request),
-		out:      make(chan lru_Response),
+		in:       make(chan m_cache_req),
+		out:      make(chan m_cache_res),
 	}
 
 	// Create all of the entries in buf ahead of time
@@ -79,48 +79,48 @@ func NewLRUCache() BlockCache {
 }
 
 func (c *LRUCache) loop() {
-	var in <-chan lru_Request = c.in
-	var out chan<- lru_Response = c.out
+	var in <-chan m_cache_req = c.in
+	var out chan<- m_cache_res = c.out
 
 	for req := range in {
 		switch req := req.(type) {
-		case lru_mountRequest:
+		case m_cache_req_mount:
 			err := c.mountDevice(req.devno, req.dev, req.super)
-			out <- lru_errResponse{err}
-		case lru_unmountRequest:
+			out <- m_cache_res_err{err}
+		case m_cache_req_unmount:
 			err := c.unmountDevice(req.dev)
-			out <- lru_errResponse{err}
-		case lru_getRequest:
+			out <- m_cache_res_err{err}
+		case m_cache_req_get:
 			block := c.getBlock(req.devno, req.bnum, req.btype, req.only_search)
-			out <- lru_getResponse{block}
-		case lru_putRequest:
+			out <- m_cache_res_get{block}
+		case m_cache_req_put:
 			err := c.putBlock(req.cb, req.btype)
-			out <- lru_errResponse{err}
-		case lru_invalidateRequest:
+			out <- m_cache_res_err{err}
+		case m_cache_req_invalidate:
 			c.invalidate(req.dev)
-			out <- lru_emptyResponse{}
-		case lru_flushRequest:
+			out <- m_cache_res_empty{}
+		case m_cache_req_flush:
 			c.flush(req.dev)
-			out <- lru_emptyResponse{}
+			out <- m_cache_res_empty{}
 		}
 	}
 }
 
 func (c *LRUCache) MountDevice(devno int, dev BlockDevice, super *Superblock) os.Error {
-	c.in <- lru_mountRequest{devno, dev, super}
-	res := (<-c.out).(lru_errResponse)
+	c.in <- m_cache_req_mount{devno, dev, super}
+	res := (<-c.out).(m_cache_res_err)
 	return res.err
 }
 
 func (c *LRUCache) UnmountDevice(devno int) os.Error {
-	c.in <- lru_unmountRequest{devno}
-	res := (<-c.out).(lru_errResponse)
+	c.in <- m_cache_req_unmount{devno}
+	res := (<-c.out).(m_cache_res_err)
 	return res.err
 }
 
 func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
-	c.in <- lru_getRequest{dev, bnum, btype, only_search}
-	res := (<-c.out).(lru_getResponse)
+	c.in <- m_cache_req_get{dev, bnum, btype, only_search}
+	res := (<-c.out).(m_cache_res_get)
 	if res.cb == LRU_ALLINUSE {
 		panic("all buffers in use")
 	}
@@ -128,18 +128,18 @@ func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 }
 
 func (c *LRUCache) PutBlock(cb *CacheBlock, btype BlockType) os.Error {
-	c.in <- lru_putRequest{cb, btype}
-	res := (<-c.out).(lru_errResponse)
+	c.in <- m_cache_req_put{cb, btype}
+	res := (<-c.out).(m_cache_res_err)
 	return res.err
 }
 
 func (c *LRUCache) Invalidate(dev int) {
-	c.in <- lru_invalidateRequest{dev}
+	c.in <- m_cache_req_invalidate{dev}
 	<-c.out
 }
 
 func (c *LRUCache) Flush(dev int) {
-	c.in <- lru_flushRequest{dev}
+	c.in <- m_cache_req_flush{dev}
 	<-c.out
 }
 

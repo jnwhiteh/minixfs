@@ -83,8 +83,8 @@ func Test_RamdiskWriteblock(test *testing.T) {
 	data := make([]byte, size, size)
 	dev := &ramdiskDevice{
 		data,
-		make(chan BlockRequest),
-		make(chan chan BlockResponse),
+		make(chan m_dev_req),
+		make(chan chan m_dev_res),
 		new(sync.WaitGroup),
 	}
 	go dev.loop()

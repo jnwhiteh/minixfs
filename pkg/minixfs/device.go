@@ -20,13 +20,3 @@ const (
 	DEV_WRITE CallNumber = iota
 	DEV_CLOSE CallNumber = iota
 )
-
-type BlockRequest struct {
-	call CallNumber
-	buf  interface{}
-	pos  int64
-}
-
-type BlockResponse struct {
-	err os.Error
-}

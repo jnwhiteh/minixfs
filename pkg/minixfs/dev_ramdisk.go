@@ -39,16 +39,16 @@ func (b bytestore) Write(p []byte) (n int, err os.Error) {
 
 type ramdiskDevice struct {
 	data  bytestore
-	in    chan BlockRequest       // channel on which to receive requests
-	out   chan chan BlockResponse // channel via which callback channels are delivered
-	rwait *sync.WaitGroup         // a waitgroup used to 
+	in    chan m_dev_req      // channel on which to receive requests
+	out   chan chan m_dev_res // channel via which callback channels are delivered
+	rwait *sync.WaitGroup     // a waitgroup used to
 }
 
 func NewRamdiskDevice(data []byte) (BlockDevice, os.Error) {
 	dev := &ramdiskDevice{
 		data,
-		make(chan BlockRequest),
-		make(chan chan BlockResponse),
+		make(chan m_dev_req),
+		make(chan chan m_dev_res),
 		new(sync.WaitGroup),
 	}
 
@@ -73,11 +73,11 @@ func NewRamdiskDeviceFile(filename string) (BlockDevice, os.Error) {
 }
 
 func (dev *ramdiskDevice) loop() {
-	var in <-chan BlockRequest = dev.in
-	var out chan<- chan BlockResponse = dev.out
+	var in <-chan m_dev_req = dev.in
+	var out chan<- chan m_dev_res = dev.out
 
 	for req := range in {
-		callback := make(chan BlockResponse)
+		callback := make(chan m_dev_res)
 		out <- callback
 
 		switch req.call {
@@ -91,12 +91,12 @@ func (dev *ramdiskDevice) loop() {
 				defer close(callback)
 				defer dev.rwait.Done()
 				if req.pos > int64(len(dev.data)) {
-					callback <- BlockResponse{ERR_SEEK}
+					callback <- m_dev_res{ERR_SEEK}
 					return
 				}
 				sub := dev.data[req.pos:]
 				err := binary.Read(sub, binary.LittleEndian, req.buf)
-				callback <- BlockResponse{err}
+				callback <- m_dev_res{err}
 			}()
 		case DEV_WRITE:
 			// device.Write
@@ -105,44 +105,44 @@ func (dev *ramdiskDevice) loop() {
 			dev.rwait.Wait()
 
 			if req.pos > int64(len(dev.data)) {
-				callback <- BlockResponse{ERR_SEEK}
+				callback <- m_dev_res{ERR_SEEK}
 				return
 			} else {
 				sub := dev.data[req.pos:]
 				err := binary.Write(sub, binary.LittleEndian, req.buf)
-				callback <- BlockResponse{err}
+				callback <- m_dev_res{err}
 			}
 			close(callback)
 		case DEV_CLOSE:
 			// device.Close
 			dev.data = nil
-			callback <- BlockResponse{nil}
+			callback <- m_dev_res{nil}
 			close(callback)
 			close(dev.in)
 			close(dev.out)
 		default:
-			callback <- BlockResponse{ERR_BADCALL}
+			callback <- m_dev_res{ERR_BADCALL}
 			close(callback)
 		}
 	}
 }
 
 func (dev *ramdiskDevice) Read(buf interface{}, pos int64) os.Error {
-	dev.in <- BlockRequest{DEV_READ, buf, pos}
+	dev.in <- m_dev_req{DEV_READ, buf, pos}
 	cback := <-dev.out
 	res := <-cback
 	return res.err
 }
 
 func (dev *ramdiskDevice) Write(buf interface{}, pos int64) os.Error {
-	dev.in <- BlockRequest{DEV_WRITE, buf, pos}
+	dev.in <- m_dev_req{DEV_WRITE, buf, pos}
 	cback := <-dev.out
 	res := <-cback
 	return res.err
 }
 
 func (dev *ramdiskDevice) Close() os.Error {
-	dev.in <- BlockRequest{DEV_CLOSE, nil, 0}
+	dev.in <- m_dev_req{DEV_CLOSE, nil, 0}
 	cback := <-dev.out
 	res := <-cback
 	return res.err

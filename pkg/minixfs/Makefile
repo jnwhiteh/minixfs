@@ -6,7 +6,6 @@ GOFILES=\
 		bitmap.go \
 		cache.go \
 		cache_lru.go \
-		cache_lru_proto.go \
 		const.go \
 		debug.go \
 		device.go \
@@ -20,6 +19,7 @@ GOFILES=\
 		icache.go \
 		link.go \
 		macros.go \
+		messages.go \
 		misc.go \
 		mount.go \
 		open.go \
