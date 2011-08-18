@@ -52,6 +52,7 @@ func NewLRUCache() BlockCache {
 	for i := 0; i < NR_BUFS; i++ {
 		cache.buf[i] = new(lru_buf)
 		cache.buf[i].CacheBlock = new(CacheBlock)
+		cache.buf[i].dev = NO_DEV
 	}
 
 	for i := 1; i < NR_BUFS-1; i++ {
@@ -162,13 +163,11 @@ func (c *LRUCache) unmountDevice(devno int) os.Error {
 	return nil
 }
 
-// GetBlock obtains a specified block from a given device. This function
+// getBlock obtains a specified block from a given device. This function
 // requires that the device specific is a mounted valid device, no further
 // error checking is performed here.
 func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
 	var bp *lru_buf
-
-	// TODO: What do we do if someone asks for NO_BLOCK
 
 	// Search the hash chain for (dev, block). Each block number is hashed to
 	// a bucket in c.buf_hash and the blocks stored there are linked via the
@@ -260,6 +259,7 @@ func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 	b = bp.blocknr & HASH_MASK
 	bp.b_hash = c.buf_hash[b]
 	c.buf_hash[b] = bp
+	bp.buf = bp
 
 	// Go get the requested block unless searchin or prefetching
 	if dev != NO_DEV {
@@ -292,22 +292,9 @@ func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) os.Error {
 		return nil
 	}
 
-	// Find the lru_buf that corresponds to the given CacheBlock
-	dev := cb.dev
-	bnum := cb.blocknr
-
-	var bp *lru_buf
-	var cursor *lru_buf = c.buf_hash[bnum&HASH_MASK]
-	for cursor != nil {
-		if cursor.blocknr == bnum && cursor.dev == dev {
-			bp = cursor
-			break
-		} else {
-			cursor = cursor.b_hash
-		}
-	}
-
-	// bp should contain the lru_buf for this CacheBlock
+	// We can find the lru_buf that corresponds to the given CacheBlock by
+	// checking the 'buf' field and coercing it.
+	bp := cb.buf.(*lru_buf)
 
 	// Put this block back on the LRU chain. If the ONE_SHOT bit is set in
 	// block_type, the block is not likely to be needed again shortly, so put

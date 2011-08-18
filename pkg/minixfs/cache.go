@@ -44,4 +44,9 @@ type CacheBlock struct {
 	dev     int   // the device number of this block
 	dirty   bool  // whether or not the block is dirty (needs to be written)
 	count   int   // the number of users of this block
+
+	// This is a single pointer to a higher-level buf structure, so the cache
+	// policy can correlate a given CacheBlock easily with the correct cache
+	// entry.
+	buf interface{}
 }
