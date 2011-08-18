@@ -14,6 +14,7 @@ GOFILES=\
 		dev_ramdisk.go \
 		errors.go \
 		file.go \
+		filp.go \
 		filedes.go \
 		fs.go \
 		icache.go \
@@ -24,6 +25,7 @@ GOFILES=\
 		open.go \
 		inode.go \
 		path.go \
+		proc.go \
 		read.go \
 		super.go \
 		types.go \
