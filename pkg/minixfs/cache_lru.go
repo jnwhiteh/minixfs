@@ -220,11 +220,7 @@ func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 	// Avoid hysterisis by flushing all other dirty blocks for the same
 	// device.
 	if bp.dev != NO_DEV && bp.dirty {
-		// We cannot use c.Flush(dev) here, since that requires the mutex and
-		// we are currently holding it. So we refactor that function into
-		// flushall(), which does not require the mutex, and then utilize that
-		// in c.Flush().
-		c.flushall(bp.dev)
+		c.flush(bp.dev)
 	}
 
 	// We use the garbage collector for the actual block data, so invalidate
@@ -267,7 +263,11 @@ func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 			bp.dev = NO_DEV
 		} else {
 			if only_search == NORMAL {
-				c.read_block(bp) // call non-locking worker function
+				pos := int64(blocksize) * int64(bnum)
+				err := c.devs[bp.dev].Read(bp.block, pos)
+				if err != nil {
+					return nil
+				}
 			}
 		}
 	}
@@ -343,42 +343,6 @@ func (c *LRUCache) invalidate(dev int) {
 }
 
 func (c *LRUCache) flush(dev int) {
-	c.flushall(dev)
-}
-
-func (c *LRUCache) WriteBlock(bp *lru_buf) os.Error {
-	blocksize := c.supers[bp.dev].Block_size
-	pos := int64(blocksize) * int64(bp.blocknr)
-	err := c.devs[bp.dev].Write(bp.block, pos)
-	return err
-}
-
-// Remove a block from its LRU chain
-func (c *LRUCache) rm_lru(bp *lru_buf) {
-	nextp := bp.next
-	prevp := bp.prev
-	if prevp != nil {
-		prevp.next = nextp
-	} else {
-		c.front = nextp
-	}
-
-	if nextp != nil {
-		nextp.prev = prevp
-	} else {
-		c.rear = prevp
-	}
-}
-
-// Read a block from the underlying device
-func (c *LRUCache) read_block(bp *lru_buf) os.Error {
-	blocksize := c.supers[bp.dev].Block_size
-	pos := int64(blocksize) * int64(bp.blocknr)
-	return c.devs[bp.dev].Read(bp.block, pos)
-}
-
-// Flush all dirty blocks for one device
-func (c *LRUCache) flushall(dev int) {
 	// TODO: These should be static (or pre-created) so the file server can't
 	// possible panic due to failed memory allocation.
 	var dirty = make([]*lru_buf, NR_BUFS) // a slice of dirty blocks
@@ -417,5 +381,29 @@ func (c *LRUCache) flushall(dev int) {
 			}
 		}
 		//c.devs[dev].Scatter(dirty[:ndirty]) // write the list of dirty blocks
+	}
+}
+
+func (c *LRUCache) WriteBlock(bp *lru_buf) os.Error {
+	blocksize := c.supers[bp.dev].Block_size
+	pos := int64(blocksize) * int64(bp.blocknr)
+	err := c.devs[bp.dev].Write(bp.block, pos)
+	return err
+}
+
+// Remove a block from its LRU chain
+func (c *LRUCache) rm_lru(bp *lru_buf) {
+	nextp := bp.next
+	prevp := bp.prev
+	if prevp != nil {
+		prevp.next = nextp
+	} else {
+		c.front = nextp
+	}
+
+	if nextp != nil {
+		nextp.prev = prevp
+	} else {
+		c.rear = prevp
 	}
 }
