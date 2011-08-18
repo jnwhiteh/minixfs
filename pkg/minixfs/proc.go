@@ -3,7 +3,6 @@ package minixfs
 import (
 	"math"
 	"os"
-	"sync"
 )
 
 // Skeleton implementation of system calls required for tests in 'fs_test.go'
@@ -15,29 +14,20 @@ type Process struct {
 	workdir *Inode      // working directory of the process
 	_filp   []*filp     // the list of file descriptors
 	_files  []*File     // the list of open files
-
-	m_filp *sync.RWMutex
 }
 
 func (proc *Process) Exit() {
-	proc.fs.m.device.RLock()
-	defer proc.fs.m.device.RUnlock()
-
 	fs := proc.fs
 
 	// For each file that is open, close it
-	proc.m_filp.Lock()
 	for i := 0; i < len(proc._files); i++ {
 		if proc._files[i] != nil {
 			file := proc._files[i]
 			file.close()
 		}
 	}
-	proc.m_filp.Unlock()
 
-	fs.m.procs.Lock()
 	fs._procs[proc.pid] = nil
-	fs.m.procs.Unlock()
 
 	if proc.workdir != proc.rootdir {
 		fs.put_inode(proc.workdir)
@@ -49,9 +39,6 @@ var mode_map = []uint16{R_BIT, W_BIT, R_BIT | W_BIT, 0}
 
 // NewProcess acquires the 'fs.filp' lock in write mode.
 func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Error) {
-	proc.fs.m.device.RLock()
-	defer proc.fs.m.device.RUnlock()
-
 	// Remap the bottom two bits of oflags
 	bits := mode_map[oflags&O_ACCMODE]
 
@@ -109,10 +96,6 @@ func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Erro
 		}
 	}
 
-	// We need to alter the filp table here, so grab the mutex again
-	proc.fs.m.filp.Lock()
-	defer proc.fs.m.filp.Unlock()
-
 	if err != nil {
 		// Something went wrong, release the filp reservation
 		proc._filp[fd] = nil
@@ -132,9 +115,6 @@ func (proc *Process) Open(path string, oflags int, omode uint16) (*File, os.Erro
 }
 
 func (proc *Process) Unlink(path string) os.Error {
-	proc.fs.m.device.RLock()
-	defer proc.fs.m.device.RUnlock()
-
 	fs := proc.fs
 	// Call a helper function to do most of the dirty work for us
 	rldirp, rip, rest, err := fs.unlink(proc, path)
@@ -158,9 +138,6 @@ func (proc *Process) Unlink(path string) os.Error {
 
 // Perform the mkdir(name, mode) system call
 func (proc *Process) Mkdir(path string, mode uint16) os.Error {
-	proc.fs.m.device.RLock()
-	defer proc.fs.m.device.RUnlock()
-
 	fs := proc.fs
 	var dot, dotdot int
 	var err_code os.Error
@@ -218,9 +195,6 @@ func (proc *Process) Mkdir(path string, mode uint16) os.Error {
 }
 
 func (proc *Process) Rmdir(path string) os.Error {
-	proc.fs.m.device.RLock()
-	defer proc.fs.m.device.RUnlock()
-
 	fs := proc.fs
 	// Call a helper function to do most of the dirty work for us
 	rldirp, rip, rest, err := fs.unlink(proc, path)
@@ -237,9 +211,6 @@ func (proc *Process) Rmdir(path string) os.Error {
 }
 
 func (proc *Process) Chdir(path string) os.Error {
-	proc.fs.m.device.RLock()
-	defer proc.fs.m.device.RUnlock()
-
 	rip, err := proc.fs.eat_path(proc, path)
 	if rip == nil || err != nil {
 		return err

@@ -3,11 +3,10 @@ package minixfs
 import "encoding/binary"
 import "log"
 import "os"
-import "sync"
 
-// FileSystem encapsulates a minix file system, including the shared data
-// structures associated with the file system. It abstracts away from the file
-// system residing on disk.
+// FileSystem encapsulates a minix file system. The interface provided by the
+// exported methods is thread-safe by ensuring that only one file-system level
+// system call may occur at a time.
 type FileSystem struct {
 	devs   []BlockDevice // the block devices that comprise the file system
 	supers []*Superblock // the superblocks for the given devices
@@ -19,16 +18,6 @@ type FileSystem struct {
 
 	_filp  []*filp    // the filp table
 	_procs []*Process // an array of processes that have been opened
-
-	m struct {
-		// A device lock to be used at the system-call level. All system calls
-		// must be performed under this mutex, with any system calls that
-		// alter the device table (Mount, Unmount and Close) holding the write
-		// lock as well as the read lock.
-		device *sync.RWMutex
-		procs  *sync.RWMutex
-		filp   *sync.RWMutex
-	}
 }
 
 // Create a new FileSystem from a given file on the filesystem
@@ -83,21 +72,13 @@ func NewFileSystem(dev BlockDevice) (*FileSystem, os.Error) {
 
 	fs._procs[ROOT_PROCESS] = &Process{fs, 0, 022, rip, rip,
 		make([]*filp, OPEN_MAX),
-		make([]*File, OPEN_MAX),
-		new(sync.RWMutex)}
-
-	fs.m.device = new(sync.RWMutex)
-	fs.m.procs = new(sync.RWMutex)
-	fs.m.filp = new(sync.RWMutex)
+		make([]*File, OPEN_MAX)}
 
 	return fs, nil
 }
 
 // Close the filesystem
 func (fs *FileSystem) Close() (err os.Error) {
-	fs.m.device.Lock()
-	defer fs.m.device.Unlock()
-
 	devs := fs.devs
 	supers := fs.supers
 
@@ -129,17 +110,11 @@ func (fs *FileSystem) Close() (err os.Error) {
 
 // Mount the filesystem on 'dev' at 'path' in the root filesystem
 func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
-	fs.m.device.Lock()
-	defer fs.m.device.Unlock()
-
 	return fs.do_mount(dev, path)
 }
 
 // Unmount a file system by device
 func (fs *FileSystem) Unmount(dev BlockDevice) os.Error {
-	fs.m.device.Lock()
-	defer fs.m.device.Unlock()
-
 	return fs.do_unmount(dev)
 }
 
@@ -157,12 +132,6 @@ var ERR_PID_EXISTS = os.NewError("Process already exists")
 var ERR_PATH_LOOKUP = os.NewError("Could not lookup path")
 
 func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Process, os.Error) {
-	fs.m.device.RLock()
-	defer fs.m.device.RUnlock()
-
-	fs.m.procs.Lock()
-	defer fs.m.procs.Unlock()
-
 	if fs._procs[pid] != nil {
 		return nil, ERR_PID_EXISTS
 	}
@@ -179,7 +148,7 @@ func (fs *FileSystem) NewProcess(pid int, umask uint16, rootpath string) (*Proce
 	files := make([]*File, OPEN_MAX)
 	umask = ^umask // convert it so its actually usable as a mask
 
-	proc := &Process{fs, pid, umask, rinode, winode, filp, files, new(sync.RWMutex)}
+	proc := &Process{fs, pid, umask, rinode, winode, filp, files}
 	fs._procs[pid] = proc
 	return proc, nil
 }

@@ -25,9 +25,6 @@ func (file *File) Seek(pos int, whence int) (int, os.Error) {
 		return 0, EBADF
 	}
 
-	file.proc.fs.m.device.RLock()
-	defer file.proc.fs.m.device.RUnlock()
-
 	switch whence {
 	case 1:
 		file.SetPosDelta(pos)
@@ -46,9 +43,6 @@ func (file *File) Read(b []byte) (int, os.Error) {
 	if file.fd == NO_FILE {
 		return 0, EBADF
 	}
-
-	file.proc.fs.m.device.RLock()
-	defer file.proc.fs.m.device.RUnlock()
 
 	// We want to read at most len(b) bytes from the given file. This data
 	// will almost certainly be split up amongst multiple blocks.
@@ -148,9 +142,6 @@ func (file *File) Write(data []byte) (n int, err os.Error) {
 		return 0, EBADF
 	}
 
-	file.proc.fs.m.device.RLock()
-	defer file.proc.fs.m.device.RUnlock()
-
 	// TODO: This implementation is direct and doesn't match the abstractions
 	// in the original source. At some point it should be reviewed.
 	cum_io := 0
@@ -234,12 +225,6 @@ func (file *File) Close() os.Error {
 	if file.fd == NO_FILE {
 		return EBADF
 	}
-
-	file.proc.fs.m.device.RLock()
-	defer file.proc.fs.m.device.RUnlock()
-
-	file.proc.m_filp.Lock()
-	defer file.proc.m_filp.Unlock()
 
 	file.close()
 	return nil
