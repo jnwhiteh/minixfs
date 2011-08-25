@@ -14,6 +14,11 @@ type lru_buf struct {
 	prev *lru_buf // used to link all free bufs the other way
 
 	b_hash *lru_buf // used to link all bufs for a hash mask together
+
+	// A block can be reserved, preventing it from being evicted. This field
+	// stores the number of reservations that are outstanding for a given
+	// block. A block may only be evicted when this value is 0.
+	reservations int
 }
 
 // LRUCache is a block cache implementation that will evict the least recently
@@ -92,10 +97,16 @@ func (c *LRUCache) loop() {
 			out <- m_cache_res_err{err}
 		case m_cache_req_get:
 			block := c.getBlock(req.devno, req.bnum, req.btype, req.only_search)
-			out <- m_cache_res_get{block}
+			out <- m_cache_res_block{block}
 		case m_cache_req_put:
 			err := c.putBlock(req.cb, req.btype)
 			out <- m_cache_res_err{err}
+		case m_cache_req_reserve:
+			avail := c.reserveBlock(req.dev, req.bnum)
+			out <- m_cache_res_reserve{avail}
+		case m_cache_req_claim:
+			block := c.claimBlock(req.dev, req.bnum, req.btype)
+			out <- m_cache_res_block{block}
 		case m_cache_req_invalidate:
 			c.invalidate(req.dev)
 			out <- m_cache_res_empty{}
@@ -120,7 +131,7 @@ func (c *LRUCache) UnmountDevice(devno int) os.Error {
 
 func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
 	c.in <- m_cache_req_get{dev, bnum, btype, only_search}
-	res := (<-c.out).(m_cache_res_get)
+	res := (<-c.out).(m_cache_res_block)
 	if res.cb == LRU_ALLINUSE {
 		panic("all buffers in use")
 	}
@@ -131,6 +142,18 @@ func (c *LRUCache) PutBlock(cb *CacheBlock, btype BlockType) os.Error {
 	c.in <- m_cache_req_put{cb, btype}
 	res := (<-c.out).(m_cache_res_err)
 	return res.err
+}
+
+func (c *LRUCache) Reserve(dev, bnum int) bool {
+	c.in <- m_cache_req_reserve{dev, bnum}
+	res := (<-c.out).(m_cache_res_reserve)
+	return res.avail
+}
+
+func (c *LRUCache) Claim(dev, bnum int, btype BlockType) *CacheBlock {
+	c.in <- m_cache_req_claim{dev, bnum, btype}
+	res := (<-c.out).(m_cache_res_block)
+	return res.cb
 }
 
 func (c *LRUCache) Invalidate(dev int) {
@@ -296,6 +319,10 @@ func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) os.Error {
 	// checking the 'buf' field and coercing it.
 	bp := cb.buf.(*lru_buf)
 
+	if bp.reservations > 0 { // cannot evict this block, oustanding reservation
+		return nil
+	}
+
 	// Put this block back on the LRU chain. If the ONE_SHOT bit is set in
 	// block_type, the block is not likely to be needed again shortly, so put
 	// it on the front of the LRU chain where it will be the first one to be
@@ -331,6 +358,42 @@ func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) os.Error {
 		return c.WriteBlock(bp)
 	}
 
+	return nil
+}
+
+func (c *LRUCache) reserveBlock(dev, bnum int) bool {
+	var bp *lru_buf
+	if dev != NO_DEV {
+		b := bnum & HASH_MASK
+		bp = c.buf_hash[b]
+		for bp != nil {
+			if bp.blocknr == bnum && bp.dev == dev {
+				// Block needed has been found
+				bp.reservations++
+				return true
+			} else {
+				// This block is not the one sought
+				bp = bp.b_hash
+			}
+		}
+	}
+	return false
+}
+
+func (c *LRUCache) claimBlock(dev, bnum int, btype BlockType) *CacheBlock {
+	// Perform a getBlock and then decrement the reservations
+	cb := c.getBlock(dev, bnum, btype, NORMAL)
+	if cb != nil && cb.buf != nil {
+		// ensure that there is an outstanding reservation, first
+		bp := cb.buf.(*lru_buf)
+		if bp.reservations > 0 {
+			bp.reservations--
+			return cb
+		}
+	}
+
+	// something went wrong with the claim
+	c.putBlock(cb, btype)
 	return nil
 }
 

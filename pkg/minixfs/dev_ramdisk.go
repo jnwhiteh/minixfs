@@ -9,8 +9,6 @@ import (
 )
 
 // Need to implement a io.ReadWriter so this can be used with binary/encoding.
-// This means implementing a stateful Read/Write, and we can just sub-slice in
-// order to 'seek' to the right position.
 type bytestore []byte
 
 var _ io.Reader = bytestore(nil)

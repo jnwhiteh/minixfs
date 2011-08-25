@@ -20,6 +20,19 @@ func TestCache(test *testing.T) {
 	cache := NewLRUCache()
 	cache.MountDevice(0, dev, super)
 
+	// These tests are first since their failure will cascade into others
+	// failing, which is desirable.
+
+	// Try to reserve a block that is not available in the cache
+	if avail := cache.Reserve(0, 0); avail != false {
+		test.Errorf("Expected a bad reservation for uncached block")
+	}
+
+	// Try to claim a block that hasn't been reserved
+	if cb := cache.Claim(0, 0, FULL_DATA_BLOCK); cb != nil {
+		test.Errorf("Expected a failed claim for uncached block")
+	}
+
 	bp := cache.GetBlock(0, 0, FULL_DATA_BLOCK, NORMAL)
 	cache.PutBlock(bp, FULL_DATA_BLOCK)
 
@@ -81,15 +94,33 @@ func TestCache(test *testing.T) {
 	}
 
 	// Put back 10 blocks and verify that they are used in reverse order
-	// (least recently used first).
+	// (least recently used first). Reserve the 0th block we're putting back
+	// to ensure that it is not re-used.
+	cache.Reserve(diff[0].dev, diff[0].blocknr)
+
 	for i := 0; i < 10; i++ {
 		cache.PutBlock(diff[i], FULL_DATA_BLOCK)
 	}
-	for i := 0; i < 10; i++ {
+
+	// Fetch 9 blocks from the cache and make sure the bufs we had were
+	// re-used.
+	for i := 1; i < 10; i++ {
 		bp := cache.GetBlock(0, i, FULL_DATA_BLOCK, NORMAL)
 		if bp != diff[i] {
 			test.Errorf("Expected re-use of %p, got %p", diff[i], bp)
 		}
+	}
+
+	// Claim the reservation for the reserved block, then put it back
+	resbp := cache.Claim(diff[0].dev, diff[0].blocknr, FULL_DATA_BLOCK)
+	if resbp == nil {
+		test.Errorf("Failed to claim reserved block")
+	}
+	cache.PutBlock(resbp, FULL_DATA_BLOCK)
+
+	// Fetch a block from the cache, bp should be re-used
+	if cb := cache.GetBlock(diff[0].dev, diff[0].blocknr, FULL_DATA_BLOCK, NORMAL); cb != bp {
+		test.Errorf("Expected to re-use %p, got %p", bp, cb)
 	}
 
 	// Invalidate the cache, and ensure that we have nothing valid
