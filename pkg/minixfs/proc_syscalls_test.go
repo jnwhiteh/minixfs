@@ -40,7 +40,7 @@ func _Test_Creat_Syscall(test *testing.T) {
 	fs, proc := OpenMinix3(test)
 	for _, entry := range fileList {
 		fname := entry.filename
-		file, err := proc.Open(fname, O_CREAT, 0666)
+		file, err := fs.Open(proc, fname, O_CREAT, 0666)
 		if err != nil {
 			test.Errorf("Could not create file %s: %s", fname, err)
 		}
@@ -56,7 +56,7 @@ func _Test_Creat_Syscall(test *testing.T) {
 		test.Errorf("I_Search mismatch: expected %d, got %d", 550, super.I_Search)
 	}
 
-	proc.Exit()
+	fs.Exit(proc)
 	if err := fs.Close(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
@@ -67,7 +67,7 @@ func _Test_Unlink_Syscall(test *testing.T) {
 	fs, proc := OpenMinix3(test)
 	for _, entry := range fileList {
 		fname := entry.filename
-		err := proc.Unlink(fname)
+		err := fs.Unlink(proc, fname)
 		if err != nil {
 			test.Fatalf("Could not unlink file %s: %s", fname, err)
 		}
@@ -78,7 +78,7 @@ func _Test_Unlink_Syscall(test *testing.T) {
 		}
 	}
 
-	proc.Exit()
+	fs.Exit(proc)
 	if err := fs.Close(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
@@ -102,7 +102,7 @@ func _Test_Mkdir_Syscall(test *testing.T) {
 	fs, proc := OpenMinix3(test)
 	for _, entry := range dirList {
 		dirname := entry.name
-		err := proc.Mkdir(dirname, 0666)
+		err := fs.Mkdir(proc, dirname, 0666)
 		if err != nil {
 			test.Errorf("Could not mkdir %s: %s", dirname, err)
 		}
@@ -133,7 +133,7 @@ func _Test_Mkdir_Syscall(test *testing.T) {
 		test.Errorf("I_Search mismatch: expected %d, got %d", 550, super.I_Search)
 	}
 
-	proc.Exit()
+	fs.Exit(proc)
 	if err := fs.Close(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
@@ -146,7 +146,7 @@ func _Test_Rmdir_Syscall(test *testing.T) {
 	// Directories must be removed in reverse order
 	for i := len(dirList) - 1; i >= 0; i-- {
 		dirname := dirList[i].name
-		err := proc.Rmdir(dirname)
+		err := fs.Rmdir(proc, dirname)
 		if err != nil {
 			test.Errorf("Could not rmdir %s: %s", dirname, err)
 		}
@@ -166,7 +166,7 @@ func _Test_Rmdir_Syscall(test *testing.T) {
 		}
 	}
 
-	proc.Exit()
+	fs.Exit(proc)
 	if err := fs.Close(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
@@ -184,7 +184,7 @@ func _Test_Chdir_Syscall(test *testing.T) {
 	// chdir through each directory in dirList
 	for _, entry := range dirList {
 		dirname := entry.name
-		err := proc.Chdir(dirname)
+		err := fs.Chdir(proc, dirname)
 		if err != nil {
 			test.Error("Unexpected error: %s", err)
 		}
@@ -196,7 +196,7 @@ func _Test_Chdir_Syscall(test *testing.T) {
 	// take the last directory and split it
 	max := len(dirList) - 1
 	for i := max; i > 0; i-- {
-		err := proc.Chdir("..")
+		err := fs.Chdir(proc, "..")
 		if err != nil {
 			test.Errorf("Failed changing to ..: %s", err)
 		}
@@ -207,7 +207,7 @@ func _Test_Chdir_Syscall(test *testing.T) {
 
 	// Chdir down to /tmp and then to /
 	for i := 0; i < 2; i++ {
-		err := proc.Chdir("..")
+		err := fs.Chdir(proc, "..")
 		if err != nil {
 			test.Errorf("Failed changing to ..: %s", err)
 		}
@@ -217,7 +217,7 @@ func _Test_Chdir_Syscall(test *testing.T) {
 		test.Errorf("Failed to return to /tmp working directory")
 	}
 
-	proc.Exit()
+	fs.Exit(proc)
 	if err := fs.Close(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}

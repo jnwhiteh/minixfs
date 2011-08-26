@@ -6,7 +6,7 @@ import (
 
 func Test_Close_Syscall(test *testing.T) {
 	fs, proc := OpenMinix3(test)
-	file, err := proc.Open("/sample/europarl-en.txt", O_RDONLY, 066)
+	file, err := fs.Open(proc, "/sample/europarl-en.txt", O_RDONLY, 066)
 	if err != nil {
 		test.Errorf("Failed to open sample file")
 	}
@@ -38,7 +38,7 @@ func Test_Close_Syscall(test *testing.T) {
 		test.Errorf("Expected %s, got %s", EBADF, err)
 	}
 
-	proc.Exit()
+	fs.Exit(proc)
 	if err := fs.Close(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
@@ -51,7 +51,7 @@ func Test_Exit_Syscall(test *testing.T) {
 	fds := make([]int, 0, 0)
 
 	for i := 0; i < 5; i++ {
-		file, err := proc.Open("/sample/europarl-en.txt", O_RDONLY, 066)
+		file, err := fs.Open(proc, "/sample/europarl-en.txt", O_RDONLY, 066)
 		if err != nil {
 			test.Errorf("Failed to open sample file")
 		}
@@ -64,7 +64,7 @@ func Test_Exit_Syscall(test *testing.T) {
 		test.Errorf("Expected %s, got %s", EBUSY, err)
 	}
 
-	proc.Exit()
+	fs.Exit(proc)
 
 	for idx, file := range files {
 		fd := fds[idx]

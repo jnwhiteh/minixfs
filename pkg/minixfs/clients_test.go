@@ -14,7 +14,7 @@ func TestMultiClient(test *testing.T) {
 		test.Fatalf("Failed creating new process: %s", procb)
 	}
 
-	proca.Exit()
-	procb.Exit()
+	fs.Exit(proca)
+	fs.Exit(procb)
 	fs.Close()
 }

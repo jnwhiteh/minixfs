@@ -72,7 +72,7 @@ func TestAdvance(test *testing.T) {
 		test.Logf("Got %q, expected %q", proc.rootdir, dirp)
 	}
 
-	proc.Exit()
+	fs.Exit(proc)
 	if err := fs.Close(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}

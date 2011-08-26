@@ -72,7 +72,7 @@ func Test_RamdiskRead(test *testing.T) {
 
 	data := GetEuroparlData(test)
 	_Test_Read_Europarl(fs, proc, data, test)
-	proc.Exit()
+	fs.Exit(proc)
 	fs.Close()
 }
 

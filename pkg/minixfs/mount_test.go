@@ -26,7 +26,7 @@ func TestSimpleMount(test *testing.T) {
 
 	// We need to close the root process in order to close the filesystem
 
-	proc.Exit()
+	fs.Exit(proc)
 
 	err = fs.Close()
 	if err != nil {
@@ -65,7 +65,7 @@ func TestMountUnmountUsr(test *testing.T) {
 	}
 	fs.put_inode(rip) // release that inode
 
-	file, err := proc.Open("/usr/pkg/man/man3/SSL_set_fd.3", O_RDONLY, 0)
+	file, err := fs.Open(proc, "/usr/pkg/man/man3/SSL_set_fd.3", O_RDONLY, 0)
 	if err != nil {
 		test.Fatalf("Could not open /usr/pkg/man/man3/SSL_set_fd.3: %s", err)
 	}
@@ -91,7 +91,7 @@ func TestMountUnmountUsr(test *testing.T) {
 	}
 	fs.put_inode(rip)
 
-	proc.Exit()
+	fs.Exit(proc)
 
 	if err := fs.Close(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
@@ -136,7 +136,7 @@ func TestMaxDevices(test *testing.T) {
 	}
 
 	// Grab the europarl file from the deepest tree
-	file, err := proc.Open("/mnt/mnt/mnt/mnt/mnt/mnt/mnt/sample/europarl-en.txt", O_RDONLY, 0)
+	file, err := fs.Open(proc, "/mnt/mnt/mnt/mnt/mnt/mnt/mnt/sample/europarl-en.txt", O_RDONLY, 0)
 	if err != nil {
 		test.Fatal("Failed when opening 8 /mnt deep europarl-en.txt: %s", err)
 	}
@@ -151,8 +151,9 @@ func TestMaxDevices(test *testing.T) {
 	if err != ENFILE {
 		test.Fatalf("When overflowing superblock table, got: %s", err)
 	}
+	dev.Close()
 
-	proc.Exit()
+	fs.Exit(proc)
 	if err := fs.Close(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}

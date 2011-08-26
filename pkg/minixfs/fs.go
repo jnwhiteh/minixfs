@@ -103,6 +103,24 @@ func (fs *FileSystem) loop() {
 		case m_fs_req_spawn:
 			proc, err := fs.spawn(req.pid, req.umask, req.rootpath)
 			out <- m_fs_res_spawn{proc, err}
+		case m_fs_req_exit:
+			fs.exit(req.proc)
+			out <- m_fs_res_empty{}
+		case m_fs_req_open:
+			file, err := fs.open(req.proc, req.path, req.flags, req.mode)
+			out <- m_fs_res_open{file, err}
+		case m_fs_req_unlink:
+			err := fs.unlink(req.proc, req.path)
+			out <- m_fs_res_err{err}
+		case m_fs_req_mkdir:
+			err := fs.mkdir(req.proc, req.path, req.mode)
+			out <- m_fs_res_err{err}
+		case m_fs_req_rmdir:
+			err := fs.rmdir(req.proc, req.path)
+			out <- m_fs_res_err{err}
+		case m_fs_req_chdir:
+			err := fs.chdir(req.proc, req.path)
+			out <- m_fs_res_err{err}
 		}
 	}
 }
@@ -131,78 +149,38 @@ func (fs *FileSystem) Spawn(pid int, umask uint16, rootpath string) (*Process, o
 	return res.proc, res.err
 }
 
-// Close the filesystem
-func (fs *FileSystem) close() (err os.Error) {
-	devs := fs.devs
-	supers := fs.supers
-
-	// Unmount each non-root device
-	for i := ROOT_DEVICE + 1; i < NR_SUPERS; i++ {
-		if devs[i] != nil {
-			fs.cache.Flush(i)
-			WriteSuperblock(devs[i], supers[i]) // flush the superblock
-
-			err = fs.do_unmount(devs[i])
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	// Unmount the root device
-	if fs.icache.IsDeviceBusy(ROOT_DEVICE) {
-		// Cannot unmount this device, so we need to fail
-		return EBUSY
-	} else {
-		fs.cache.Flush(ROOT_DEVICE)
-		WriteSuperblock(devs[ROOT_DEVICE], supers[ROOT_DEVICE])
-		fs.devs[ROOT_DEVICE].Close()
-	}
-
-	return nil
+func (fs *FileSystem) Exit(proc *Process) {
+	fs.in <- m_fs_req_exit{proc}
+	<-fs.out
+	return
 }
 
-// Mount the filesystem on 'dev' at 'path' in the root filesystem
-func (fs *FileSystem) mount(dev BlockDevice, path string) os.Error {
-	return fs.do_mount(dev, path)
+func (fs *FileSystem) Open(proc *Process, path string, flags int, mode uint16) (*File, os.Error) {
+	fs.in <- m_fs_req_open{proc, path, flags, mode}
+	res := (<-fs.out).(m_fs_res_open)
+	return res.file, res.err
 }
 
-// Unmount a file system by device
-func (fs *FileSystem) unmount(dev BlockDevice) os.Error {
-	return fs.do_unmount(dev)
+func (fs *FileSystem) Unlink(proc *Process, path string) os.Error {
+	fs.in <- m_fs_req_unlink{proc, path}
+	res := (<-fs.out).(m_fs_res_err)
+	return res.err
 }
 
-// The get_block method is a wrapper for fs.cache.GetBlock()
-func (fs *FileSystem) get_block(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
-	return fs.cache.GetBlock(dev, bnum, btype, only_search)
+func (fs *FileSystem) Mkdir(proc *Process, path string, mode uint16) os.Error {
+	fs.in <- m_fs_req_mkdir{proc, path, mode}
+	res := (<-fs.out).(m_fs_res_err)
+	return res.err
 }
 
-// The put_block method is a wrapper for fs.cache.PutBlock()
-func (fs *FileSystem) put_block(bp *CacheBlock, btype BlockType) {
-	fs.cache.PutBlock(bp, btype)
+func (fs *FileSystem) Rmdir(proc *Process, path string) os.Error {
+	fs.in <- m_fs_req_rmdir{proc, path}
+	res := (<-fs.out).(m_fs_res_err)
+	return res.err
 }
 
-var ERR_PID_EXISTS = os.NewError("Process already exists")
-var ERR_PATH_LOOKUP = os.NewError("Could not lookup path")
-
-func (fs *FileSystem) spawn(pid int, umask uint16, rootpath string) (*Process, os.Error) {
-	if fs._procs[pid] != nil {
-		return nil, ERR_PID_EXISTS
-	}
-
-	// Get an inode from a path
-	rip, err := fs.eat_path(fs._procs[ROOT_PROCESS], rootpath)
-	if err != nil {
-		return nil, err
-	}
-
-	rinode := rip
-	winode := rinode
-	filp := make([]*filp, OPEN_MAX)
-	files := make([]*File, OPEN_MAX)
-	umask = ^umask // convert it so its actually usable as a mask
-
-	proc := &Process{fs, pid, umask, rinode, winode, filp, files}
-	fs._procs[pid] = proc
-	return proc, nil
+func (fs *FileSystem) Chdir(proc *Process, path string) os.Error {
+	fs.in <- m_fs_req_chdir{proc, path}
+	res := (<-fs.out).(m_fs_res_err)
+	return res.err
 }

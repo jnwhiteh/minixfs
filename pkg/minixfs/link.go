@@ -58,7 +58,7 @@ func (fs *FileSystem) truncate(rip *Inode) {
 	// leave zone numbers for de(1) to recover file after an unlink(2)
 }
 
-func (fs *FileSystem) unlink(proc *Process, path string) (*Inode, *Inode, string, os.Error) {
+func (fs *FileSystem) do_unlink(proc *Process, path string) (*Inode, *Inode, string, os.Error) {
 	// Get the last directory in the path
 	rldirp, rest, err := fs.last_dir(proc, path)
 	if rldirp == nil {

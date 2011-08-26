@@ -11,7 +11,7 @@ func _Test_Write_New(fs *FileSystem, proc *Process, europarl []byte, test *testi
 	numBytes := len(europarl)
 
 	// Open/Create the new file
-	file, err := proc.Open("/tmp/europarl-en.txt", O_RDWR|O_CREAT, 0666)
+	file, err := fs.Open(proc, "/tmp/europarl-en.txt", O_RDWR|O_CREAT, 0666)
 	n, err := file.Write(europarl[:numBytes])
 	if n != numBytes {
 		test.Errorf("Bytes written mismatch, got %d, expected %d", n, len(europarl))
@@ -28,7 +28,7 @@ func _Test_Write_New(fs *FileSystem, proc *Process, europarl []byte, test *testi
 func _Test_Verify_Write(fs *FileSystem, proc *Process, europarl []byte, test *testing.T) {
 	test.Log("_Test_Verify_Write")
 
-	file, err := proc.Open("/tmp/europarl-en.txt", O_RDONLY, 0666)
+	file, err := fs.Open(proc, "/tmp/europarl-en.txt", O_RDONLY, 0666)
 	if file == nil || err != nil {
 		test.Errorf("Failed opening file: %s", err)
 	}
@@ -63,13 +63,13 @@ func _Test_Verify_Write(fs *FileSystem, proc *Process, europarl []byte, test *te
 
 func TestWriteSyscall(test *testing.T) {
 	fs, proc := OpenMinix3(test)
-	proc.Unlink("/tmp/europarl-en.txt")
+	fs.Unlink(proc, "/tmp/europarl-en.txt")
 
 	odata := GetEuroparlData(test)
 
 	_Test_Write_New(fs, proc, odata, test)
 	_Test_Verify_Write(fs, proc, odata, test)
 
-	proc.Unlink("/tmp/europarl-en.txt")
+	fs.Unlink(proc, "/tmp/europarl-en.txt")
 	fs.Close()
 }

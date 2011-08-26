@@ -82,10 +82,10 @@ func openEuroparl(test *testing.T) ([]byte, *File) {
 	}
 	file.Close()
 
-	_, proc := OpenMinix3(test)
+	fs, proc := OpenMinix3(test)
 
 	// Open the file on the mounted filesystem
-	mfile, err := proc.Open("/sample/europarl-en.txt", O_RDONLY, 0666)
+	mfile, err := fs.Open(proc, "/sample/europarl-en.txt", O_RDONLY, 0666)
 	//log.Printf("Opened file /sample/europarl-en.txt, has size: %v", mfile.inode.Size)
 	//log.Printf("File is located on inode: %v", mfile.inode.inum)
 
