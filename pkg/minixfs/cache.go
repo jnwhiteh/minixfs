@@ -45,6 +45,8 @@ type BlockCache interface {
 	Invalidate(dev int)
 	// Flush any dirty blocks for a given device to the device
 	Flush(dev int)
+	// Close the block cache
+	Close() os.Error
 }
 
 // Buf is a generic 'buffer cache struct that is used throughout the file

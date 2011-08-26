@@ -11,6 +11,7 @@ func TestCache(test *testing.T) {
 	if err != nil {
 		test.Fatalf("Failed to create device for minix3usr.img: %s", err)
 	}
+	defer dev.Close()
 
 	super, err := ReadSuperblock(dev)
 	if err != nil {
@@ -134,4 +135,6 @@ func TestCache(test *testing.T) {
 			test.Errorf("After invalidation, diff[i] with dev %d", diff[i].dev)
 		}
 	}
+
+	cache.Close()
 }

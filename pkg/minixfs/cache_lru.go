@@ -113,6 +113,10 @@ func (c *LRUCache) loop() {
 		case m_cache_req_flush:
 			c.flush(req.dev)
 			out <- m_cache_res_empty{}
+		case m_cache_req_close:
+			out <- m_cache_res_err{nil}
+			close(c.in)
+			close(c.out)
 		}
 	}
 }
@@ -164,6 +168,12 @@ func (c *LRUCache) Invalidate(dev int) {
 func (c *LRUCache) Flush(dev int) {
 	c.in <- m_cache_req_flush{dev}
 	<-c.out
+}
+
+func (c *LRUCache) Close() os.Error {
+	c.in <- m_cache_req_close{}
+	res := (<-c.out).(m_cache_res_err)
+	return res.err
 }
 
 // Associate a BlockDevice and *Superblock with a device number so it can be
