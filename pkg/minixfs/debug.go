@@ -11,6 +11,10 @@ func here() {
 	_, file, line, _ := runtime.Caller(1)
 	log.Printf("here: %s:%d", file, line)
 }
+func herestr(x int) string {
+	_, file, line, _ := runtime.Caller(x)
+	return fmt.Sprintf("%s:%d", file, line)
+}
 
 func _debugPrintBlock(bp *CacheBlock, super *Superblock) {
 	switch bp.block.(type) {
