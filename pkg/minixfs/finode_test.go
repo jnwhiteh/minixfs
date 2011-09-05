@@ -43,8 +43,6 @@ func Test_Finode_Shutdown(test *testing.T) {
 		test.Errorf("Wrong finode open count, expected 1, got %d", finode.count)
 	}
 
-	thefinode := finode
-
 	rip := file.inode
 	fs.Close(proc, file)
 	if len(fs.finodes) != 0 {
@@ -64,6 +62,5 @@ func Test_Finode_Shutdown(test *testing.T) {
 	ch := time.After(10e9)
 	<-ch
 
-	<-thefinode.done
 	log.Printf("Should be done")
 }
