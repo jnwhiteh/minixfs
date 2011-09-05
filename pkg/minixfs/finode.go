@@ -44,19 +44,20 @@ func (fi *Finode) loop() {
 			go func() {
 				defer close(callback)
 				defer fi.waitGroup.Done()
-				n, err := fi.Read(req.buf, req.pos)
+				n, err := fi.read(req.buf, req.pos)
 				callback <- m_finode_res_io{n, err}
 			}()
 		case m_finode_req_write:
 			// Wait for any outstanding read requests to finish
-			fi.waitGroup.Done()
+			fi.waitGroup.Wait()
 
-			n, err := fi.Write(req.buf, req.pos)
+			n, err := fi.write(req.buf, req.pos)
 			out <- m_finode_res_io{n, err}
 		case m_finode_req_close:
+			fi.waitGroup.Wait()
 			out <- m_finode_res_empty{}
-			close(in)
-			close(out)
+			close(fi.in)
+			close(fi.out)
 		}
 	}
 
@@ -67,6 +68,32 @@ func (fi *Finode) loop() {
 
 // Read up to len(b) bytes from the file from position 'pos'
 func (fi *Finode) Read(b []byte, pos int) (int, os.Error) {
+	fi.in <- m_finode_req_read{b, pos}
+	ares := (<-fi.out).(m_finode_res_asyncio)
+	res := (<-ares.callback)
+	return res.n, res.err
+}
+
+// Write len(b) bytes to the file at position 'pos'
+func (fi *Finode) Write(data []byte, pos int) (n int, err os.Error) {
+	fi.in <- m_finode_req_write{data, pos}
+	res := (<-fi.out).(m_finode_res_io)
+	return res.n, res.err
+}
+
+// Close an instance of this finode.
+func (fi *Finode) Close() {
+	fi.in <- m_finode_req_close{}
+	<-fi.out
+
+	// this fails
+	// res := (<-fi.out).(m_finode_res_empty)
+	// _ = res // dummy
+
+	return
+}
+
+func (fi *Finode) read(b []byte, pos int) (int, os.Error) {
 	// We want to read at most len(b) bytes from the given file. This data
 	// will almost certainly be split up amongst multiple blocks.
 	curpos := pos
@@ -153,8 +180,7 @@ func (fi *Finode) Read(b []byte, pos int) (int, os.Error) {
 	return numBytes, nil
 }
 
-// Write len(b) bytes to the file at position 'pos'
-func (fi *Finode) Write(data []byte, pos int) (n int, err os.Error) {
+func (fi *Finode) write(data []byte, pos int) (n int, err os.Error) {
 	// TODO: This implementation is direct and doesn't match the abstractions
 	// in the original source. At some point it should be reviewed.
 	cum_io := 0
@@ -208,10 +234,6 @@ func (fi *Finode) Write(data []byte, pos int) (n int, err os.Error) {
 	}
 
 	return cum_io, err
-}
-
-// Close an instance of this finode.
-func (fi *Finode) Close() {
 }
 
 // Given an inode and a position within the corresponding file, locate the
