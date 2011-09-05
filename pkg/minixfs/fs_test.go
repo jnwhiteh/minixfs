@@ -66,7 +66,7 @@ func GetEuroparlData(test *testing.T) []byte {
 	return odata
 }
 
-func openEuroparl(test *testing.T) ([]byte, *File) {
+func openEuroparl(test *testing.T) (*fileSystem, *Process, []byte, *File) {
 	// Read in the original data so we have something to compare against
 	file, err := os.Open("../../europarl-en.txt")
 
@@ -89,11 +89,11 @@ func openEuroparl(test *testing.T) ([]byte, *File) {
 	//log.Printf("Opened file /sample/europarl-en.txt, has size: %v", mfile.inode.Size)
 	//log.Printf("File is located on inode: %v", mfile.inode.inum)
 
-	return odata, mfile
+	return fs, proc, odata, mfile
 }
 
 func TestReadCases(test *testing.T) {
-	odata, mfile := openEuroparl(test)
+	fs, proc, odata, mfile := openEuroparl(test)
 	// block = position / block_size
 	// 0-6 direct blocks (4096 bytes each)
 	// 7 indirect block (1024 zone entries, holding 4096 bytes each)
@@ -153,6 +153,9 @@ func TestReadCases(test *testing.T) {
 		}
 		total += c.size
 	}
+
+	fs.Exit(proc)
+	fs.Shutdown()
 
 	//log.Printf("Checked a total of %d bytes in %d read cases", total, len(readCases))
 }
