@@ -81,7 +81,7 @@ func (c *InodeCache) GetInode(dev int, num uint) (*Inode, os.Error) {
 
 	// We have the full block, now get the correct inode entry
 	inode_d := &inodeb[(num-1)%super.inodes_per_block]
-	xp._disk = inode_d
+	xp.disk = inode_d
 	xp.dev = dev
 	xp.inum = num
 	xp.SetCount(1)
@@ -110,7 +110,7 @@ func (c *InodeCache) WriteInode(rip *Inode) {
 	bp.dirty = true
 
 	// Copy the disk_inode from rip into the inode block
-	inodeb[(rip.inum-1)%super.inodes_per_block] = *rip._disk
+	inodeb[(rip.inum-1)%super.inodes_per_block] = *rip.disk
 	rip.SetDirty(false)
 	c.fs.put_block(bp, INODE_BLOCK)
 }

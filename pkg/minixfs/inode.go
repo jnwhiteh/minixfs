@@ -2,7 +2,6 @@ package minixfs
 
 import "log"
 import "os"
-import "sync"
 
 // Inode is the in-memory inode structure, containing the full disk_inode as
 // an embedded member. These are cached by the InodeCache, but they are not
@@ -13,28 +12,16 @@ type Inode struct {
 	dev  int
 	inum uint
 
-	// The following fields will be altered, so access must be performed under
-	// a mutex.
-	_count uint
-	_dirty bool
-	_mount bool
+	// The following fields can and will be altered
+	count uint
+	dirty bool
+	mount bool
 
-	_disk *disk_inode
-
-	// The mutexes for the volatile fields
-	m_count *sync.RWMutex
-	m_dirty *sync.RWMutex
-	m_mount *sync.RWMutex
-
-	m_disk *sync.RWMutex
+	disk *disk_inode
 }
 
 func NewInode() *Inode {
 	inode := new(Inode)
-	inode.m_count = new(sync.RWMutex)
-	inode.m_dirty = new(sync.RWMutex)
-	inode.m_mount = new(sync.RWMutex)
-	inode.m_disk = new(sync.RWMutex)
 	return inode
 }
 
@@ -43,139 +30,95 @@ func (inode *Inode) Dev() int {
 }
 
 func (inode *Inode) Count() uint {
-	inode.m_count.RLock()
-	defer inode.m_count.RUnlock()
-	return inode._count
+	return inode.count
 }
 
 func (inode *Inode) IncCount() {
-	inode.m_count.RLock()
-	defer inode.m_count.RUnlock()
-	inode._count++
+	inode.count++
 }
 
 func (inode *Inode) DecCount() {
-	inode.m_count.RLock()
-	defer inode.m_count.RUnlock()
-	inode._count--
+	inode.count--
 }
 
 func (inode *Inode) SetCount(count uint) {
-	inode.m_count.Lock()
-	defer inode.m_count.Unlock()
-	inode._count = count
+	inode.count = count
 }
 
 func (inode *Inode) Dirty() bool {
-	inode.m_dirty.RLock()
-	defer inode.m_dirty.RUnlock()
-	return inode._dirty
+	return inode.dirty
 }
 
 func (inode *Inode) SetDirty(dirty bool) {
-	inode.m_dirty.Lock()
-	defer inode.m_dirty.Unlock()
-	inode._dirty = dirty
+	inode.dirty = dirty
 }
 
 func (inode *Inode) Mount() bool {
-	inode.m_mount.RLock()
-	defer inode.m_mount.RUnlock()
-	return inode._mount
+	return inode.mount
 }
 
 func (inode *Inode) SetMount(mount bool) {
-	inode.m_mount.Lock()
-	defer inode.m_mount.Unlock()
-	inode._mount = mount
+	inode.mount = mount
 }
 
 // Setters/Getters for the on-disk portion of the inode, sharing a single
 // mutex.
 func (inode *Inode) Mode() uint16 {
-	inode.m_disk.RLock()
-	defer inode.m_disk.RUnlock()
-	return inode._disk.Mode
+	return inode.disk.Mode
 }
 
 func (inode *Inode) SetMode(mode uint16) {
-	inode.m_disk.Lock()
-	defer inode.m_disk.Unlock()
-	inode._disk.Mode = mode
+	inode.disk.Mode = mode
 }
 
 func (inode *Inode) Nlinks() uint16 {
-	inode.m_disk.RLock()
-	defer inode.m_disk.RUnlock()
-	return inode._disk.Nlinks
+	return inode.disk.Nlinks
 }
 
 func (inode *Inode) SetNlinks(nlinks uint16) {
-	inode.m_disk.Lock()
-	defer inode.m_disk.Unlock()
-	inode._disk.Nlinks = nlinks
+	inode.disk.Nlinks = nlinks
 }
 
 func (inode *Inode) IncNlinks() {
-	inode.m_disk.Lock()
-	defer inode.m_disk.Unlock()
-	inode._disk.Nlinks++
+	inode.disk.Nlinks++
 }
 
 func (inode *Inode) DecNlinks() {
-	inode.m_disk.Lock()
-	defer inode.m_disk.Unlock()
-	inode._disk.Nlinks--
+	inode.disk.Nlinks--
 }
 
 func (inode *Inode) Uid() int16 {
-	inode.m_disk.RLock()
-	defer inode.m_disk.RUnlock()
-	return inode._disk.Uid
+	return inode.disk.Uid
 }
 
 func (inode *Inode) SetUid(uid int16) {
-	inode.m_disk.Lock()
-	defer inode.m_disk.Unlock()
-	inode._disk.Uid = uid
+	inode.disk.Uid = uid
 }
 
 func (inode *Inode) Gid() uint16 {
-	inode.m_disk.RLock()
-	defer inode.m_disk.RUnlock()
-	return inode._disk.Gid
+	return inode.disk.Gid
 }
 
 func (inode *Inode) SetGid(gid uint16) {
-	inode.m_disk.Lock()
-	defer inode.m_disk.Unlock()
-	inode._disk.Gid = gid
+	inode.disk.Gid = gid
 }
 
 func (inode *Inode) Size() int32 {
-	inode.m_disk.RLock()
-	defer inode.m_disk.RUnlock()
-	return inode._disk.Size
+	return inode.disk.Size
 }
 
 func (inode *Inode) SetSize(size int32) {
-	inode.m_disk.Lock()
-	defer inode.m_disk.Unlock()
-	inode._disk.Size = size
+	inode.disk.Size = size
 }
 
 // TODO: Implement time getters/setters
 
 func (inode *Inode) Zone(num int) uint32 {
-	inode.m_disk.RLock()
-	defer inode.m_disk.RUnlock()
-	return inode._disk.Zone[num]
+	return inode.disk.Zone[num]
 }
 
 func (inode *Inode) SetZone(num int, zone uint32) {
-	inode.m_disk.Lock()
-	defer inode.m_disk.Unlock()
-	inode._disk.Zone[num] = zone
+	inode.disk.Zone[num] = zone
 }
 
 // Utility functions
@@ -254,12 +197,10 @@ func (fs *FileSystem) wipe_inode(inode *Inode) {
 	inode.SetDirty(true)
 
 	// Acquire the 'disk' lock, since we need to alter those elements
-	inode.m_disk.Lock()
-	inode._disk.Zone = *new([10]uint32)
+	inode.disk.Zone = *new([10]uint32)
 	for i := 0; i < 10; i++ {
-		inode._disk.Zone[i] = NO_ZONE
+		inode.disk.Zone[i] = NO_ZONE
 	}
-	inode.m_disk.Unlock()
 }
 
 func (fs *FileSystem) dup_inode(inode *Inode) {
