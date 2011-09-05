@@ -188,6 +188,7 @@ func (fs *fileSystem) open(proc *Process, path string, oflags int, omode uint16)
 			make(chan m_finode_req),
 			make(chan m_finode_res),
 			new(sync.WaitGroup),
+			nil,
 		}
 		go finode.loop()
 		fs.finodes[rip] = finode, true

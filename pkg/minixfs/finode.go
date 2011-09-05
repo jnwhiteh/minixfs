@@ -25,6 +25,7 @@ type Finode struct {
 	out chan m_finode_res
 
 	waitGroup *sync.WaitGroup // used for mutual exclusion for writes
+	closed    chan bool
 }
 
 func (fi *Finode) loop() {
@@ -57,6 +58,10 @@ func (fi *Finode) loop() {
 			close(in)
 			close(out)
 		}
+	}
+
+	if fi.closed != nil {
+		fi.closed <- true
 	}
 }
 
