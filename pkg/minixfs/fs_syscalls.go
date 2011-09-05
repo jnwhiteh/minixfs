@@ -91,7 +91,7 @@ func (fs *fileSystem) exit(proc *Process) {
 	for i := 0; i < len(proc._files); i++ {
 		if proc._files[i] != nil {
 			file := proc._files[i]
-			file.close()
+			fs.close(proc, file)
 		}
 	}
 
