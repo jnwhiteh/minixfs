@@ -184,7 +184,7 @@ func (fs *fileSystem) open(proc *Process, path string, oflags int, omode uint16)
 		bsize := int(super.Block_size)
 		maxsize := int(super.Max_size)
 
-		finode = &Finode{fs, rip, scale, bsize, maxsize, fs.cache, 1,
+		finode = &Finode{fs, rip, scale, bsize, maxsize, fs.cache, 0,
 			make(chan m_finode_req),
 			make(chan m_finode_res),
 			new(sync.WaitGroup),
@@ -192,6 +192,7 @@ func (fs *fileSystem) open(proc *Process, path string, oflags int, omode uint16)
 		go finode.loop()
 		fs.finodes[rip] = finode, true
 	}
+	finode.count++
 
 	file := &File{filp, proc, fd, finode}
 	proc._files[fd] = file
@@ -206,13 +207,15 @@ func (fs *fileSystem) close(proc *Process, file *File) os.Error {
 	// call the internal close function
 	file.close()
 
-	finode, ok := fs.finodes[file.inode]
+	rip := file.inode
+	finode, ok := fs.finodes[rip]
 	if !ok {
 		return EBADF
 	}
 	finode.count--
 	if finode.count == 0 {
 		finode.Close()
+		fs.finodes[rip] = nil, false
 	}
 
 	return nil
