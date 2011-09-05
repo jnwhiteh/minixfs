@@ -177,8 +177,7 @@ func (c *LRUCache) Close() os.Error {
 }
 
 // Associate a BlockDevice and *Superblock with a device number so it can be
-// used internally. This operation requires the write portion of the RWMutex
-// since it alters the devs and supers arrays.
+// used internally.
 func (c *LRUCache) mountDevice(devno int, dev BlockDevice, super *Superblock) os.Error {
 	if c.devs[devno] != nil || c.supers[devno] != nil {
 		return EBUSY
