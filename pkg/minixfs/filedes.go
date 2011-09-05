@@ -10,11 +10,11 @@ var inUse *filp = new(filp)
 // allocated, using the 'inUse' filp defined above. This filp entry cannot and
 // should not be used and should be replaced with the true active filp entry
 // to complete the allocation.
-func (fs *FileSystem) reserve_fd(proc *Process, start int, mode uint16) (int, int, os.Error) {
+func (fs *fileSystem) reserve_fd(proc *Process, start int, mode uint16) (int, int, os.Error) {
 	// Find an available file descriptor slot
 	var fd int = -1
 	for i := 0; i < OPEN_MAX; i++ {
-		if proc._filp[i] == nil && proc._filp[i] != inUse {
+		if proc.filp[i] == nil && proc.filp[i] != inUse {
 			fd = i
 			break
 		}
@@ -26,7 +26,7 @@ func (fs *FileSystem) reserve_fd(proc *Process, start int, mode uint16) (int, in
 
 	var filpi int = -1
 	for i := 0; i < NR_FILPS; i++ {
-		if proc.fs._filp[i] == nil && proc.fs._filp[i] != inUse {
+		if proc.fs.filp[i] == nil && proc.fs.filp[i] != inUse {
 			filpi = i
 			break
 		}
@@ -36,8 +36,8 @@ func (fs *FileSystem) reserve_fd(proc *Process, start int, mode uint16) (int, in
 		return -1, -1, ENFILE
 	}
 
-	proc._filp[fd] = inUse
-	proc.fs._filp[filpi] = inUse
+	proc.filp[fd] = inUse
+	proc.fs.filp[filpi] = inUse
 
 	return fd, filpi, nil
 }

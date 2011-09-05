@@ -16,5 +16,5 @@ func TestMultiClient(test *testing.T) {
 
 	fs.Exit(proca)
 	fs.Exit(procb)
-	fs.Close()
+	fs.Shutdown()
 }

@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func _Test_Read_Europarl(fs *FileSystem, proc *Process, europarl []byte, test *testing.T) {
+func _Test_Read_Europarl(fs *fileSystem, proc *Process, europarl []byte, test *testing.T) {
 	file, err := fs.Open(proc, "/sample/europarl-en.txt", O_RDONLY, 0666)
 	if file == nil || err != nil {
 		test.Errorf("Failed opening file: %s", err)
@@ -42,7 +42,7 @@ func TestReadSyscall(test *testing.T) {
 	_Test_Read_Europarl(fs, proc, odata, test)
 
 	fs.Exit(proc)
-	if err := fs.Close(); err != nil {
+	if err := fs.Shutdown(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
 }

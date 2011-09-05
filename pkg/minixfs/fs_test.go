@@ -8,7 +8,7 @@ import (
 )
 
 // Open the sample minix3 file system and create a process '1'
-func OpenMinix3(test *testing.T) (*FileSystem, *Process) {
+func OpenMinix3(test *testing.T) (*fileSystem, *Process) {
 	// Open the filesystem so we can read from it
 	fs, err := OpenFileSystemFile("../../minix3root.img")
 	if err != nil || fs == nil {

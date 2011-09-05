@@ -7,7 +7,7 @@ import (
 // Acquire a new block and return a pointer to it. Doing so may require
 // allocating a complete zone, and then returning the initial block. On the
 // other hand, the current zone may still have some unused blocks.
-func (fs *FileSystem) new_block(rip *Inode, position uint, btype BlockType) (*CacheBlock, os.Error) {
+func (fs *fileSystem) new_block(rip *Inode, position uint, btype BlockType) (*CacheBlock, os.Error) {
 	var b uint
 	var z int
 	var err os.Error
@@ -45,7 +45,7 @@ func (fs *FileSystem) new_block(rip *Inode, position uint, btype BlockType) (*Ca
 	return bp, nil
 }
 
-func (fs *FileSystem) zero_block(bp *CacheBlock, btype BlockType) {
+func (fs *fileSystem) zero_block(bp *CacheBlock, btype BlockType) {
 	blocksize := fs.supers[bp.dev].Block_size
 	switch btype {
 	case INODE_BLOCK:
@@ -64,7 +64,7 @@ func (fs *FileSystem) zero_block(bp *CacheBlock, btype BlockType) {
 }
 
 // Write a new zone into an inode
-func (fs *FileSystem) write_map(rip *Inode, position uint, new_zone uint) os.Error {
+func (fs *fileSystem) write_map(rip *Inode, position uint, new_zone uint) os.Error {
 	rip.SetDirty(true) // inode will be changed
 	var bp *CacheBlock = nil
 	var z int
@@ -175,7 +175,7 @@ func (fs *FileSystem) write_map(rip *Inode, position uint, new_zone uint) os.Err
 // Zero a zone, possibly starting in the middle. The parameter 'pos' gives a
 // byte in the first block to be zeroed. clear_zone is called from
 // read_write() and new_block().
-func (fs *FileSystem) clear_zone(rip *Inode, pos uint, flag int) {
+func (fs *fileSystem) clear_zone(rip *Inode, pos uint, flag int) {
 	sp := fs.supers[rip.dev]
 	scale := sp.Log_zone_size
 
@@ -212,14 +212,14 @@ func (fs *FileSystem) clear_zone(rip *Inode, pos uint, flag int) {
 }
 
 // Given a pointer to an indirect block, write one entry
-func (fs *FileSystem) wr_indir(bp *CacheBlock, index int, zone int) {
+func (fs *fileSystem) wr_indir(bp *CacheBlock, index int, zone int) {
 	indb := bp.block.(IndirectBlock)
 	indb[index] = uint32(zone)
 }
 
 // Write 'chunk' bytes from 'buff' into 'rip' at position 'pos' in the file.
 // This is at offset 'off' within the current block.
-func (fs *FileSystem) write_chunk(rip *Inode, pos, off, chunk int, buff []byte) os.Error {
+func (fs *fileSystem) write_chunk(rip *Inode, pos, off, chunk int, buff []byte) os.Error {
 	var bp *CacheBlock
 	var err os.Error
 

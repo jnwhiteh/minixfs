@@ -5,7 +5,7 @@ import (
 )
 
 // Create a new file, and write the data from
-func _Test_Write_New(fs *FileSystem, proc *Process, europarl []byte, test *testing.T) {
+func _Test_Write_New(fs *fileSystem, proc *Process, europarl []byte, test *testing.T) {
 	test.Log("_Test_Write_New")
 
 	numBytes := len(europarl)
@@ -22,10 +22,10 @@ func _Test_Write_New(fs *FileSystem, proc *Process, europarl []byte, test *testi
 	if int(file.inode.Size()) != n {
 		test.Errorf("File size mismatch, got %d, expected %d", file.inode.Size(), n)
 	}
-	file.Close()
+	fs.Close(proc, file)
 }
 
-func _Test_Verify_Write(fs *FileSystem, proc *Process, europarl []byte, test *testing.T) {
+func _Test_Verify_Write(fs *fileSystem, proc *Process, europarl []byte, test *testing.T) {
 	test.Log("_Test_Verify_Write")
 
 	file, err := fs.Open(proc, "/tmp/europarl-en.txt", O_RDONLY, 0666)
@@ -58,7 +58,7 @@ func _Test_Verify_Write(fs *FileSystem, proc *Process, europarl []byte, test *te
 	}
 
 	// Clean things up
-	file.Close()
+	fs.Close(proc, file)
 }
 
 func TestWriteSyscall(test *testing.T) {
@@ -71,5 +71,5 @@ func TestWriteSyscall(test *testing.T) {
 	_Test_Verify_Write(fs, proc, odata, test)
 
 	fs.Unlink(proc, "/tmp/europarl-en.txt")
-	fs.Close()
+	fs.Shutdown()
 }

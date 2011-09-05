@@ -7,7 +7,7 @@ import (
 )
 
 // Return the device number corresponding to a given device or NO_DEV
-var _getdevnum = func(fs *FileSystem, dev BlockDevice) int {
+var _getdevnum = func(fs *fileSystem, dev BlockDevice) int {
 	for i := 0; i < NR_SUPERS; i++ {
 		if fs.devs[i] == dev {
 			return i
@@ -19,7 +19,7 @@ var _getdevnum = func(fs *FileSystem, dev BlockDevice) int {
 func TestSimpleMount(test *testing.T) {
 	fs, proc := OpenMinix3(test)
 
-	err := fs.Close()
+	err := fs.Shutdown()
 	if err != EBUSY {
 		test.Fatalf("Unmount error mismatch, expected %d, got %d", err)
 	}
@@ -28,7 +28,7 @@ func TestSimpleMount(test *testing.T) {
 
 	fs.Exit(proc)
 
-	err = fs.Close()
+	err = fs.Shutdown()
 	if err != nil {
 		test.Fatalf("Could not unmount root filesystem: %s", err)
 	}
@@ -73,7 +73,7 @@ func TestMountUnmountUsr(test *testing.T) {
 	if file.inode.inum != 11389 {
 		test.Fatalf("Inode mismatch: got %d, expected %d", file.inode.inum, 11389)
 	}
-	file.Close()
+	fs.Close(proc, file)
 
 	// Unmount the device
 	err = fs.Unmount(dev)
@@ -93,7 +93,7 @@ func TestMountUnmountUsr(test *testing.T) {
 
 	fs.Exit(proc)
 
-	if err := fs.Close(); err != nil {
+	if err := fs.Shutdown(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
 }
@@ -140,7 +140,7 @@ func TestMaxDevices(test *testing.T) {
 	if err != nil {
 		test.Fatal("Failed when opening 8 /mnt deep europarl-en.txt: %s", err)
 	}
-	file.Close()
+	fs.Close(proc, file)
 
 	// Try to mount another filesystem
 	dev, err := NewFileDevice("../../minix3root.img", binary.LittleEndian)
@@ -154,7 +154,7 @@ func TestMaxDevices(test *testing.T) {
 	dev.Close()
 
 	fs.Exit(proc)
-	if err := fs.Close(); err != nil {
+	if err := fs.Shutdown(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
 }

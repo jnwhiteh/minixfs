@@ -73,7 +73,7 @@ func TestAdvance(test *testing.T) {
 	}
 
 	fs.Exit(proc)
-	if err := fs.Close(); err != nil {
+	if err := fs.Shutdown(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
 }

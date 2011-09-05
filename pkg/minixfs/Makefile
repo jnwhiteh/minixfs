@@ -15,6 +15,7 @@ GOFILES=\
 		file.go \
 		filp.go \
 		filedes.go \
+		finode.go \
 		fs.go \
 		fs_syscalls.go \
 		icache.go \

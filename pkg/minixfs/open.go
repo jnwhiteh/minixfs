@@ -5,7 +5,7 @@ import "os"
 // Allocate a new inode, make a directory entry for it on the path 'path' and
 // initialise it. If successful, the inode is returned along with a nil error,
 // otherwise nil is returned along with the error.
-func (fs *FileSystem) new_node(proc *Process, path string, bits uint16, z0 uint) (*Inode, os.Error) {
+func (fs *fileSystem) new_node(proc *Process, path string, bits uint16, z0 uint) (*Inode, os.Error) {
 	var err os.Error
 
 	// See if the path can be opened down to the last directory

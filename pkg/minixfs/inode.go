@@ -144,12 +144,12 @@ func (inode *Inode) IsRegular() bool {
 // is reserved and unallocatable, so we return an error when it is requested
 // The root inode on the disk is ROOT_INODE_NUM, and should be located 64
 // bytes into the first block following the bitmaps.
-func (fs *FileSystem) get_inode(dev int, num uint) (*Inode, os.Error) {
+func (fs *fileSystem) get_inode(dev int, num uint) (*Inode, os.Error) {
 	return fs.icache.GetInode(dev, num)
 }
 
 // Allocate a free inode on the given device and return a pointer to it.
-func (fs *FileSystem) alloc_inode(dev int, mode uint16) *Inode {
+func (fs *fileSystem) alloc_inode(dev int, mode uint16) *Inode {
 	super := fs.supers[dev]
 
 	// Acquire an inode from the bit map
@@ -178,7 +178,7 @@ func (fs *FileSystem) alloc_inode(dev int, mode uint16) *Inode {
 }
 
 // Return an inode to the pool of free inodes
-func (fs *FileSystem) free_inode(dev int, inumb uint) {
+func (fs *fileSystem) free_inode(dev int, inumb uint) {
 	sp := fs.supers[dev]
 	if inumb <= 0 || inumb > sp.Ninodes {
 		return
@@ -191,7 +191,7 @@ func (fs *FileSystem) free_inode(dev int, inumb uint) {
 	}
 }
 
-func (fs *FileSystem) wipe_inode(inode *Inode) {
+func (fs *fileSystem) wipe_inode(inode *Inode) {
 	inode.SetSize(0)
 	// TODO: Update ATIME, CTIME, MTIME
 	inode.SetDirty(true)
@@ -203,14 +203,14 @@ func (fs *FileSystem) wipe_inode(inode *Inode) {
 	}
 }
 
-func (fs *FileSystem) dup_inode(inode *Inode) {
+func (fs *fileSystem) dup_inode(inode *Inode) {
 	inode.IncCount()
 }
 
 // The caller is no longer using this inode. If no one else is using it
 // either write it back to the disk immediately. If it has no links,
 // truncate it and return it to the pool of available inodes.
-func (fs *FileSystem) put_inode(rip *Inode) {
+func (fs *fileSystem) put_inode(rip *Inode) {
 	if rip == nil {
 		return
 	}

@@ -47,7 +47,7 @@ func _Test_Creat_Syscall(test *testing.T) {
 		if file.inode.inum != entry.inode {
 			test.Errorf("Inode mismatch, expected %d, got %d", entry.inode, file.inode.inum)
 		}
-		file.Close()
+		fs.Close(proc, file)
 	}
 
 	// Check to make sure I_Search is set correctly (to 550)
@@ -57,7 +57,7 @@ func _Test_Creat_Syscall(test *testing.T) {
 	}
 
 	fs.Exit(proc)
-	if err := fs.Close(); err != nil {
+	if err := fs.Shutdown(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
 }
@@ -79,7 +79,7 @@ func _Test_Unlink_Syscall(test *testing.T) {
 	}
 
 	fs.Exit(proc)
-	if err := fs.Close(); err != nil {
+	if err := fs.Shutdown(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
 }
@@ -134,7 +134,7 @@ func _Test_Mkdir_Syscall(test *testing.T) {
 	}
 
 	fs.Exit(proc)
-	if err := fs.Close(); err != nil {
+	if err := fs.Shutdown(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
 }
@@ -167,7 +167,7 @@ func _Test_Rmdir_Syscall(test *testing.T) {
 	}
 
 	fs.Exit(proc)
-	if err := fs.Close(); err != nil {
+	if err := fs.Shutdown(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
 }
@@ -218,7 +218,7 @@ func _Test_Chdir_Syscall(test *testing.T) {
 	}
 
 	fs.Exit(proc)
-	if err := fs.Close(); err != nil {
+	if err := fs.Shutdown(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
 }

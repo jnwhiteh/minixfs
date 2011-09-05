@@ -14,7 +14,7 @@ func Test_Close_Syscall(test *testing.T) {
 	filp := file.filp
 	fd := file.fd
 
-	err = file.Close()
+	err = fs.Close(proc, file)
 	if err != nil {
 		test.Errorf("Failed when closing file: %s", err)
 	}
@@ -25,7 +25,7 @@ func Test_Close_Syscall(test *testing.T) {
 	if file.proc != nil {
 		test.Errorf("File.proc is non-nil")
 	}
-	if proc._filp[fd] != nil {
+	if proc.filp[fd] != nil {
 		test.Errorf("Filp[%d] is non-nil", fd)
 	}
 	if proc._files[fd] != nil {
@@ -33,13 +33,13 @@ func Test_Close_Syscall(test *testing.T) {
 	}
 
 	// Intentionally close it again to trigger the error
-	err = file.Close()
+	err = fs.Close(proc, file)
 	if err != EBADF {
 		test.Errorf("Expected %s, got %s", EBADF, err)
 	}
 
 	fs.Exit(proc)
-	if err := fs.Close(); err != nil {
+	if err := fs.Shutdown(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
 }
@@ -59,7 +59,7 @@ func Test_Exit_Syscall(test *testing.T) {
 		fds = append(fds, file.fd)
 	}
 
-	err := fs.Close()
+	err := fs.Shutdown()
 	if err != EBUSY {
 		test.Errorf("Expected %s, got %s", EBUSY, err)
 	}
@@ -68,7 +68,7 @@ func Test_Exit_Syscall(test *testing.T) {
 
 	for idx, file := range files {
 		fd := fds[idx]
-		if proc._filp[fd] != nil {
+		if proc.filp[fd] != nil {
 			test.Errorf("Filp[%d] is non-nil", fd)
 		}
 		if proc._files[fd] != nil {
@@ -79,7 +79,7 @@ func Test_Exit_Syscall(test *testing.T) {
 		}
 	}
 
-	if err := fs.Close(); err != nil {
+	if err := fs.Shutdown(); err != nil {
 		test.Errorf("Failed when closing filesystem: %s", err)
 	}
 }

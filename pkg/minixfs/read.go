@@ -4,7 +4,7 @@ import "log"
 
 // Given an inode and a position within the corresponding file, locate the
 // block (not zone) number in which that position is to be found and return
-func (fs *FileSystem) read_map(inode *Inode, position uint) uint {
+func (fs *fileSystem) read_map(inode *Inode, position uint) uint {
 	super := fs.supers[inode.dev]
 
 	scale := super.Log_zone_size                        // for block-zone conversion
@@ -63,7 +63,7 @@ func (fs *FileSystem) read_map(inode *Inode, position uint) uint {
 }
 
 // Given a pointer to an indirect block, read one entry.
-func (fs *FileSystem) rd_indir(bp *CacheBlock, index uint) uint {
+func (fs *fileSystem) rd_indir(bp *CacheBlock, index uint) uint {
 	bpdata := bp.block.(IndirectBlock)
 	super := fs.supers[bp.dev]
 

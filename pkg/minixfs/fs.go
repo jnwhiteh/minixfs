@@ -4,10 +4,29 @@ import "encoding/binary"
 import "log"
 import "os"
 
+type FileSystem interface {
+	Shutdown() os.Error
+	Mount(dev BlockDevice, path string) os.Error
+	Unmount(dev BlockDevice) os.Error
+	Spawn(pid int, umask uint16, rootpath string) (*Process, os.Error)
+	Exit(proc *Process)
+	Open(proc *Process, path string, flags int, mode uint16) (*File, os.Error)
+	Close(proc *Process, file *File) os.Error
+	Unlink(proc *Process, path string) os.Error
+	Mkdir(proc *Process, path string, mode uint16) os.Error
+	Rmdir(proc *Process, path string) os.Error
+	Chdir(proc *Process, path string) os.Error
+}
+
+type _FileSystem interface {
+	_AllocZone(dev int, zstart int) (int, os.Error)
+	_FreeZone(dev int, zone int)
+}
+
 // FileSystem encapsulates a minix file system. The interface provided by the
 // exported methods is thread-safe by ensuring that only one file-system level
 // system call may occur at a time.
-type FileSystem struct {
+type fileSystem struct {
 	devs   []BlockDevice // the block devices that comprise the file system
 	supers []*Superblock // the superblocks for the given devices
 
@@ -16,15 +35,16 @@ type FileSystem struct {
 	cache  BlockCache  // the block cache (shared across all devices)
 	icache *InodeCache // the inode cache (shared across all devices)
 
-	_filp  []*filp    // the filp table
-	_procs []*Process // an array of processes that have been opened
+	filp    []*filp    // the filp table
+	procs   []*Process // an array of processes that have been spawned
+	finodes map[*Inode]*Finode
 
 	in  chan m_fs_req
 	out chan m_fs_res
 }
 
 // Create a new FileSystem from a given file on the filesystem
-func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
+func OpenFileSystemFile(filename string) (*fileSystem, os.Error) {
 	dev, err := NewFileDevice(filename, binary.LittleEndian)
 
 	if err != nil {
@@ -35,8 +55,8 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 }
 
 // Create a new FileSystem from a given file on the filesystem
-func NewFileSystem(dev BlockDevice) (*FileSystem, os.Error) {
-	var fs *FileSystem = new(FileSystem)
+func NewFileSystem(dev BlockDevice) (*fileSystem, os.Error) {
+	var fs *fileSystem = new(fileSystem)
 
 	super, err := ReadSuperblock(dev)
 	if err != nil {
@@ -49,8 +69,8 @@ func NewFileSystem(dev BlockDevice) (*FileSystem, os.Error) {
 	fs.cache = NewLRUCache()
 	fs.icache = NewInodeCache(fs, NR_INODES)
 
-	fs._filp = make([]*filp, NR_FILPS)
-	fs._procs = make([]*Process, NR_PROCS)
+	fs.filp = make([]*filp, NR_FILPS)
+	fs.procs = make([]*Process, NR_PROCS)
 
 	fs.devs[ROOT_DEVICE] = dev
 	fs.supers[ROOT_DEVICE] = super
@@ -73,9 +93,13 @@ func NewFileSystem(dev BlockDevice) (*FileSystem, os.Error) {
 		return nil, err
 	}
 
-	fs._procs[ROOT_PROCESS] = &Process{fs, 0, 022, rip, rip,
+	fs.procs[ROOT_PROCESS] = &Process{fs, 0, 022, rip, rip,
 		make([]*filp, OPEN_MAX),
-		make([]*File, OPEN_MAX)}
+		make([]*File, OPEN_MAX),
+	}
+
+	// TODO: Limit this?
+	fs.finodes = make(map[*Inode]*Finode, OPEN_MAX)
 
 	fs.in = make(chan m_fs_req)
 	fs.out = make(chan m_fs_res)
@@ -85,14 +109,14 @@ func NewFileSystem(dev BlockDevice) (*FileSystem, os.Error) {
 	return fs, nil
 }
 
-func (fs *FileSystem) loop() {
+func (fs *fileSystem) loop() {
 	var in <-chan m_fs_req = fs.in
 	var out chan<- m_fs_res = fs.out
 
 	for req := range in {
 		switch req := req.(type) {
-		case m_fs_req_close:
-			err := fs.close()
+		case m_fs_req_shutdown:
+			err := fs.shutdown()
 			out <- m_fs_res_err{err}
 		case m_fs_req_mount:
 			err := fs.mount(req.dev, req.path)
@@ -109,6 +133,9 @@ func (fs *FileSystem) loop() {
 		case m_fs_req_open:
 			file, err := fs.open(req.proc, req.path, req.flags, req.mode)
 			out <- m_fs_res_open{file, err}
+		case m_fs_req_close:
+			err := fs.close(req.proc, req.file)
+			out <- m_fs_res_err{err}
 		case m_fs_req_unlink:
 			err := fs.unlink(req.proc, req.path)
 			out <- m_fs_res_err{err}
@@ -121,66 +148,90 @@ func (fs *FileSystem) loop() {
 		case m_fs_req_chdir:
 			err := fs.chdir(req.proc, req.path)
 			out <- m_fs_res_err{err}
+		case m_fs_req_alloc_zone:
+			zone, err := fs.alloc_zone(req.dev, req.zstart)
+			out <- m_fs_res_alloc_zone{zone, err}
+		case m_fs_req_free_zone:
+			fs.free_zone(req.dev, uint(req.zone))
+			out <- m_fs_res_empty{}
 		}
 	}
 }
 
-func (fs *FileSystem) Close() os.Error {
-	fs.in <- m_fs_req_close{}
+func (fs *fileSystem) Shutdown() os.Error {
+	fs.in <- m_fs_req_shutdown{}
 	res := (<-fs.out).(m_fs_res_err)
 	return res.err
 }
 
-func (fs *FileSystem) Mount(dev BlockDevice, path string) os.Error {
+func (fs *fileSystem) Mount(dev BlockDevice, path string) os.Error {
 	fs.in <- m_fs_req_mount{dev, path}
 	res := (<-fs.out).(m_fs_res_err)
 	return res.err
 }
 
-func (fs *FileSystem) Unmount(dev BlockDevice) os.Error {
+func (fs *fileSystem) Unmount(dev BlockDevice) os.Error {
 	fs.in <- m_fs_req_unmount{dev}
 	res := (<-fs.out).(m_fs_res_err)
 	return res.err
 }
 
-func (fs *FileSystem) Spawn(pid int, umask uint16, rootpath string) (*Process, os.Error) {
+func (fs *fileSystem) Spawn(pid int, umask uint16, rootpath string) (*Process, os.Error) {
 	fs.in <- m_fs_req_spawn{pid, umask, rootpath}
 	res := (<-fs.out).(m_fs_res_spawn)
 	return res.proc, res.err
 }
 
-func (fs *FileSystem) Exit(proc *Process) {
+func (fs *fileSystem) Exit(proc *Process) {
 	fs.in <- m_fs_req_exit{proc}
 	<-fs.out
 	return
 }
 
-func (fs *FileSystem) Open(proc *Process, path string, flags int, mode uint16) (*File, os.Error) {
+func (fs *fileSystem) Open(proc *Process, path string, flags int, mode uint16) (*File, os.Error) {
 	fs.in <- m_fs_req_open{proc, path, flags, mode}
 	res := (<-fs.out).(m_fs_res_open)
 	return res.file, res.err
 }
 
-func (fs *FileSystem) Unlink(proc *Process, path string) os.Error {
+func (fs *fileSystem) Close(proc *Process, file *File) os.Error {
+	fs.in <- m_fs_req_close{proc, file}
+	res := (<-fs.out).(m_fs_res_err)
+	return res.err
+}
+
+func (fs *fileSystem) Unlink(proc *Process, path string) os.Error {
 	fs.in <- m_fs_req_unlink{proc, path}
 	res := (<-fs.out).(m_fs_res_err)
 	return res.err
 }
 
-func (fs *FileSystem) Mkdir(proc *Process, path string, mode uint16) os.Error {
+func (fs *fileSystem) Mkdir(proc *Process, path string, mode uint16) os.Error {
 	fs.in <- m_fs_req_mkdir{proc, path, mode}
 	res := (<-fs.out).(m_fs_res_err)
 	return res.err
 }
 
-func (fs *FileSystem) Rmdir(proc *Process, path string) os.Error {
+func (fs *fileSystem) Rmdir(proc *Process, path string) os.Error {
 	fs.in <- m_fs_req_rmdir{proc, path}
 	res := (<-fs.out).(m_fs_res_err)
 	return res.err
 }
 
-func (fs *FileSystem) Chdir(proc *Process, path string) os.Error {
+func (fs *fileSystem) Chdir(proc *Process, path string) os.Error {
 	fs.in <- m_fs_req_chdir{proc, path}
 	res := (<-fs.out).(m_fs_res_err)
 	return res.err
+}
+
+func (fs *fileSystem) _AllocZone(dev int, zstart int) (int, os.Error) {
+	fs.in <- m_fs_req_alloc_zone{dev, zstart}
+	res := (<-fs.out).(m_fs_res_alloc_zone)
+	return res.zone, res.err
+}
+
+func (fs *fileSystem) _FreeZone(dev int, zone int) {
+	fs.in <- m_fs_req_free_zone{dev, zone}
+	<-fs.out
+	return
 }

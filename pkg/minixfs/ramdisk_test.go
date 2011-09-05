@@ -73,7 +73,7 @@ func Test_RamdiskRead(test *testing.T) {
 	data := GetEuroparlData(test)
 	_Test_Read_Europarl(fs, proc, data, test)
 	fs.Exit(proc)
-	fs.Close()
+	fs.Shutdown()
 }
 
 // Test to ensure that a write cannot happen while a read is outstanding, and

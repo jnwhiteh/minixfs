@@ -3,10 +3,11 @@ package minixfs
 import (
 	"math"
 	"os"
+	"sync"
 )
 
 // Close the filesystem
-func (fs *FileSystem) close() (err os.Error) {
+func (fs *fileSystem) shutdown() (err os.Error) {
 	devs := fs.devs
 	supers := fs.supers
 
@@ -41,35 +42,35 @@ func (fs *FileSystem) close() (err os.Error) {
 }
 
 // Mount the filesystem on 'dev' at 'path' in the root filesystem
-func (fs *FileSystem) mount(dev BlockDevice, path string) os.Error {
+func (fs *fileSystem) mount(dev BlockDevice, path string) os.Error {
 	return fs.do_mount(dev, path)
 }
 
 // Unmount a file system by device
-func (fs *FileSystem) unmount(dev BlockDevice) os.Error {
+func (fs *fileSystem) unmount(dev BlockDevice) os.Error {
 	return fs.do_unmount(dev)
 }
 
 // The get_block method is a wrapper for fs.cache.GetBlock()
-func (fs *FileSystem) get_block(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
+func (fs *fileSystem) get_block(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
 	return fs.cache.GetBlock(dev, bnum, btype, only_search)
 }
 
 // The put_block method is a wrapper for fs.cache.PutBlock()
-func (fs *FileSystem) put_block(bp *CacheBlock, btype BlockType) {
+func (fs *fileSystem) put_block(bp *CacheBlock, btype BlockType) {
 	fs.cache.PutBlock(bp, btype)
 }
 
 var ERR_PID_EXISTS = os.NewError("Process already exists")
 var ERR_PATH_LOOKUP = os.NewError("Could not lookup path")
 
-func (fs *FileSystem) spawn(pid int, umask uint16, rootpath string) (*Process, os.Error) {
-	if fs._procs[pid] != nil {
+func (fs *fileSystem) spawn(pid int, umask uint16, rootpath string) (*Process, os.Error) {
+	if fs.procs[pid] != nil {
 		return nil, ERR_PID_EXISTS
 	}
 
 	// Get an inode from a path
-	rip, err := fs.eat_path(fs._procs[ROOT_PROCESS], rootpath)
+	rip, err := fs.eat_path(fs.procs[ROOT_PROCESS], rootpath)
 	if err != nil {
 		return nil, err
 	}
@@ -81,11 +82,11 @@ func (fs *FileSystem) spawn(pid int, umask uint16, rootpath string) (*Process, o
 	umask = ^umask // convert it so its actually usable as a mask
 
 	proc := &Process{fs, pid, umask, rinode, winode, filp, files}
-	fs._procs[pid] = proc
+	fs.procs[pid] = proc
 	return proc, nil
 }
 
-func (fs *FileSystem) exit(proc *Process) {
+func (fs *fileSystem) exit(proc *Process) {
 	// For each file that is open, close it
 	for i := 0; i < len(proc._files); i++ {
 		if proc._files[i] != nil {
@@ -94,7 +95,7 @@ func (fs *FileSystem) exit(proc *Process) {
 		}
 	}
 
-	fs._procs[proc.pid] = nil
+	fs.procs[proc.pid] = nil
 
 	if proc.workdir != proc.rootdir {
 		fs.put_inode(proc.workdir)
@@ -104,7 +105,7 @@ func (fs *FileSystem) exit(proc *Process) {
 
 var mode_map = []uint16{R_BIT, W_BIT, R_BIT | W_BIT, 0}
 
-func (fs *FileSystem) open(proc *Process, path string, oflags int, omode uint16) (*File, os.Error) {
+func (fs *fileSystem) open(proc *Process, path string, oflags int, omode uint16) (*File, os.Error) {
 	// Remap the bottom two bits of oflags
 	bits := mode_map[oflags&O_ACCMODE]
 
@@ -164,23 +165,60 @@ func (fs *FileSystem) open(proc *Process, path string, oflags int, omode uint16)
 
 	if err != nil {
 		// Something went wrong, release the filp reservation
-		proc._filp[fd] = nil
-		proc.fs._filp[filpidx] = nil
+		proc.filp[fd] = nil
+		proc.fs.filp[filpidx] = nil
 
 		return nil, err
 	} else {
 		// Allocate a proper filp entry and update fs/filp tables
 		filp = NewFilp(bits, oflags, rip, 1, 0)
-		proc._filp[fd] = filp
-		proc.fs._filp[filpidx] = filp
+		proc.filp[fd] = filp
+		proc.fs.filp[filpidx] = filp
 	}
 
-	file := &File{filp, proc, fd}
+	// Check to see if we need to spawn a finode process
+	finode, ok := fs.finodes[rip]
+	if !ok {
+		super := fs.supers[rip.dev]
+		scale := super.Log_zone_size
+		bsize := int(super.Block_size)
+		maxsize := int(super.Max_size)
+
+		finode = &Finode{fs, rip, scale, bsize, maxsize, fs.cache, 1,
+			make(chan m_finode_req),
+			make(chan m_finode_res),
+			new(sync.WaitGroup),
+		}
+		go finode.loop()
+		fs.finodes[rip] = finode, true
+	}
+
+	file := &File{filp, proc, fd, finode}
 	proc._files[fd] = file
 	return file, nil
 }
 
-func (fs *FileSystem) unlink(proc *Process, path string) os.Error {
+func (fs *fileSystem) close(proc *Process, file *File) os.Error {
+	if file.fd == NO_FILE {
+		return EBADF
+	}
+
+	// call the internal close function
+	file.close()
+
+	finode, ok := fs.finodes[file.inode]
+	if !ok {
+		return EBADF
+	}
+	finode.count--
+	if finode.count == 0 {
+		finode.Close()
+	}
+
+	return nil
+}
+
+func (fs *fileSystem) unlink(proc *Process, path string) os.Error {
 	// Call a helper function to do most of the dirty work for us
 	rldirp, rip, rest, err := fs.do_unlink(proc, path)
 	if err != nil || rldirp == nil || rip == nil {
@@ -201,7 +239,7 @@ func (fs *FileSystem) unlink(proc *Process, path string) os.Error {
 	return err
 }
 
-func (fs *FileSystem) mkdir(proc *Process, path string, mode uint16) os.Error {
+func (fs *fileSystem) mkdir(proc *Process, path string, mode uint16) os.Error {
 	var dot, dotdot int
 	var err_code os.Error
 
@@ -257,7 +295,7 @@ func (fs *FileSystem) mkdir(proc *Process, path string, mode uint16) os.Error {
 	return err_code
 }
 
-func (fs *FileSystem) rmdir(proc *Process, path string) os.Error {
+func (fs *fileSystem) rmdir(proc *Process, path string) os.Error {
 	// Call a helper function to do most of the dirty work for us
 	rldirp, rip, rest, err := fs.do_unlink(proc, path)
 	if err != nil || rldirp == nil || rip == nil {
@@ -272,7 +310,7 @@ func (fs *FileSystem) rmdir(proc *Process, path string) os.Error {
 	return err
 }
 
-func (fs *FileSystem) chdir(proc *Process, path string) os.Error {
+func (fs *fileSystem) chdir(proc *Process, path string) os.Error {
 	rip, err := proc.fs.eat_path(proc, path)
 	if rip == nil || err != nil {
 		return err

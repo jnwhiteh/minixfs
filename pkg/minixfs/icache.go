@@ -15,7 +15,7 @@ type InodeCache struct {
 	devs   []BlockDevice // the block devices that comprise the file system
 	supers []*Superblock // the superblocks for the given devices
 
-	fs *FileSystem // the file system that owns this cache
+	fs *fileSystem // the file system that owns this cache
 
 	inodes []*Inode // the list of in-memory inodes
 	size   int
@@ -25,7 +25,7 @@ type InodeCache struct {
 
 // Create a new InodeCache with a given size. This cache is internally
 // synchronized, ensuring that the cache is only updated atomically.
-func NewInodeCache(fs *FileSystem, size int) *InodeCache {
+func NewInodeCache(fs *fileSystem, size int) *InodeCache {
 	cache := new(InodeCache)
 	cache.devs = make([]BlockDevice, NR_SUPERS)
 	cache.supers = make([]*Superblock, NR_SUPERS)

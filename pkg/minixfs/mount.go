@@ -5,7 +5,7 @@ import (
 )
 
 // Mount the filesystem on 'dev' at 'path' in the root filesystem
-func (fs *FileSystem) do_mount(dev BlockDevice, path string) os.Error {
+func (fs *fileSystem) do_mount(dev BlockDevice, path string) os.Error {
 	// argument check
 	if dev == nil {
 		return EINVAL
@@ -50,7 +50,7 @@ func (fs *FileSystem) do_mount(dev BlockDevice, path string) os.Error {
 	fs.icache.MountDevice(freeIndex, dev, sp)
 
 	// Get the inode of the file to be mounted on
-	rip, err := fs.eat_path(fs._procs[ROOT_PROCESS], path)
+	rip, err := fs.eat_path(fs.procs[ROOT_PROCESS], path)
 
 	if err != nil {
 		fs.devs[freeIndex] = nil
@@ -115,7 +115,7 @@ func (fs *FileSystem) do_mount(dev BlockDevice, path string) os.Error {
 }
 
 // Unmount a given block device
-func (fs *FileSystem) do_unmount(dev BlockDevice) os.Error {
+func (fs *fileSystem) do_unmount(dev BlockDevice) os.Error {
 	// Determine the numeric index of this device
 	devnum := -1
 	for i := 0; i < NR_SUPERS; i++ {

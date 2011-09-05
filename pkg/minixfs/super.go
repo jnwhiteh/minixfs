@@ -168,7 +168,7 @@ func NewSuperblock(blocks, inodes, block_size uint) (*Superblock, os.Error) {
 }
 
 // Allocate a bit from a bit map and return its bit number
-func (fs *FileSystem) alloc_bit(dev int, bmap uint, origin uint) uint {
+func (fs *fileSystem) alloc_bit(dev int, bmap uint, origin uint) uint {
 	var start_block uint // first bit block
 	var map_bits uint    // how many bits are there in the bit map
 	var bit_blocks uint  // how many blocks are there in the bit map
@@ -250,7 +250,7 @@ func (fs *FileSystem) alloc_bit(dev int, bmap uint, origin uint) uint {
 }
 
 // Deallocate an inode/zone in the bitmap, freeing it up for re-use
-func (fs *FileSystem) free_bit(dev int, bmap uint, bit_returned uint) {
+func (fs *fileSystem) free_bit(dev int, bmap uint, bit_returned uint) {
 	var start_block uint // first bit block
 
 	super := fs.supers[dev]
@@ -286,7 +286,7 @@ func (fs *FileSystem) free_bit(dev int, bmap uint, bit_returned uint) {
 }
 
 // Deallocate an inode/zone in the bitmap, freeing it up for re-use
-func (fs *FileSystem) check_bit(dev int, bmap uint, bit_check uint) bool {
+func (fs *fileSystem) check_bit(dev int, bmap uint, bit_check uint) bool {
 	var start_block uint // first bit block
 
 	super := fs.supers[dev]
@@ -312,7 +312,7 @@ func (fs *FileSystem) check_bit(dev int, bmap uint, bit_check uint) bool {
 }
 
 // Allocate a new zone
-func (fs *FileSystem) alloc_zone(dev int, zone int) (int, os.Error) {
+func (fs *fileSystem) alloc_zone(dev int, zone int) (int, os.Error) {
 	var bit uint
 	z := uint(zone)
 
@@ -342,7 +342,7 @@ func (fs *FileSystem) alloc_zone(dev int, zone int) (int, os.Error) {
 }
 
 // Return a zone
-func (fs *FileSystem) free_zone(dev int, numb uint) {
+func (fs *fileSystem) free_zone(dev int, numb uint) {
 	super := fs.supers[dev]
 	if numb < super.Firstdatazone || numb >= super.Nzones {
 		return
