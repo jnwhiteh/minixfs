@@ -131,6 +131,14 @@ func (inode *Inode) BlockSize() int {
 	return int(inode.super.Block_size)
 }
 
+func (inode *Inode) Firstdatazone() int {
+	return int(inode.super.Firstdatazone)
+}
+
+func (inode *Inode) Zones() int {
+	return int(inode.super.Zones)
+}
+
 // Utility functions
 
 // GetType returns the type of an inode, extracting it from the mode
