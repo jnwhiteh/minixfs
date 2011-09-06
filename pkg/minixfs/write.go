@@ -7,39 +7,35 @@ import (
 // Acquire a new block and return a pointer to it. Doing so may require
 // allocating a complete zone, and then returning the initial block. On the
 // other hand, the current zone may still have some unused blocks.
-func (fs *fileSystem) new_block(rip *Inode, position int, btype BlockType) (*CacheBlock, os.Error) {
+func new_block(rip *Inode, position int, btype BlockType, cache BlockCache) (*CacheBlock, os.Error) {
 	var b int
 	var z int
 	var err os.Error
 
-	if b = read_map(rip, position, fs.cache); b == NO_BLOCK {
+	if b = read_map(rip, position, cache); b == NO_BLOCK {
 		// Choose first zone if possible.
 		// Lose if the file is non-empty but the first zone number is NO_ZONE,
 		// corresponding to a zone full of zeros. It would be better to search
 		// near the last real zone.
-		if rip.Zone(0) == NO_ZONE {
-			z = int(fs.supers[rip.dev].Firstdatazone)
-		} else {
-			z = int(rip.Zone(0))
-		}
-		if z, err = fs.alloc_zone(rip.dev, z); z == NO_ZONE {
+		if z, err = rip.fs._AllocZone(rip.dev, int(rip.Zone(0))); z == NO_ZONE {
 			return nil, err
 		}
-		if err = fs.write_map(rip, position, uint(z)); err != nil {
-			fs.free_zone(rip.dev, uint(z))
+		if err = write_map(rip, position, z, cache); err != nil {
+			rip.fs._FreeZone(rip.dev, z)
 			return nil, err
 		}
 
 		// If we are not writing at EOF, clear the zone, just to be safe
 		if position != int(rip.Size()) {
-			clear_zone(rip, position, 1, fs.cache)
+			clear_zone(rip, position, 1, cache)
 		}
-		base_block := z << rip.Scale()
-		zone_size := rip.BlockSize() << rip.Scale()
+		scale := rip.Scale()
+		base_block := z << scale
+		zone_size := rip.BlockSize() << scale
 		b = base_block + ((position % zone_size) / rip.BlockSize())
 	}
 
-	bp := fs.get_block(rip.dev, int(b), btype, NO_READ)
+	bp := cache.GetBlock(rip.dev, int(b), btype, NO_READ)
 	zero_block(bp, btype, rip.BlockSize())
 	return bp, nil
 }
@@ -62,7 +58,7 @@ func zero_block(bp *CacheBlock, btype BlockType, blocksize int) {
 }
 
 // Write a new zone into an inode
-func (fs *fileSystem) write_map(rip *Inode, position int, new_zone uint) os.Error {
+func write_map(rip *Inode, position int, new_zone int, cache BlockCache) os.Error {
 	rip.SetDirty(true) // inode will be changed
 	var bp *CacheBlock = nil
 	var z int
@@ -70,11 +66,10 @@ func (fs *fileSystem) write_map(rip *Inode, position int, new_zone uint) os.Erro
 	var zindex int
 	var err os.Error
 
-	scale := rip.Scale() // for zone-block conversion
 	// relative zone # to insert
-	zone := (position / rip.BlockSize()) >> scale
-	zones := V2_NR_DZONES                                   // # direct zones in the inode
-	nr_indirects := int(rip.BlockSize() / V2_ZONE_NUM_SIZE) // # indirect zones per indirect block
+	zone := int((position / rip.BlockSize()) >> rip.Scale())
+	zones := V2_NR_DZONES                                // # direct zones in the inode
+	nr_indirects := int(rip.BlockSize()/ V2_ZONE_NUM_SIZE) // # indirect zones per indirect block
 
 	// Is 'position' to be found in the inode itself?
 	if zone < zones {
@@ -99,7 +94,7 @@ func (fs *fileSystem) write_map(rip *Inode, position int, new_zone uint) os.Erro
 		// 'position' can be located via the double indirect block
 		if z = int(rip.Zone(zones + 1)); z == NO_ZONE {
 			// Create the double indirect block
-			z, err = fs.alloc_zone(rip.dev, int(rip.Zone(0)))
+			z, err = rip.fs._AllocZone(rip.dev, int(rip.Zone(0)))
 			if z == NO_ZONE || err != nil {
 				return err
 			}
@@ -114,29 +109,29 @@ func (fs *fileSystem) write_map(rip *Inode, position int, new_zone uint) os.Erro
 		if ind_ex >= nr_indirects {
 			return EFBIG
 		}
-		b := z << scale
+		b := z << rip.Scale()
 		var rdflag int
 		if new_dbl {
 			rdflag = NO_READ
 		} else {
 			rdflag = NORMAL
 		}
-		bp = fs.get_block(rip.dev, b, INDIRECT_BLOCK, rdflag)
+		bp = cache.GetBlock(rip.dev, b, INDIRECT_BLOCK, rdflag)
 		if new_dbl {
 			zero_block(bp, INDIRECT_BLOCK, rip.BlockSize())
 		}
-		z1 = int(rd_indir(bp, ind_ex, fs.cache, rip.Firstdatazone(), rip.Zones()))
+		z1 = int(rd_indir(bp, ind_ex, cache, rip.Firstdatazone(), rip.Zones()))
 		single = false
 	}
 
 	// z1 is now single indirect zone; 'excess' is index
 	if z1 == NO_ZONE {
 		// Create indirect block and store zone # in inode or dbl indir block
-		z1, err = fs.alloc_zone(rip.dev, int(rip.Zone(0)))
+		z1, err = rip.fs._AllocZone(rip.dev, int(rip.Zone(0)))
 		if single {
 			rip.SetZone(zones, uint32(z1)) // update inode
 		} else {
-			fs.wr_indir(bp, ind_ex, z1) // update dbl indir
+			wr_indir(bp, ind_ex, z1) // update dbl indir
 		}
 
 		new_ind = true
@@ -144,27 +139,27 @@ func (fs *fileSystem) write_map(rip *Inode, position int, new_zone uint) os.Erro
 			bp.dirty = true // if double indirect, it is dirty
 		}
 		if z1 == NO_ZONE {
-			fs.put_block(bp, INDIRECT_BLOCK) // release dbl indirect block
-			return err                       // couldn't create single indirect block
+			cache.PutBlock(bp, INDIRECT_BLOCK) // release dbl indirect block
+			return err                            // couldn't create single indirect block
 		}
 	}
-	fs.put_block(bp, INDIRECT_BLOCK) // release dbl indirect block
+	cache.PutBlock(bp, INDIRECT_BLOCK) // release dbl indirect block
 	// z1 is indirect block's zone number
-	b := z1 << scale
+	b := z1 << rip.Scale()
 	var rdflag int
 	if new_dbl {
 		rdflag = NO_READ
 	} else {
 		rdflag = NORMAL
 	}
-	bp = fs.get_block(rip.dev, b, INDIRECT_BLOCK, rdflag)
+	bp = cache.GetBlock(rip.dev, b, INDIRECT_BLOCK, rdflag)
 	if new_ind {
 		zero_block(bp, INDIRECT_BLOCK, rip.BlockSize())
 	}
 	ex = excess
-	fs.wr_indir(bp, ex, int(new_zone))
+	wr_indir(bp, ex, int(new_zone))
 	bp.dirty = true
-	fs.put_block(bp, INDIRECT_BLOCK)
+	cache.PutBlock(bp, INDIRECT_BLOCK)
 	return nil
 }
 
@@ -191,6 +186,7 @@ func clear_zone(rip *Inode, pos int, flag int, cache BlockCache) {
 	if next/zone_size != pos/zone_size {
 		return
 	}
+
 	blo := read_map(rip, next, cache)
 	if blo == NO_BLOCK {
 		return
@@ -207,24 +203,24 @@ func clear_zone(rip *Inode, pos int, flag int, cache BlockCache) {
 }
 
 // Given a pointer to an indirect block, write one entry
-func (fs *fileSystem) wr_indir(bp *CacheBlock, index int, zone int) {
+func wr_indir(bp *CacheBlock, index int, zone int) {
 	indb := bp.block.(IndirectBlock)
 	indb[index] = uint32(zone)
 }
 
 // Write 'chunk' bytes from 'buff' into 'rip' at position 'pos' in the file.
 // This is at offset 'off' within the current block.
-func (fs *fileSystem) write_chunk(rip *Inode, pos, off, chunk int, buff []byte) os.Error {
+func write_chunk(rip *Inode, pos, off, chunk int, buff []byte, cache BlockCache) os.Error {
 	var bp *CacheBlock
 	var err os.Error
 
-	bsize := int(fs.supers[rip.dev].Block_size)
+	bsize := rip.BlockSize()
 	fsize := int(rip.Size())
-	b := read_map(rip, pos, fs.cache)
+	b := read_map(rip, pos, cache)
 
 	if b == NO_BLOCK {
 		// Writing to a nonexistent block. Create and enter in inode
-		bp, err = fs.new_block(rip, pos, FULL_DATA_BLOCK)
+		bp, err = new_block(rip, pos, FULL_DATA_BLOCK, cache)
 		if bp == nil || err != nil {
 			return err
 		}
@@ -239,7 +235,7 @@ func (fs *fileSystem) write_chunk(rip *Inode, pos, off, chunk int, buff []byte) 
 		if off == 0 && pos >= fsize {
 			n = NO_READ
 		}
-		bp = fs.get_block(rip.dev, int(b), FULL_DATA_BLOCK, n)
+		bp = cache.GetBlock(rip.dev, int(b), FULL_DATA_BLOCK, n)
 	}
 
 	// In all cases, bp now points to a valid buffer
@@ -261,9 +257,9 @@ func (fs *fileSystem) write_chunk(rip *Inode, pos, off, chunk int, buff []byte) 
 	bp.dirty = true
 
 	if off+chunk == bsize {
-		fs.put_block(bp, FULL_DATA_BLOCK)
+		cache.PutBlock(bp, FULL_DATA_BLOCK)
 	} else {
-		fs.put_block(bp, PARTIAL_DATA_BLOCK)
+		cache.PutBlock(bp, PARTIAL_DATA_BLOCK)
 	}
 
 	return err

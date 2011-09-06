@@ -260,7 +260,7 @@ func (fs *fileSystem) search_dir(dirp *Inode, path string, numb *int, flag searc
 			return EFBIG
 		}
 		var err os.Error
-		bp, err = fs.new_block(dirp, int(dirp.Size()), DIRECTORY_BLOCK)
+		bp, err = new_block(dirp, int(dirp.Size()), DIRECTORY_BLOCK, fs.cache)
 		if err != nil {
 			return err
 		}
