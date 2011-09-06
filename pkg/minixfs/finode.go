@@ -110,7 +110,7 @@ func (fi *Finode) read(b []byte, pos int) (int, os.Error) {
 	// We can't just start reading at the start of a block, since we may be at
 	// an offset within that block. So work out the first chunk to read
 	offset := curpos % blocksize
-	bnum := read_map(fi, curpos)
+	bnum := read_map(fi.inode, curpos, fi.cache)
 
 	// TODO: Error check this
 	// read the first data block and copy the portion of data we need
@@ -143,7 +143,7 @@ func (fi *Finode) read(b []byte, pos int) (int, os.Error) {
 	// At this stage, all reads should be on block boundaries. The final block
 	// will likely be a partial block, so handle that specially.
 	for numBytes < len(b) {
-		bnum = read_map(fi, curpos)
+		bnum = read_map(fi.inode, curpos, fi.cache)
 		bp := fi.cache.GetBlock(fi.inode.dev, bnum, FULL_DATA_BLOCK, NORMAL)
 		if _, sok := bp.block.(FullDataBlock); !sok {
 			log.Printf("block num: %d, count: %d", bp.blocknr, bp.count)
@@ -236,67 +236,6 @@ func (fi *Finode) write(data []byte, pos int) (n int, err os.Error) {
 	return cum_io, err
 }
 
-// Given an inode and a position within the corresponding file, locate the
-// block (not zone) number in which that position is to be found and return
-func read_map(fi *Finode, position int) int {
-	scale := fi.scale // for block-zone conversion
-	blocksize := fi.blocksize
-	block_pos := position / blocksize            // relative block # in file
-	zone := block_pos >> scale                   // position's zone
-	boff := block_pos - (zone << scale)          // relative block in zone
-	dzones := V2_NR_DZONES                       // number of direct zones
-	nr_indirects := blocksize / V2_ZONE_NUM_SIZE // number of indirect zones
-
-	inode := fi.inode
-
-	// Is the position to be found in the inode itself?
-	if zone < dzones {
-		z := int(inode.disk.Zone[zone])
-		if z == NO_ZONE {
-			return NO_BLOCK
-		}
-		b := (z << scale) + boff
-		return b
-	}
-
-	// It is not in the inode, so must be single or double indirect
-	var z int
-	excess := zone - dzones
-
-	if excess < nr_indirects {
-		// 'position' can be located via the single indirect block
-		z = int(inode.disk.Zone[dzones])
-	} else {
-		// 'position' can be located via the double indirect block
-		z = int(inode.disk.Zone[dzones+1])
-		if z == NO_ZONE {
-			return NO_BLOCK
-		}
-		excess = excess - nr_indirects // single indirect doesn't count
-		b := z << scale
-		bp := fi.cache.GetBlock(inode.dev, int(b), INDIRECT_BLOCK, NORMAL) // get double indirect block
-		index := excess / nr_indirects
-		z = rd_indir(bp, index, fi.cache)     // z= zone for single
-		fi.cache.PutBlock(bp, INDIRECT_BLOCK) // release double indirect block
-		excess = excess % nr_indirects        // index into single indirect block
-	}
-
-	// 'z' is zone num for single indirect block; 'excess' is index into it
-	if z == NO_ZONE {
-		return NO_BLOCK
-	}
-
-	b := z << scale // b is block number for single indirect
-	bp := fi.cache.GetBlock(inode.dev, int(b), INDIRECT_BLOCK, NORMAL)
-	z = rd_indir(bp, excess, fi.cache)
-	fi.cache.PutBlock(bp, INDIRECT_BLOCK)
-	if z == NO_ZONE {
-		return NO_BLOCK
-	}
-	b = (z << scale) + boff
-	return b
-}
-
 // Given a pointer to an indirect block, read one entry.
 func rd_indir(bp *CacheBlock, index int, cache BlockCache) int {
 	bpdata := bp.block.(IndirectBlock)
@@ -334,7 +273,7 @@ func write_chunk(fi *Finode, pos, off, chunk int, buff []byte) os.Error {
 
 	bsize := fi.blocksize
 	fsize := int(fi.inode.Size())
-	b := read_map(fi, pos)
+	b := read_map(fi.inode, pos, fi.cache)
 
 	if b == NO_BLOCK {
 		// Writing to a nonexistent block. Create and enter in inode
@@ -393,7 +332,7 @@ func new_block(fi *Finode, position int, btype BlockType) (*CacheBlock, os.Error
 
 	rip := fi.inode
 
-	if b = read_map(fi, position); b == NO_BLOCK {
+	if b = read_map(fi.inode, position, fi.cache); b == NO_BLOCK {
 		// Choose first zone if possible.
 		// Lose if the file is non-empty but the first zone number is NO_ZONE,
 		// corresponding to a zone full of zeros. It would be better to search

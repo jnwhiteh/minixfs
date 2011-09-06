@@ -178,7 +178,7 @@ func (fs *fileSystem) search_dir(dirp *Inode, path string, numb *int, flag searc
 	extended := false
 
 	for pos := 0; pos < int(dirp.Size()); pos += int(super.Block_size) {
-		b := fs.read_map(dirp, uint(pos)) // get block number
+		b := read_map(dirp, pos, fs.cache) // get block number
 		bp = fs.get_block(dirp.dev, int(b), DIRECTORY_BLOCK, NORMAL)
 		if bp == nil {
 			panic("get_block returned NO_BLOCK")
@@ -260,7 +260,7 @@ func (fs *fileSystem) search_dir(dirp *Inode, path string, numb *int, flag searc
 			return EFBIG
 		}
 		var err os.Error
-		bp, err = fs.new_block(dirp, uint(dirp.Size()), DIRECTORY_BLOCK)
+		bp, err = fs.new_block(dirp, int(dirp.Size()), DIRECTORY_BLOCK)
 		if err != nil {
 			return err
 		}

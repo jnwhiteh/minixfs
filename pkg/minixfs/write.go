@@ -7,12 +7,12 @@ import (
 // Acquire a new block and return a pointer to it. Doing so may require
 // allocating a complete zone, and then returning the initial block. On the
 // other hand, the current zone may still have some unused blocks.
-func (fs *fileSystem) new_block(rip *Inode, position uint, btype BlockType) (*CacheBlock, os.Error) {
-	var b uint
+func (fs *fileSystem) new_block(rip *Inode, position int, btype BlockType) (*CacheBlock, os.Error) {
+	var b int
 	var z int
 	var err os.Error
 
-	if b = fs.read_map(rip, position); b == NO_BLOCK {
+	if b = read_map(rip, position, fs.cache); b == NO_BLOCK {
 		// Choose first zone if possible.
 		// Lose if the file is non-empty but the first zone number is NO_ZONE,
 		// corresponding to a zone full of zeros. It would be better to search
@@ -31,13 +31,12 @@ func (fs *fileSystem) new_block(rip *Inode, position uint, btype BlockType) (*Ca
 		}
 
 		// If we are not writing at EOF, clear the zone, just to be safe
-		if position != uint(rip.Size()) {
+		if position != int(rip.Size()) {
 			fs.clear_zone(rip, position, 1)
 		}
-		scale := fs.supers[rip.dev].Log_zone_size
-		base_block := z << scale
-		zone_size := fs.supers[rip.dev].Block_size << scale
-		b = uint(base_block) + ((position % zone_size) / fs.supers[rip.dev].Block_size)
+		base_block := z << rip.Scale()
+		zone_size := rip.BlockSize() << rip.Scale()
+		b = base_block + ((position % zone_size) / rip.BlockSize())
 	}
 
 	bp := fs.get_block(rip.dev, int(b), btype, NO_READ)
@@ -64,7 +63,7 @@ func (fs *fileSystem) zero_block(bp *CacheBlock, btype BlockType) {
 }
 
 // Write a new zone into an inode
-func (fs *fileSystem) write_map(rip *Inode, position uint, new_zone uint) os.Error {
+func (fs *fileSystem) write_map(rip *Inode, position int, new_zone uint) os.Error {
 	rip.SetDirty(true) // inode will be changed
 	var bp *CacheBlock = nil
 	var z int
@@ -72,13 +71,11 @@ func (fs *fileSystem) write_map(rip *Inode, position uint, new_zone uint) os.Err
 	var zindex int
 	var err os.Error
 
-	sp := fs.supers[rip.dev]
-
-	scale := sp.Log_zone_size // for zone-block voncersion
+	scale := rip.Scale() // for zone-block conversion
 	// relative zone # to insert
-	zone := int((position / sp.Block_size) >> scale)
-	zones := V2_NR_DZONES                                 // # direct zones in the inode
-	nr_indirects := int(sp.Block_size / V2_ZONE_NUM_SIZE) // # indirect zones per indirect block
+	zone := (position / rip.BlockSize()) >> scale
+	zones := V2_NR_DZONES                                   // # direct zones in the inode
+	nr_indirects := int(rip.BlockSize() / V2_ZONE_NUM_SIZE) // # indirect zones per indirect block
 
 	// Is 'position' to be found in the inode itself?
 	if zone < zones {
@@ -175,9 +172,8 @@ func (fs *fileSystem) write_map(rip *Inode, position uint, new_zone uint) os.Err
 // Zero a zone, possibly starting in the middle. The parameter 'pos' gives a
 // byte in the first block to be zeroed. clear_zone is called from
 // read_write() and new_block().
-func (fs *fileSystem) clear_zone(rip *Inode, pos uint, flag int) {
-	sp := fs.supers[rip.dev]
-	scale := sp.Log_zone_size
+func (fs *fileSystem) clear_zone(rip *Inode, pos int, flag int) {
+	scale := rip.Scale()
 
 	// If the block size and zone size are the same, clear_zone not needed
 	if scale == 0 {
@@ -186,17 +182,17 @@ func (fs *fileSystem) clear_zone(rip *Inode, pos uint, flag int) {
 
 	panic("Block size = zone size")
 
-	zone_size := sp.Block_size << scale
+	zone_size := rip.BlockSize() << scale
 	if flag == 1 {
 		pos = (pos / zone_size) * zone_size
 	}
-	next := pos + sp.Block_size - 1
+	next := pos + rip.BlockSize() - 1
 
 	// If 'pos' is in the last block of a zone, do not clear the zone
 	if next/zone_size != pos/zone_size {
 		return
 	}
-	blo := fs.read_map(rip, next)
+	blo := read_map(rip, next, fs.cache)
 	if blo == NO_BLOCK {
 		return
 	}
@@ -225,11 +221,11 @@ func (fs *fileSystem) write_chunk(rip *Inode, pos, off, chunk int, buff []byte) 
 
 	bsize := int(fs.supers[rip.dev].Block_size)
 	fsize := int(rip.Size())
-	b := fs.read_map(rip, uint(pos))
+	b := read_map(rip, pos, fs.cache)
 
 	if b == NO_BLOCK {
 		// Writing to a nonexistent block. Create and enter in inode
-		bp, err = fs.new_block(rip, uint(pos), FULL_DATA_BLOCK)
+		bp, err = fs.new_block(rip, pos, FULL_DATA_BLOCK)
 		if bp == nil || err != nil {
 			return err
 		}

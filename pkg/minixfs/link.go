@@ -27,9 +27,9 @@ func (fs *fileSystem) truncate(rip *Inode) {
 
 	// step through the file a zone at a time, finding and freeing the zones
 	for position := uint(0); position < uint(rip.Size()); position += zone_size {
-		if b := fs.read_map(rip, position); b != NO_BLOCK {
+		if b := read_map(rip, int(position), fs.cache); b != NO_BLOCK {
 			z := b >> scale
-			fs.free_zone(rip.dev, z)
+			fs.free_zone(rip.dev, uint(z))
 		}
 	}
 
