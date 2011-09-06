@@ -126,7 +126,7 @@ func (fs *fileSystem) write_map(rip *Inode, position int, new_zone uint) os.Erro
 		if new_dbl {
 			fs.zero_block(bp, INDIRECT_BLOCK)
 		}
-		z1 = int(fs.rd_indir(bp, uint(ind_ex)))
+		z1 = int(rd_indir(bp, ind_ex, fs.cache, rip.Firstdatazone(), rip.Zones()))
 		single = false
 	}
 

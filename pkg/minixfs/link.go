@@ -47,8 +47,8 @@ func (fs *fileSystem) truncate(rip *Inode) {
 		b := int(z << scale)
 		bp := fs.get_block(rip.dev, b, INDIRECT_BLOCK, NORMAL)
 		for i := uint(0); i < nr_indirects; i++ {
-			z1 := fs.rd_indir(bp, i)
-			fs.free_zone(rip.dev, z1)
+			z1 := rd_indir(bp, int(i), fs.cache, rip.Firstdatazone(), rip.Zones())
+			fs.free_zone(rip.dev, uint(z1))
 		}
 		// now free the double indirect zone itself
 		fs.put_block(bp, INDIRECT_BLOCK)

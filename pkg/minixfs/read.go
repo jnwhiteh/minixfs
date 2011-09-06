@@ -40,9 +40,9 @@ func read_map(inode *Inode, position int, cache BlockCache) int {
 		b := z << scale
 		bp := cache.GetBlock(inode.dev, int(b), INDIRECT_BLOCK, NORMAL) // get double indirect block
 		index := excess / nr_indirects
-		z = rd_indir(bp, index, cache)     // z= zone for single
-		cache.PutBlock(bp, INDIRECT_BLOCK) // release double indirect block
-		excess = excess % nr_indirects        // index into single indirect block
+		z = rd_indir(bp, index, cache, inode.Firstdatazone(), inode.Zones()) // z= zone for single
+		cache.PutBlock(bp, INDIRECT_BLOCK)                                   // release double indirect block
+		excess = excess % nr_indirects                                       // index into single indirect block
 	}
 
 	// 'z' is zone num for single indirect block; 'excess' is index into it
@@ -52,7 +52,7 @@ func read_map(inode *Inode, position int, cache BlockCache) int {
 
 	b := z << scale // b is block number for single indirect
 	bp := cache.GetBlock(inode.dev, int(b), INDIRECT_BLOCK, NORMAL)
-	z = rd_indir(bp, excess, cache)
+	z = rd_indir(bp, excess, cache, inode.Firstdatazone(), inode.Zones())
 	cache.PutBlock(bp, INDIRECT_BLOCK)
 	if z == NO_ZONE {
 		return NO_BLOCK
@@ -61,16 +61,16 @@ func read_map(inode *Inode, position int, cache BlockCache) int {
 	return b
 }
 
-// Given a pointer to an indirect block, read one entry.
-func (fs *fileSystem) rd_indir(bp *CacheBlock, index uint) uint {
+// Given a pointer to an indirect block, read one entry with bounds checking
+// on min/max.
+func rd_indir(bp *CacheBlock, index int, cache BlockCache, min, max int) int {
 	bpdata := bp.block.(IndirectBlock)
-	super := fs.supers[bp.dev]
 
-	zone := uint(bpdata[index])
-	if zone != NO_ZONE && (zone < super.Firstdatazone || zone >= super.Zones) {
+	zone := int(bpdata[index])
+	if zone != NO_ZONE && (zone < min || zone >= max) {
 		log.Printf("Illegal zone number %ld in indirect block, index %d\n", zone, index)
-		log.Printf("Firstdatazone_old: %d", super.Firstdatazone)
-		log.Printf("Nzones: %d", super.Nzones)
+		log.Printf("Firstdatazone_old: %d", min)
+		log.Printf("Nzones: %d", max)
 		panic("check file system")
 	}
 	return zone

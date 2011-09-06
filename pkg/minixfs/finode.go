@@ -236,21 +236,6 @@ func (fi *Finode) write(data []byte, pos int) (n int, err os.Error) {
 	return cum_io, err
 }
 
-// Given a pointer to an indirect block, read one entry.
-func rd_indir(bp *CacheBlock, index int, cache BlockCache) int {
-	bpdata := bp.block.(IndirectBlock)
-
-	zone := int(bpdata[index])
-	// TODO: Re-establish this error checking
-	// if zone != NO_ZONE && (zone < super.Firstdatazone || zone >= super.Zones) {
-	// 	log.Printf("Illegal zone number %ld in indirect block, index %d\n", zone, index)
-	// 	log.Printf("Firstdatazone_old: %d", super.Firstdatazone)
-	// 	log.Printf("Nzones: %d", super.Nzones)
-	// 	panic("check file system")
-	// }
-	return zone
-}
-
 // Zero a zone, possibly starting in the middle. The parameter 'pos' gives a
 // byte in the first block to be zeroed. clear_zone is called from
 // read_write() and new_block().
@@ -442,7 +427,7 @@ func write_map(fi *Finode, position int, new_zone int) os.Error {
 		if new_dbl {
 			zero_block(bp, INDIRECT_BLOCK, fi.blocksize)
 		}
-		z1 = int(rd_indir(bp, ind_ex, fi.cache))
+		z1 = int(rd_indir(bp, ind_ex, fi.cache, rip.Firstdatazone(), rip.Zones()))
 		single = false
 	}
 
