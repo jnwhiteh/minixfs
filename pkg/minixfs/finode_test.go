@@ -1,7 +1,6 @@
 package minixfs
 
 import (
-	"log"
 	"testing"
 )
 
@@ -62,5 +61,4 @@ func Test_Finode_Shutdown(test *testing.T) {
 	fs.Shutdown()
 
 	<-thefinode.closed
-	log.Printf("Should be done")
 }
