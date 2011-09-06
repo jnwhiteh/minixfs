@@ -32,7 +32,7 @@ func (fs *fileSystem) new_block(rip *Inode, position int, btype BlockType) (*Cac
 
 		// If we are not writing at EOF, clear the zone, just to be safe
 		if position != int(rip.Size()) {
-			fs.clear_zone(rip, position, 1)
+			clear_zone(rip, position, 1, fs.cache)
 		}
 		base_block := z << rip.Scale()
 		zone_size := rip.BlockSize() << rip.Scale()
@@ -40,12 +40,11 @@ func (fs *fileSystem) new_block(rip *Inode, position int, btype BlockType) (*Cac
 	}
 
 	bp := fs.get_block(rip.dev, int(b), btype, NO_READ)
-	fs.zero_block(bp, btype)
+	zero_block(bp, btype, rip.BlockSize())
 	return bp, nil
 }
 
-func (fs *fileSystem) zero_block(bp *CacheBlock, btype BlockType) {
-	blocksize := fs.supers[bp.dev].Block_size
+func zero_block(bp *CacheBlock, btype BlockType, blocksize int) {
 	switch btype {
 	case INODE_BLOCK:
 		bp.block = make(InodeBlock, blocksize/V2_INODE_SIZE)
@@ -124,7 +123,7 @@ func (fs *fileSystem) write_map(rip *Inode, position int, new_zone uint) os.Erro
 		}
 		bp = fs.get_block(rip.dev, b, INDIRECT_BLOCK, rdflag)
 		if new_dbl {
-			fs.zero_block(bp, INDIRECT_BLOCK)
+			zero_block(bp, INDIRECT_BLOCK, rip.BlockSize())
 		}
 		z1 = int(rd_indir(bp, ind_ex, fs.cache, rip.Firstdatazone(), rip.Zones()))
 		single = false
@@ -160,7 +159,7 @@ func (fs *fileSystem) write_map(rip *Inode, position int, new_zone uint) os.Erro
 	}
 	bp = fs.get_block(rip.dev, b, INDIRECT_BLOCK, rdflag)
 	if new_ind {
-		fs.zero_block(bp, INDIRECT_BLOCK)
+		zero_block(bp, INDIRECT_BLOCK, rip.BlockSize())
 	}
 	ex = excess
 	fs.wr_indir(bp, ex, int(new_zone))
@@ -172,7 +171,7 @@ func (fs *fileSystem) write_map(rip *Inode, position int, new_zone uint) os.Erro
 // Zero a zone, possibly starting in the middle. The parameter 'pos' gives a
 // byte in the first block to be zeroed. clear_zone is called from
 // read_write() and new_block().
-func (fs *fileSystem) clear_zone(rip *Inode, pos int, flag int) {
+func clear_zone(rip *Inode, pos int, flag int, cache BlockCache) {
 	scale := rip.Scale()
 
 	// If the block size and zone size are the same, clear_zone not needed
@@ -192,7 +191,7 @@ func (fs *fileSystem) clear_zone(rip *Inode, pos int, flag int) {
 	if next/zone_size != pos/zone_size {
 		return
 	}
-	blo := read_map(rip, next, fs.cache)
+	blo := read_map(rip, next, cache)
 	if blo == NO_BLOCK {
 		return
 	}
@@ -201,9 +200,9 @@ func (fs *fileSystem) clear_zone(rip *Inode, pos int, flag int) {
 	// Clear all blocks between blo and bhi
 	for b := blo; b < bhi; b++ {
 		// TODO: I'm not sure the block type is correct here.
-		bp := fs.get_block(rip.dev, int(b), FULL_DATA_BLOCK, NO_READ)
-		fs.zero_block(bp, FULL_DATA_BLOCK)
-		fs.put_block(bp, FULL_DATA_BLOCK)
+		bp := cache.GetBlock(rip.dev, int(b), FULL_DATA_BLOCK, NO_READ)
+		zero_block(bp, FULL_DATA_BLOCK, rip.BlockSize())
+		cache.PutBlock(bp, FULL_DATA_BLOCK)
 	}
 }
 
@@ -249,7 +248,7 @@ func (fs *fileSystem) write_chunk(rip *Inode, pos, off, chunk int, buff []byte) 
 	}
 
 	if chunk != bsize && pos >= fsize && off == 0 {
-		fs.zero_block(bp, FULL_DATA_BLOCK)
+		zero_block(bp, FULL_DATA_BLOCK, rip.BlockSize())
 	}
 
 	// Copy 'chunk' bytes from the user supplied buffer into the block

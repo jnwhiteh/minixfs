@@ -196,7 +196,7 @@ func (fi *Finode) write(data []byte, pos int) (n int, err os.Error) {
 	// created. This is necessary because all unwritten blocks prior to the
 	// EOF must read as zeros.
 	if position > fsize {
-		clear_zone(fi, fsize, 0)
+		clear_zone(fi.inode, fsize, 0, fi.cache)
 	}
 
 	bsize := fi.blocksize
@@ -234,20 +234,6 @@ func (fi *Finode) write(data []byte, pos int) (n int, err os.Error) {
 	}
 
 	return cum_io, err
-}
-
-// Zero a zone, possibly starting in the middle. The parameter 'pos' gives a
-// byte in the first block to be zeroed. clear_zone is called from
-// read_write() and new_block().
-func clear_zone(fi *Finode, pos int, flag int) {
-	scale := fi.scale
-
-	// If the block size and zone size are the same, clear_zone not needed
-	if scale == 0 {
-		return
-	}
-
-	panic("Block size != zone size")
 }
 
 // Write 'chunk' bytes from 'buff' into 'rip' at position 'pos' in the file.
@@ -332,7 +318,7 @@ func new_block(fi *Finode, position int, btype BlockType) (*CacheBlock, os.Error
 
 		// If we are not writing at EOF, clear the zone, just to be safe
 		if position != int(rip.Size()) {
-			clear_zone(fi, position, 1)
+			clear_zone(fi.inode, position, 1, fi.cache)
 		}
 		scale := fi.scale
 		base_block := z << scale
@@ -343,23 +329,6 @@ func new_block(fi *Finode, position int, btype BlockType) (*CacheBlock, os.Error
 	bp := fi.cache.GetBlock(rip.dev, int(b), btype, NO_READ)
 	zero_block(bp, btype, fi.blocksize)
 	return bp, nil
-}
-
-func zero_block(bp *CacheBlock, btype BlockType, blocksize int) {
-	switch btype {
-	case INODE_BLOCK:
-		bp.block = make(InodeBlock, blocksize/V2_INODE_SIZE)
-	case DIRECTORY_BLOCK:
-		bp.block = make(DirectoryBlock, blocksize/V2_DIRENT_SIZE)
-	case INDIRECT_BLOCK:
-		bp.block = make(IndirectBlock, blocksize/4)
-	case MAP_BLOCK:
-		bp.block = make(MapBlock, blocksize/2)
-	case FULL_DATA_BLOCK:
-		bp.block = make(FullDataBlock, blocksize)
-	case PARTIAL_DATA_BLOCK:
-		bp.block = make(PartialDataBlock, blocksize)
-	}
 }
 
 // Write a new zone into an inode
