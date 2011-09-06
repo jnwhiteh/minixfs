@@ -18,6 +18,7 @@ type Inode struct {
 	mount bool
 
 	disk *disk_inode
+	super *Superblock
 }
 
 func NewInode() *Inode {
@@ -119,6 +120,15 @@ func (inode *Inode) Zone(num int) uint32 {
 
 func (inode *Inode) SetZone(num int, zone uint32) {
 	inode.disk.Zone[num] = zone
+}
+
+// Accessors for the superblock portion
+func (inode *Inode) Scale() uint {
+	return inode.super.Log_zone_size
+}
+
+func (inode *Inode) BlockSize() int {
+	return int(inode.super.Block_size)
 }
 
 // Utility functions
