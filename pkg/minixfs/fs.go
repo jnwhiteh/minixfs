@@ -118,6 +118,10 @@ func (fs *fileSystem) loop() {
 		case m_fs_req_shutdown:
 			err := fs.shutdown()
 			out <- m_fs_res_err{err}
+			if err == nil {
+				close(fs.in)
+				close(fs.out)
+			}
 		case m_fs_req_mount:
 			err := fs.mount(req.dev, req.path)
 			out <- m_fs_res_err{err}
