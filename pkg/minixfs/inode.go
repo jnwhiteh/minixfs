@@ -17,8 +17,9 @@ type Inode struct {
 	dirty bool
 	mount bool
 
-	disk *disk_inode
-	super *Superblock
+	disk  *disk_inode
+	super *Superblock // the superblock for this filesystem
+	fs    _FileSystem // an interface to the filesystem
 }
 
 func NewInode() *Inode {
