@@ -16,5 +16,7 @@ func TestMultiClient(test *testing.T) {
 
 	fs.Exit(proca)
 	fs.Exit(procb)
-	fs.Shutdown()
+	if err := fs.Shutdown(); err != nil {
+		test.Error("Failed when shutting down filesystem: %s", err)
+	}
 }

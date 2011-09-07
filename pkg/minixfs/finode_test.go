@@ -58,7 +58,9 @@ func Test_Finode_Shutdown(test *testing.T) {
 	}
 
 	fs.Exit(proc)
-	fs.Shutdown()
+	if err := fs.Shutdown(); err != nil {
+		test.Error("Failed when shutting down filesystem: %s", err)
+	}
 
 	<-thefinode.closed
 }

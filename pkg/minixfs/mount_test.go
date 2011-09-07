@@ -100,7 +100,7 @@ func TestMountUnmountUsr(test *testing.T) {
 
 func TestMountBad(test *testing.T) {
 	// Mount the root filesystem
-	fs, _ := OpenMinix3(test)
+	fs, proc := OpenMinix3(test)
 
 	var err os.Error
 
@@ -114,6 +114,11 @@ func TestMountBad(test *testing.T) {
 	err = fs.Mount(nil, "/mnt")
 	if err != EINVAL {
 		test.Errorf("When mounting nil device, got %s", err)
+	}
+
+	fs.Exit(proc)
+	if err := fs.Shutdown(); err != nil {
+		test.Errorf("Failed when shutting down fs: %s", err)
 	}
 }
 

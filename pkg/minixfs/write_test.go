@@ -22,7 +22,9 @@ func _Test_Write_New(fs *fileSystem, proc *Process, europarl []byte, test *testi
 	if int(file.inode.Size()) != n {
 		test.Errorf("File size mismatch, got %d, expected %d", file.inode.Size(), n)
 	}
-	fs.Close(proc, file)
+	if err := fs.Close(proc, file); err != nil {
+		test.Errorf("Failed when closing file %s - %s", herestr(2), err)
+	}
 }
 
 func _Test_Verify_Write(fs *fileSystem, proc *Process, europarl []byte, test *testing.T) {
@@ -58,18 +60,23 @@ func _Test_Verify_Write(fs *fileSystem, proc *Process, europarl []byte, test *te
 	}
 
 	// Clean things up
-	fs.Close(proc, file)
+	if err := fs.Close(proc, file); err != nil {
+		test.Errorf("Failed when closing file %s - %s", herestr(2), err)
+	}
 }
 
 func TestWriteSyscall(test *testing.T) {
 	fs, proc := OpenMinix3(test)
-	fs.Unlink(proc, "/tmp/europarl-en.txt")
 
+	fs.Unlink(proc, "/tmp/europarl-en.txt")
 	odata := GetEuroparlData(test)
 
 	_Test_Write_New(fs, proc, odata, test)
 	_Test_Verify_Write(fs, proc, odata, test)
 
 	fs.Unlink(proc, "/tmp/europarl-en.txt")
-	fs.Shutdown()
+	fs.Exit(proc)
+	if err := fs.Shutdown(); err != nil {
+		test.Errorf("Failed when shutting down fs: %s", err)
+	}
 }

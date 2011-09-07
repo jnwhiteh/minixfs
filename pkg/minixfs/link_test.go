@@ -23,6 +23,12 @@ func Test_NoFileUnlink(test *testing.T) {
 	if rip.count != 1 {
 		test.Errorf("Inode count mismatch, expected %d, got %d: %s", 1, rip.count, herestr(1))
 	}
+	
+	fs.put_inode(rip)
+	fs.Exit(proc)
+	if err := fs.Shutdown(); err != nil {
+		test.Errorf("Failed when shutting down filesystem: %s", err)
+	}
 }
 
 // Try to unlink a directory that doesn't exist and ensure that inodes don't leak
@@ -43,5 +49,11 @@ func Test_NoDirUnlink(test *testing.T) {
 
 	if rip.count != 1 {
 		test.Errorf("Inode count mismatch, expected %d, got %d: %s", 1, rip.count, herestr(1))
+	}
+
+	fs.put_inode(rip)
+	fs.Exit(proc)
+	if err := fs.Shutdown(); err != nil {
+		test.Errorf("Failed when shutting down filesystem: %s", err)
 	}
 }

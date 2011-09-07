@@ -136,5 +136,6 @@ func TestCache(test *testing.T) {
 		}
 	}
 
+	super.Shutdown()
 	cache.Close()
 }

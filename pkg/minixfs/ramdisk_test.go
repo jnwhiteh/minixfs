@@ -73,7 +73,9 @@ func Test_RamdiskRead(test *testing.T) {
 	data := GetEuroparlData(test)
 	_Test_Read_Europarl(fs, proc, data, test)
 	fs.Exit(proc)
-	fs.Shutdown()
+	if err := fs.Shutdown(); err != nil {
+		test.Error("Failed when shutting down filesystem: %s", err)
+	}
 }
 
 // Test to ensure that a write cannot happen while a read is outstanding, and

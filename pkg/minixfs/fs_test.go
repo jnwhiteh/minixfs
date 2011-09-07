@@ -39,6 +39,9 @@ func TestOpen(test *testing.T) {
 	if fs.supers[0].Magic != 0x4d5a {
 		test.Errorf("magic number mismatch: got 0x%x, expected 0x%x", fs.supers[0].Magic, 0x4d5a)
 	}
+	if err := fs.Shutdown(); err != nil {
+		test.Error("Failed when shutting down filesystem: %s", err)
+	}
 }
 
 type readCase struct {
@@ -155,7 +158,9 @@ func TestReadCases(test *testing.T) {
 	}
 
 	fs.Exit(proc)
-	fs.Shutdown()
+	if err := fs.Shutdown(); err != nil {
+		test.Error("Failed when shutting down filesystem: %s", err)
+	}
 
 	//log.Printf("Checked a total of %d bytes in %d read cases", total, len(readCases))
 }
