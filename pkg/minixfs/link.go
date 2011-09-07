@@ -68,12 +68,14 @@ func (fs *fileSystem) do_unlink(proc *Process, path string) (*Inode, *Inode, str
 	// The last directory exists. Does the file also exist?
 	rip, err := fs.advance(proc, rldirp, rest)
 	if rip == nil {
+		fs.put_inode(rldirp)
 		return nil, nil, "", err
 	}
 
 	// If error, return inode
 	if err != nil {
 		fs.put_inode(rldirp)
+		fs.put_inode(rip)
 		return nil, nil, "", nil
 	}
 
