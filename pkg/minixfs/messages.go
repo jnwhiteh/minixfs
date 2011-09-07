@@ -280,3 +280,78 @@ var _ m_finode_req = m_finode_req_close{}
 var _ m_finode_res = m_finode_res_io{}
 var _ m_finode_res = m_finode_res_asyncio{}
 var _ m_finode_res = m_finode_res_empty{}
+
+//////////////////////////////////////////////////////////////////////////////
+// Messages for Superblock
+//////////////////////////////////////////////////////////////////////////////
+
+type m_super_req interface {
+	is_m_super_req()
+}
+
+type m_super_res interface {
+	is_m_super_res()
+}
+
+// Request types
+type m_super_req_search struct {}
+type m_super_req_setsearch struct {
+	num int
+}
+type m_super_req_alloc_bit struct {
+	dev int
+	bmap uint
+	origin uint
+}
+type m_super_req_free_bit struct {
+	dev int
+	bmap uint
+	bnum uint
+}
+type m_super_req_alloc_zone struct {
+	dev int
+	zone int
+}
+type m_super_req_free_zone struct {
+	dev int
+	bnum uint
+}
+
+// Response types
+type m_super_res_search struct {
+	next uint
+}
+type m_super_res_empty struct {}
+type m_super_res_alloc_bit struct {
+	bit uint
+}
+type m_super_res_alloc_zone struct {
+	zone int
+	err os.Error
+}
+
+// For type-checking
+func (m m_super_req_search) is_m_super_req() {}
+func (m m_super_req_setsearch) is_m_super_req() {}
+func (m m_super_req_alloc_bit) is_m_super_req() {}
+func (m m_super_req_free_bit) is_m_super_req() {}
+func (m m_super_req_alloc_zone) is_m_super_req() {}
+func (m m_super_req_free_zone) is_m_super_req() {}
+
+func (m m_super_res_search) is_m_super_res() {}
+func (m m_super_res_empty) is_m_super_res() {}
+func (m m_super_res_alloc_bit) is_m_super_res() {}
+func (m m_super_res_alloc_zone) is_m_super_res() {}
+
+// Type assertions
+var _ m_super_req = m_super_req_search{}
+var _ m_super_req = m_super_req_setsearch{}
+var _ m_super_req = m_super_req_alloc_bit{}
+var _ m_super_req = m_super_req_free_bit{}
+var _ m_super_req = m_super_req_alloc_zone{}
+var _ m_super_req = m_super_req_free_zone{}
+
+var _ m_super_res = m_super_res_search{}
+var _ m_super_res = m_super_res_empty{}
+var _ m_super_res = m_super_res_alloc_bit{}
+var _ m_super_res = m_super_res_alloc_zone{}
