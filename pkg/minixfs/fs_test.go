@@ -164,3 +164,12 @@ func TestReadCases(test *testing.T) {
 
 	//log.Printf("Checked a total of %d bytes in %d read cases", total, len(readCases))
 }
+
+func TestShutdown(test *testing.T) {
+	fs, proc := OpenMinix3(test)
+
+	fs.Exit(proc)
+	if err := fs.Shutdown(); err != nil {
+		test.Errorf("Failed when shutting down filesystem: %s", err)
+	}
+}
