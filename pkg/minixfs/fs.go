@@ -18,11 +18,6 @@ type FileSystem interface {
 	Chdir(proc *Process, path string) os.Error
 }
 
-type _FileSystem interface {
-	_AllocZone(dev int, zstart int) (int, os.Error)
-	_FreeZone(dev int, zone int)
-}
-
 // FileSystem encapsulates a minix file system. The interface provided by the
 // exported methods is thread-safe by ensuring that only one file-system level
 // system call may occur at a time.
@@ -58,15 +53,18 @@ func OpenFileSystemFile(filename string) (*fileSystem, os.Error) {
 func NewFileSystem(dev BlockDevice) (*fileSystem, os.Error) {
 	var fs *fileSystem = new(fileSystem)
 
+	fs.cache = NewLRUCache()
+
 	super, err := ReadSuperblock(dev)
 	if err != nil {
 		return nil, err
 	}
+	super.devno = ROOT_DEVICE
+	super.cache = fs.cache
 
 	fs.devs = make([]BlockDevice, NR_SUPERS)
 	fs.supers = make([]*Superblock, NR_SUPERS)
 
-	fs.cache = NewLRUCache()
 	fs.icache = NewInodeCache(fs, NR_INODES)
 
 	fs.filp = make([]*filp, NR_FILPS)
@@ -152,12 +150,6 @@ func (fs *fileSystem) loop() {
 		case m_fs_req_chdir:
 			err := fs.chdir(req.proc, req.path)
 			out <- m_fs_res_err{err}
-		case m_fs_req_alloc_zone:
-			zone, err := fs.alloc_zone(req.dev, req.zstart)
-			out <- m_fs_res_alloc_zone{zone, err}
-		case m_fs_req_free_zone:
-			fs.free_zone(req.dev, uint(req.zone))
-			out <- m_fs_res_empty{}
 		}
 	}
 }

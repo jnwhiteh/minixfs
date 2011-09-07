@@ -17,11 +17,11 @@ func new_block(rip *Inode, position int, btype BlockType, cache BlockCache) (*Ca
 		// Lose if the file is non-empty but the first zone number is NO_ZONE,
 		// corresponding to a zone full of zeros. It would be better to search
 		// near the last real zone.
-		if z, err = rip.fs._AllocZone(rip.dev, int(rip.Zone(0))); z == NO_ZONE {
+		if z, err = rip.super.AllocZone(int(rip.Zone(0))); z == NO_ZONE {
 			return nil, err
 		}
 		if err = write_map(rip, position, z, cache); err != nil {
-			rip.fs._FreeZone(rip.dev, z)
+			rip.super.FreeZone(uint(z))
 			return nil, err
 		}
 
@@ -94,7 +94,7 @@ func write_map(rip *Inode, position int, new_zone int, cache BlockCache) os.Erro
 		// 'position' can be located via the double indirect block
 		if z = int(rip.Zone(zones + 1)); z == NO_ZONE {
 			// Create the double indirect block
-			z, err = rip.fs._AllocZone(rip.dev, int(rip.Zone(0)))
+			z, err = rip.super.AllocZone(int(rip.Zone(0)))
 			if z == NO_ZONE || err != nil {
 				return err
 			}
@@ -127,7 +127,7 @@ func write_map(rip *Inode, position int, new_zone int, cache BlockCache) os.Erro
 	// z1 is now single indirect zone; 'excess' is index
 	if z1 == NO_ZONE {
 		// Create indirect block and store zone # in inode or dbl indir block
-		z1, err = rip.fs._AllocZone(rip.dev, int(rip.Zone(0)))
+		z1, err = rip.super.AllocZone(int(rip.Zone(0)))
 		if single {
 			rip.SetZone(zones, uint32(z1)) // update inode
 		} else {

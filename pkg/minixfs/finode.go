@@ -13,7 +13,6 @@ import (
 // read() call for this file. In particular, open/close operations must not
 // block reads, and multiple independent read requests must be allowed.
 type Finode struct {
-	fs        _FileSystem
 	inode     *Inode
 	scale     uint
 	blocksize int

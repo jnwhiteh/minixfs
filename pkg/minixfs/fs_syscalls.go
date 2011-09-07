@@ -35,6 +35,7 @@ func (fs *fileSystem) shutdown() (err os.Error) {
 		WriteSuperblock(devs[ROOT_DEVICE], supers[ROOT_DEVICE])
 		// TODO: Report errors?
 		fs.devs[ROOT_DEVICE].Close()
+		fs.supers[ROOT_DEVICE].Shutdown()
 		fs.cache.Close()
 	}
 
@@ -184,7 +185,7 @@ func (fs *fileSystem) open(proc *Process, path string, oflags int, omode uint16)
 		bsize := int(super.Block_size)
 		maxsize := int(super.Max_size)
 
-		finode = &Finode{fs, rip, scale, bsize, maxsize, fs.cache, 0,
+		finode = &Finode{rip, scale, bsize, maxsize, fs.cache, 0,
 			make(chan m_finode_req),
 			make(chan m_finode_res),
 			new(sync.WaitGroup),
@@ -224,18 +225,13 @@ func (fs *fileSystem) close(proc *Process, file *File) os.Error {
 
 func (fs *fileSystem) unlink(proc *Process, path string) os.Error {
 	// Call a helper function to do most of the dirty work for us
-	rldirp, rip, rest, err := fs.do_unlink(proc, path)
+	rldirp, rip, rest, err := fs.prep_unlink(proc, path)
 	if err != nil || rldirp == nil || rip == nil {
 		return err
 	}
 
-	// Now test if the call is allowed (altered from Minix)
-	if rip.inum == ROOT_INODE {
-		err = EBUSY
-	}
-	if err == nil {
-		err = fs.unlink_file(rldirp, rip, rest)
-	}
+	//
+	err = fs.unlink_file(rldirp, rip, rest)
 
 	// If unlink was possible, it has been done, otherwise it has not
 	fs.put_inode(rip)
@@ -301,7 +297,7 @@ func (fs *fileSystem) mkdir(proc *Process, path string, mode uint16) os.Error {
 
 func (fs *fileSystem) rmdir(proc *Process, path string) os.Error {
 	// Call a helper function to do most of the dirty work for us
-	rldirp, rip, rest, err := fs.do_unlink(proc, path)
+	rldirp, rip, rest, err := fs.prep_unlink(proc, path)
 	if err != nil || rldirp == nil || rip == nil {
 		return err
 	}

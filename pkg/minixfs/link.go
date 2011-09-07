@@ -29,7 +29,7 @@ func (fs *fileSystem) truncate(rip *Inode) {
 	for position := uint(0); position < uint(rip.Size()); position += zone_size {
 		if b := read_map(rip, int(position), fs.cache); b != NO_BLOCK {
 			z := b >> scale
-			fs.free_zone(rip.dev, uint(z))
+			super.FreeZone(uint(z))
 		}
 	}
 
@@ -41,24 +41,24 @@ func (fs *fileSystem) truncate(rip *Inode) {
 	// 	return
 	// }
 	single := V2_NR_DZONES
-	fs.free_zone(rip.dev, uint(rip.Zone(single)))
+	super.FreeZone(uint(rip.Zone(single)))
 	if z := rip.Zone(single + 1); z != NO_ZONE {
 		// free all the single indirect zones pointed to by the double
 		b := int(z << scale)
 		bp := fs.get_block(rip.dev, b, INDIRECT_BLOCK, NORMAL)
 		for i := uint(0); i < nr_indirects; i++ {
 			z1 := rd_indir(bp, int(i), fs.cache, rip.Firstdatazone(), rip.Zones())
-			fs.free_zone(rip.dev, uint(z1))
+			super.FreeZone(uint(z1))
 		}
 		// now free the double indirect zone itself
 		fs.put_block(bp, INDIRECT_BLOCK)
-		fs.free_zone(rip.dev, uint(z))
+		super.FreeZone(uint(z))
 	}
 
 	// leave zone numbers for de(1) to recover file after an unlink(2)
 }
 
-func (fs *fileSystem) do_unlink(proc *Process, path string) (*Inode, *Inode, string, os.Error) {
+func (fs *fileSystem) prep_unlink(proc *Process, path string) (*Inode, *Inode, string, os.Error) {
 	// Get the last directory in the path
 	rldirp, rest, err := fs.last_dir(proc, path)
 	if rldirp == nil {

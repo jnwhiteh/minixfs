@@ -38,7 +38,9 @@ func (fs *fileSystem) do_mount(dev BlockDevice, path string) os.Error {
 
 	// If it a recognized Minix filesystem
 	if err != nil {
+		// Shut down device/superblock
 		dev.Close()
+		sp.Shutdown()
 		return err
 	}
 
@@ -55,6 +57,9 @@ func (fs *fileSystem) do_mount(dev BlockDevice, path string) os.Error {
 	if err != nil {
 		fs.devs[freeIndex] = nil
 		fs.supers[freeIndex] = nil
+		// Shut down device/superblock
+		sp.Shutdown()
+		dev.Close()
 		return err
 	}
 
@@ -103,7 +108,9 @@ func (fs *fileSystem) do_mount(dev BlockDevice, path string) os.Error {
 		fs.supers[freeIndex] = nil
 		fs.cache.UnmountDevice(freeIndex)
 		fs.icache.UnmountDevice(freeIndex)
+		// Shut down device/superblock
 		dev.Close()
+		sp.Shutdown()
 		return r
 	}
 
@@ -111,6 +118,9 @@ func (fs *fileSystem) do_mount(dev BlockDevice, path string) os.Error {
 	rip.SetMount(true)
 	sp.imount = rip
 	sp.isup = root_ip
+	sp.devno = freeIndex
+	sp.cache = fs.cache
+
 	return nil
 }
 
@@ -150,6 +160,7 @@ func (fs *fileSystem) do_unmount(dev BlockDevice) os.Error {
 	fs.put_inode(sp.imount)   // release the inode mounted on
 	fs.put_inode(sp.isup)     // release the root inode of the mounted fs
 	sp.imount = nil
+	sp.Shutdown() // shut down the superblock process
 
 	fs.devs[devnum] = nil
 	fs.supers[devnum] = nil

@@ -83,7 +83,6 @@ func (c *InodeCache) GetInode(dev int, num uint) (*Inode, os.Error) {
 	inode_d := &inodeb[(num-1)%super.inodes_per_block]
 	xp.disk = inode_d
 	xp.super = super
-	xp.fs = c.fs
 	xp.dev = dev
 	xp.inum = num
 	xp.SetCount(1)

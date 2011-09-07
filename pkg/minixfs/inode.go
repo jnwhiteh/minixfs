@@ -19,7 +19,6 @@ type Inode struct {
 
 	disk  *disk_inode
 	super *Superblock // the superblock for this filesystem
-	fs    _FileSystem // an interface to the filesystem
 }
 
 func NewInode() *Inode {
@@ -172,13 +171,13 @@ func (fs *fileSystem) alloc_inode(dev int, mode uint16) *Inode {
 	super := fs.supers[dev]
 
 	// Acquire an inode from the bit map
-	b := fs.alloc_bit(dev, IMAP, super.I_Search)
+	b := super.AllocBit(IMAP, super.Search(IMAP))
 	if b == NO_BIT {
 		log.Printf("Out of i-nodes on device")
 		return nil
 	}
 
-	super.I_Search = b // next time start here
+	super.SetSearch(IMAP, b) // next time start here
 
 	// Try to acquire a slot in the inode table
 	inode, err := fs.get_inode(dev, b)
@@ -198,15 +197,15 @@ func (fs *fileSystem) alloc_inode(dev int, mode uint16) *Inode {
 
 // Return an inode to the pool of free inodes
 func (fs *fileSystem) free_inode(dev int, inumb uint) {
-	sp := fs.supers[dev]
-	if inumb <= 0 || inumb > sp.Ninodes {
+	super := fs.supers[dev]
+	if inumb <= 0 || inumb > super.Ninodes {
 		return
 	}
 	b := inumb
-	fs.free_bit(dev, IMAP, b)
+	super.FreeBit(IMAP, b)
 
-	if b < sp.I_Search {
-		sp.I_Search = b
+	if b < super.Search(IMAP) {
+		super.SetSearch(IMAP, b)
 	}
 }
 

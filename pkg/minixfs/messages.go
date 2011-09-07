@@ -294,28 +294,28 @@ type m_super_res interface {
 }
 
 // Request types
-type m_super_req_search struct {}
+type m_super_req_search struct {
+	bmap uint
+}
 type m_super_req_setsearch struct {
-	num int
+	bmap uint
+	num uint
 }
 type m_super_req_alloc_bit struct {
-	dev int
 	bmap uint
 	origin uint
 }
 type m_super_req_free_bit struct {
-	dev int
 	bmap uint
 	bnum uint
 }
 type m_super_req_alloc_zone struct {
-	dev int
 	zone int
 }
 type m_super_req_free_zone struct {
-	dev int
-	bnum uint
+	zone uint
 }
+type m_super_req_shutdown struct {}
 
 // Response types
 type m_super_res_search struct {
@@ -337,6 +337,7 @@ func (m m_super_req_alloc_bit) is_m_super_req() {}
 func (m m_super_req_free_bit) is_m_super_req() {}
 func (m m_super_req_alloc_zone) is_m_super_req() {}
 func (m m_super_req_free_zone) is_m_super_req() {}
+func (m m_super_req_shutdown) is_m_super_req() {}
 
 func (m m_super_res_search) is_m_super_res() {}
 func (m m_super_res_empty) is_m_super_res() {}
@@ -350,6 +351,7 @@ var _ m_super_req = m_super_req_alloc_bit{}
 var _ m_super_req = m_super_req_free_bit{}
 var _ m_super_req = m_super_req_alloc_zone{}
 var _ m_super_req = m_super_req_free_zone{}
+var _ m_super_req = m_super_req_shutdown{}
 
 var _ m_super_res = m_super_res_search{}
 var _ m_super_res = m_super_res_empty{}

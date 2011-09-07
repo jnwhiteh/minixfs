@@ -52,8 +52,8 @@ func _Test_Creat_Syscall(test *testing.T) {
 
 	// Check to make sure I_Search is set correctly (to 550)
 	super := fs.supers[ROOT_DEVICE]
-	if super.I_Search != 550 {
-		test.Errorf("I_Search mismatch: expected %d, got %d", 550, super.I_Search)
+	if super.Search(IMAP) != 550 {
+		test.Errorf("I_Search mismatch: expected %d, got %d", 550, super.Search(IMAP))
 	}
 
 	fs.Exit(proc)
@@ -73,7 +73,7 @@ func _Test_Unlink_Syscall(test *testing.T) {
 		}
 
 		// Ensure the bit in the IMAP was properly de-allocated
-		if fs.check_bit(ROOT_DEVICE, IMAP, entry.inode) {
+		if fs.supers[ROOT_DEVICE].check_bit(IMAP, entry.inode) {
 			test.Errorf("Inode bit %d not properly deallocated", entry.inode)
 		}
 	}
@@ -129,8 +129,8 @@ func _Test_Mkdir_Syscall(test *testing.T) {
 
 	// Check to make sure I_Search is set correctly (to 550)
 	super := fs.supers[ROOT_DEVICE]
-	if super.I_Search != 550 {
-		test.Errorf("I_Search mismatch: expected %d, got %d", 550, super.I_Search)
+	if super.Search(IMAP) != 550 {
+		test.Errorf("I_Search mismatch: expected %d, got %d", 550, super.Search(IMAP))
 	}
 
 	fs.Exit(proc)
@@ -152,7 +152,7 @@ func _Test_Rmdir_Syscall(test *testing.T) {
 		}
 
 		// Ensure the bit in the IMAP was properly de-allocated
-		if fs.check_bit(ROOT_DEVICE, IMAP, dirList[i].num) {
+		if fs.supers[ROOT_DEVICE].check_bit(IMAP, dirList[i].num) {
 			test.Errorf("Inode bit %d not properly deallocated", dirList[i].num)
 		}
 	}
