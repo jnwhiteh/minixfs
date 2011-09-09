@@ -28,9 +28,8 @@ func (dev *faultyDevice) Read(buf interface{}, pos int64) os.Error {
 	return dev.BlockDevice.Read(buf, pos)
 }
 
-// Create a device that has a faulty block 2364, which is the first data block
-// of the file /sample/europarl-en.txt
-func getFaultyMinix3(test *testing.T) (FileSystem, *Process, chan bool, chan bool) {
+// Create a minix3root.img faulty device, with the list of bad blocks
+func getFaultyMinix3(test *testing.T, bad map[int]bool) (FileSystem, *Process, chan bool, chan bool) {
 	// Create a working decide
 	dev, err := NewRamdiskDeviceFile("../../minix3root.img")
 	if err != nil {
@@ -42,9 +41,7 @@ func getFaultyMinix3(test *testing.T) (FileSystem, *Process, chan bool, chan boo
 	fdev := &faultyDevice{
 		dev,
 		4096,
-		map[int]bool{
-			2364: true, // first block of /sample/europarl-en.txt
-		},
+		bad,
 		make(chan bool),
 		make(chan bool),
 	}
@@ -66,7 +63,9 @@ func getFaultyMinix3(test *testing.T) (FileSystem, *Process, chan bool, chan boo
 // non-concurrent implementation this will deadlock, but it should pass in a
 // correct implementation.
 func Test_BlockedRead_Open(test *testing.T) {
-	fs, proc, release, blocked := getFaultyMinix3(test)
+	fs, proc, release, blocked := getFaultyMinix3(test, map[int]bool {
+		2364: true,
+	})
 
 	wg := new(sync.WaitGroup)
 	wg.Add(2)
@@ -104,7 +103,9 @@ func Test_BlockedRead_Open(test *testing.T) {
 // non-concurrent implementation this will deadlock, but it should pass in a
 // correct implementation.
 func Test_BlockedRead_Chdir(test *testing.T) {
-	fs, proc, release, blocked := getFaultyMinix3(test)
+	fs, proc, release, blocked := getFaultyMinix3(test, map[int]bool {
+		2364: true,
+	})
 
 	wg := new(sync.WaitGroup)
 	wg.Add(2)
@@ -140,7 +141,9 @@ func Test_BlockedRead_Chdir(test *testing.T) {
 // non-concurrent implementation this will deadlock, but it should pass in a
 // correct implementation.
 func Test_BlockedRead_Close(test *testing.T) {
-	fs, proc, release, blocked := getFaultyMinix3(test)
+	fs, proc, release, blocked := getFaultyMinix3(test, map[int]bool{
+		2364: true,
+	})
 
 	wg := new(sync.WaitGroup)
 	wg.Add(2)
