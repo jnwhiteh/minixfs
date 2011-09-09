@@ -65,7 +65,7 @@ func NewFileSystem(dev BlockDevice) (*fileSystem, os.Error) {
 	fs.devs = make([]BlockDevice, NR_SUPERS)
 	fs.supers = make([]*Superblock, NR_SUPERS)
 
-	fs.icache = NewInodeCache(fs, NR_INODES)
+	fs.icache = NewInodeCache(fs.cache, NR_INODES)
 
 	fs.filp = make([]*filp, NR_FILPS)
 	fs.procs = make([]*Process, NR_PROCS)

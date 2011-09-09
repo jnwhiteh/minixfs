@@ -179,7 +179,7 @@ func (fs *fileSystem) search_dir(dirp *Inode, path string, numb *int, flag searc
 
 	for pos := 0; pos < int(dirp.Size()); pos += int(super.Block_size) {
 		b := read_map(dirp, pos, fs.cache) // get block number
-		bp = fs.get_block(dirp.dev, int(b), DIRECTORY_BLOCK, NORMAL)
+		bp = fs.cache.GetBlock(dirp.dev, int(b), DIRECTORY_BLOCK, NORMAL)
 		if bp == nil {
 			panic("get_block returned NO_BLOCK")
 		}
@@ -224,7 +224,7 @@ func (fs *fileSystem) search_dir(dirp *Inode, path string, numb *int, flag searc
 				} else {
 					*numb = int(dp.Inum)
 				}
-				fs.put_block(bp, DIRECTORY_BLOCK)
+				fs.cache.PutBlock(bp, DIRECTORY_BLOCK)
 				return r
 			}
 
@@ -239,7 +239,7 @@ func (fs *fileSystem) search_dir(dirp *Inode, path string, numb *int, flag searc
 		if e_hit { // e_hit set if ENTER can be performed now
 			break
 		}
-		fs.put_block(bp, DIRECTORY_BLOCK) // otherwise continue searching dir
+		fs.cache.PutBlock(bp, DIRECTORY_BLOCK) // otherwise continue searching dir
 	}
 
 	// The whole directory has now been searched
@@ -282,7 +282,7 @@ func (fs *fileSystem) search_dir(dirp *Inode, path string, numb *int, flag searc
 	}
 	dp.Inum = uint32(*numb)
 	bp.dirty = true
-	fs.put_block(bp, DIRECTORY_BLOCK)
+	fs.cache.PutBlock(bp, DIRECTORY_BLOCK)
 	// TODO: update times
 	dirp.SetDirty(true)
 	if new_slots > old_slots {

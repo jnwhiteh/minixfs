@@ -52,16 +52,6 @@ func (fs *fileSystem) unmount(dev BlockDevice) os.Error {
 	return fs.do_unmount(dev)
 }
 
-// The get_block method is a wrapper for fs.cache.GetBlock()
-func (fs *fileSystem) get_block(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
-	return fs.cache.GetBlock(dev, bnum, btype, only_search)
-}
-
-// The put_block method is a wrapper for fs.cache.PutBlock()
-func (fs *fileSystem) put_block(bp *CacheBlock, btype BlockType) {
-	fs.cache.PutBlock(bp, btype)
-}
-
 var ERR_PID_EXISTS = os.NewError("Process already exists")
 var ERR_PATH_LOOKUP = os.NewError("Could not lookup path")
 

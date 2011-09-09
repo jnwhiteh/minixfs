@@ -15,7 +15,7 @@ type InodeCache struct {
 	devs   []BlockDevice // the block devices that comprise the file system
 	supers []*Superblock // the superblocks for the given devices
 
-	fs *fileSystem // the file system that owns this cache
+	bcache BlockCache
 
 	inodes []*Inode // the list of in-memory inodes
 	size   int
@@ -25,11 +25,11 @@ type InodeCache struct {
 
 // Create a new InodeCache with a given size. This cache is internally
 // synchronized, ensuring that the cache is only updated atomically.
-func NewInodeCache(fs *fileSystem, size int) *InodeCache {
+func NewInodeCache(bcache BlockCache, size int) *InodeCache {
 	cache := new(InodeCache)
 	cache.devs = make([]BlockDevice, NR_SUPERS)
 	cache.supers = make([]*Superblock, NR_SUPERS)
-	cache.fs = fs
+	cache.bcache = bcache
 
 	cache.inodes = make([]*Inode, size)
 	cache.size = size
@@ -76,7 +76,7 @@ func (c *InodeCache) GetInode(dev int, num uint) (*Inode, os.Error) {
 	block_num := ((num - 1) / super.inodes_per_block) + uint(block_offset)
 
 	// Load the inode from the disk and create in-memory version of it
-	bp := c.fs.get_block(dev, int(block_num), INODE_BLOCK, NORMAL)
+	bp := c.bcache.GetBlock(dev, int(block_num), INODE_BLOCK, NORMAL)
 	inodeb := bp.block.(InodeBlock)
 
 	// We have the full block, now get the correct inode entry
@@ -104,7 +104,7 @@ func (c *InodeCache) WriteInode(rip *Inode) {
 	block_num := ((rip.inum - 1) / super.inodes_per_block) + uint(block_offset)
 
 	// Load the inode from the disk and create in-memory version of it
-	bp := c.fs.get_block(rip.dev, int(block_num), INODE_BLOCK, NORMAL)
+	bp := c.bcache.GetBlock(rip.dev, int(block_num), INODE_BLOCK, NORMAL)
 	inodeb := bp.block.(InodeBlock)
 
 	// TODO: Update times, handle read-only superblocks
@@ -113,7 +113,7 @@ func (c *InodeCache) WriteInode(rip *Inode) {
 	// Copy the disk_inode from rip into the inode block
 	inodeb[(rip.inum-1)%super.inodes_per_block] = *rip.disk
 	rip.SetDirty(false)
-	c.fs.put_block(bp, INODE_BLOCK)
+	c.bcache.PutBlock(bp, INODE_BLOCK)
 }
 
 // Returns whether or not a given device is current 'busy'. A non-busy device
