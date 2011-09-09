@@ -177,3 +177,46 @@ func Test_BlockedRead_Close(test *testing.T) {
 	fs.Exit(proc)
 	fs.Shutdown()
 }
+
+// This test tries to open a file, but the device blocks when trying to read
+// the entries in the parent directory (inode lookup). In this blocked state,
+// we try to open another file. In the concurrent file system, this should not
+// deadlock.
+
+// FIXME: This test currently fails
+func _Test_BlockedDirSearch_Open(test *testing.T) {
+	fs, proc, release, blocked := getFaultyMinix3(test, map[int]bool{
+		2367: true, // contents of /var/run listing
+	})
+
+	wg := new(sync.WaitGroup)
+	wg.Add(2)
+
+	go func() {
+		file, err := fs.Open(proc, "/var/run/syslogd.pid", O_RDONLY, 0666)
+		if err != nil {
+			test.Errorf("Failed when opening file: %s - %s", err, herestr(2))
+		}
+		fs.Close(proc, file)
+		wg.Done()
+	}()
+
+	go func() {
+		// wait for the first goroutine to be blocked
+		<-blocked
+
+		// Open a file in a non-blocked part of the filesystem
+		file, err := fs.Open(proc, "/sample/europarl-en.txt", O_RDONLY, 0666)
+		if err != nil {
+			test.Errorf("Failed when opening file: %s - %s", err, herestr(2))
+		}
+		release <- true
+		fs.Close(proc, file)
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	fs.Exit(proc)
+	fs.Shutdown()
+}
