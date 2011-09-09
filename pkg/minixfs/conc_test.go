@@ -1,10 +1,13 @@
 package minixfs
 
 import (
+	"log"
 	"os"
 	"sync"
 	"testing"
 )
+
+var _ = log.Printf
 
 type faultyDevice struct {
 	BlockDevice
@@ -15,6 +18,7 @@ type faultyDevice struct {
 }
 
 func (dev *faultyDevice) Read(buf interface{}, pos int64) os.Error {
+	//log.Printf("Read(%v = block %v)", pos, int(pos) / dev.blocksize)
 	blockno := int(pos) / dev.blocksize
 	if bad, ok := dev.bad[blockno]; ok && bad {
 		dev.blocked <- true
