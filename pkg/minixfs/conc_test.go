@@ -6,19 +6,17 @@ import (
 	"testing"
 )
 
-// Create a device with a few bad blocks:
-// 517 	- /sample 					- GOOD
-// 2363 - /sample/europarl-en.txt 	- GOOD
-// 2364 - data for 0 pos of 2363    - BAD
-
 type faultyDevice struct {
 	BlockDevice
-	release chan bool
-	blocked chan bool
+	blocksize int
+	bad       map[int]bool // a map of bad blocks
+	release   chan bool
+	blocked   chan bool
 }
 
 func (dev *faultyDevice) Read(buf interface{}, pos int64) os.Error {
-	if pos == 9682944 {
+	blockno := int(pos) / dev.blocksize
+	if bad, ok := dev.bad[blockno]; ok && bad {
 		dev.blocked <- true
 		<-dev.release
 	}
@@ -26,6 +24,8 @@ func (dev *faultyDevice) Read(buf interface{}, pos int64) os.Error {
 	return dev.BlockDevice.Read(buf, pos)
 }
 
+// Create a device that has a faulty block 2364, which is the first data block
+// of the file /sample/europarl-en.txt
 func getFaultyMinix3(test *testing.T) (FileSystem, *Process, chan bool, chan bool) {
 	// Create a working decide
 	dev, err := NewRamdiskDeviceFile("../../minix3root.img")
@@ -35,7 +35,16 @@ func getFaultyMinix3(test *testing.T) (FileSystem, *Process, chan bool, chan boo
 
 	// Wrap it with a faulty device, failing on the first data block of
 	// /sample/europarl-en.txt.
-	fdev := &faultyDevice{dev, make(chan bool), make(chan bool)}
+	fdev := &faultyDevice{
+		dev,
+		4096,
+		map[int]bool{
+			2364: true, // first block of /sample/europarl-en.txt
+		},
+		make(chan bool),
+		make(chan bool),
+	}
+
 	fs, err := NewFileSystem(fdev)
 	if err != nil {
 		test.Errorf("Failed to create new file system: %s", err)
