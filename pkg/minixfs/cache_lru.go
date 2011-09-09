@@ -96,8 +96,28 @@ func (c *LRUCache) loop() {
 			err := c.unmountDevice(req.dev)
 			out <- m_cache_res_err{err}
 		case m_cache_req_get:
-			block := c.getBlock(req.devno, req.bnum, req.btype, req.only_search)
-			out <- m_cache_res_block{block}
+			callback := make(chan m_cache_res_block)
+			out <- m_cache_res_async_block{callback}
+
+			doasync := true
+			if doasync {
+				// Check to see if the block is available
+				avail := c.reserveBlock(req.devno, req.bnum)
+				if avail {
+					// If the block is available, only_search isn't used, so we
+					// drop it in the call to claimBlock.
+					block := c.claimBlock(req.devno, req.bnum, req.btype)
+					callback <- m_cache_res_block{block}
+				} else {
+					go func() {
+						block := c.getBlock(req.devno, req.bnum, req.btype, req.only_search)
+						callback <- m_cache_res_block{block}
+					}()
+				}
+			} else {
+				block := c.getBlock(req.devno, req.bnum, req.btype, req.only_search)
+				callback <- m_cache_res_block{block}
+			}
 		case m_cache_req_put:
 			err := c.putBlock(req.cb, req.btype)
 			out <- m_cache_res_err{err}
@@ -135,7 +155,8 @@ func (c *LRUCache) UnmountDevice(devno int) os.Error {
 
 func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
 	c.in <- m_cache_req_get{dev, bnum, btype, only_search}
-	res := (<-c.out).(m_cache_res_block)
+	ares := (<-c.out).(m_cache_res_async_block)
+	res := <-ares.ch
 	if res.cb == LRU_ALLINUSE {
 		panic("all buffers in use")
 	}

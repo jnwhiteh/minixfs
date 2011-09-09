@@ -65,6 +65,9 @@ type m_cache_res_err struct {
 type m_cache_res_block struct {
 	cb *CacheBlock
 }
+type m_cache_res_async_block struct {
+	ch chan m_cache_res_block
+}
 type m_cache_res_reserve struct {
 	avail bool
 }
@@ -82,6 +85,7 @@ func (req m_cache_req_close) is_m_cache_req()      {}
 
 func (res m_cache_res_err) is_m_cache_res()     {}
 func (res m_cache_res_block) is_m_cache_res()   {}
+func (res m_cache_res_async_block) is_m_cache_res()   {}
 func (res m_cache_res_reserve) is_m_cache_res() {}
 func (res m_cache_res_empty) is_m_cache_res()   {}
 
@@ -98,6 +102,7 @@ var _ m_cache_req = m_cache_req_close{}
 
 var _ m_cache_res = m_cache_res_err{}
 var _ m_cache_res = m_cache_res_block{}
+var _ m_cache_res = m_cache_res_async_block{}
 var _ m_cache_res = m_cache_res_reserve{}
 var _ m_cache_res = m_cache_res_empty{}
 
