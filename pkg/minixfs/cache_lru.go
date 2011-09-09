@@ -176,6 +176,10 @@ func (c *LRUCache) Close() os.Error {
 	return res.err
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// Private implementations
+//////////////////////////////////////////////////////////////////////////////
+
 // Associate a BlockDevice and *Superblock with a device number so it can be
 // used internally.
 func (c *LRUCache) mountDevice(devno int, dev BlockDevice, super *Superblock) os.Error {
@@ -196,7 +200,7 @@ func (c *LRUCache) unmountDevice(devno int) os.Error {
 }
 
 // getBlock obtains a specified block from a given device. This function
-// requires that the device specific is a mounted valid device, no further
+// requires that the device specifed is a mounted valid device, no further
 // error checking is performed here.
 func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
 	var bp *lru_buf
@@ -289,13 +293,15 @@ func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 	c.buf_hash[b] = bp
 	bp.buf = bp
 
-	// Go get the requested block unless searchin or prefetching
+	// Go get the requested block unless searching or prefetching
 	if dev != NO_DEV {
 		if only_search == PREFETCH {
 			bp.dev = NO_DEV
 		} else {
 			if only_search == NORMAL {
 				pos := int64(blocksize) * int64(bnum)
+
+				// This read needs to be performed asynchronously.
 				err := c.devs[bp.dev].Read(bp.block, pos)
 				if err != nil {
 					return nil
