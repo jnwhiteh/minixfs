@@ -16,6 +16,10 @@ type FileSystem interface {
 	Mkdir(proc *Process, path string, mode uint16) os.Error
 	Rmdir(proc *Process, path string) os.Error
 	Chdir(proc *Process, path string) os.Error
+
+	Seek(proc *Process, file *File, pos, whence int) (int, os.Error)
+	Read(proc *Process, file *File, b []byte) (int, os.Error)
+	Write(proc *Process, file *File, b []byte) (int, os.Error)
 }
 
 // FileSystem encapsulates a minix file system. The interface provided by the
@@ -220,14 +224,58 @@ func (fs *fileSystem) Chdir(proc *Process, path string) os.Error {
 	return res.err
 }
 
-func (fs *fileSystem) _AllocZone(dev int, zstart int) (int, os.Error) {
-	fs.in <- m_fs_req_alloc_zone{dev, zstart}
-	res := (<-fs.out).(m_fs_res_alloc_zone)
-	return res.zone, res.err
+// Seek sets the position for the next read or write to pos, interpreted
+// according to whence: 0 means relative to the origin of the file, 1 means
+// relative to the current offset, and 2 means relative to the end of the
+// file. It returns the new offset and an Error, if any.
+//
+// TODO: Implement end of file seek and error checking
+func (fs *fileSystem) Seek(proc *Process, file *File, pos int, whence int) (int, os.Error) {
+	if file.fd == NO_FILE {
+		return 0, EBADF
+	}
+
+	switch whence {
+	case 1:
+		file.SetPosDelta(pos)
+	case 0:
+		file.SetPos(pos)
+	default:
+		panic("NYI: file.Seek with whence > 1")
+	}
+
+	return file.Pos(), nil
 }
 
-func (fs *fileSystem) _FreeZone(dev int, zone int) {
-	fs.in <- m_fs_req_free_zone{dev, zone}
-	<-fs.out
-	return
+// Read up to len(b) bytes from 'file' from the current position within the
+// file.
+func (fs *fileSystem) Read(proc *Process, file *File, b []byte) (int, os.Error) {
+	if file.fd == NO_FILE {
+		return 0, EBADF
+	}
+
+	n, err := file.finode.Read(b, file.Pos())
+	file.SetPosDelta(n)
+
+	return n, err
+}
+
+// Write a slice of bytes to the file at the current position. Returns the
+// number of bytes actually written and an error (if any).
+func (fs *fileSystem) Write(proc *Process, file *File, data []byte) (n int, err os.Error) {
+	if file.fd == NO_FILE {
+		return 0, EBADF
+	}
+
+	pos := file.Pos()
+	// Check for O_APPEND flag
+	if file.flags&O_APPEND > 0 {
+		fsize := int(file.inode.Size())
+		pos = fsize
+	}
+
+	n, err = file.finode.Write(data, pos)
+	file.SetPos(pos + n)
+
+	return n, err
 }

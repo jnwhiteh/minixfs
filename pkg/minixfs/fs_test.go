@@ -134,7 +134,7 @@ func TestReadCases(test *testing.T) {
 		buf := make([]byte, c.size)
 
 		// Seek to the position in the file, and read a 32-byte block
-		npos, err := mfile.Seek(c.pos, 0)
+		npos, err := fs.Seek(proc, mfile, c.pos, 0)
 		if err != nil {
 			test.Errorf("Failed when seeking to position %d: %s", c.pos, err)
 		} else if npos != c.pos {
@@ -142,7 +142,7 @@ func TestReadCases(test *testing.T) {
 		}
 
 		// Perform the read
-		n, err := mfile.Read(buf)
+		n, err := fs.Read(proc, mfile, buf)
 		if err != nil {
 			test.Errorf("Failed when reading from mfile: %s", err)
 		} else if n != c.size {

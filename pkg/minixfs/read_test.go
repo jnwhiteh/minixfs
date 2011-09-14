@@ -11,9 +11,9 @@ func _Test_Read_Europarl(fs *fileSystem, proc *Process, europarl []byte, test *t
 	}
 	size := int(file.inode.Size())
 
-	file.Seek(0, 0)
+	fs.Seek(proc, file, 0, 0)
 	data := make([]byte, size)
-	rn, err := file.Read(data)
+	rn, err := fs.Read(proc, file, data)
 	if rn != size {
 		test.Errorf("Failed when reading back, got %d, expected %d", rn, size)
 	}

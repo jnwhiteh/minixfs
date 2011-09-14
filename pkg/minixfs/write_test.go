@@ -12,7 +12,7 @@ func _Test_Write_New(fs *fileSystem, proc *Process, europarl []byte, test *testi
 
 	// Open/Create the new file
 	file, err := fs.Open(proc, "/tmp/europarl-en.txt", O_RDWR|O_CREAT, 0666)
-	n, err := file.Write(europarl[:numBytes])
+	n, err := fs.Write(proc, file, europarl[:numBytes])
 	if n != numBytes {
 		test.Errorf("Bytes written mismatch, got %d, expected %d", n, len(europarl))
 	}
@@ -36,9 +36,9 @@ func _Test_Verify_Write(fs *fileSystem, proc *Process, europarl []byte, test *te
 	}
 	size := int(file.inode.Size())
 
-	file.Seek(0, 0)
+	fs.Seek(proc, file, 0, 0)
 	data := make([]byte, size)
-	rn, err := file.Read(data)
+	rn, err := fs.Read(proc, file, data)
 	if rn != size {
 		test.Errorf("Failed when reading back, got %d, expected %d", rn, size)
 	}

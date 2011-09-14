@@ -63,7 +63,7 @@ func getFaultyMinix3(test *testing.T, bad map[int]bool) (FileSystem, *Process, c
 // non-concurrent implementation this will deadlock, but it should pass in a
 // correct implementation.
 func Test_BlockedRead_Open(test *testing.T) {
-	fs, proc, release, blocked := getFaultyMinix3(test, map[int]bool {
+	fs, proc, release, blocked := getFaultyMinix3(test, map[int]bool{
 		2364: true,
 	})
 
@@ -76,7 +76,7 @@ func Test_BlockedRead_Open(test *testing.T) {
 			test.Errorf("Failed when opening file: %s - %s", err, herestr(2))
 		}
 		buf := make([]byte, 1024)
-		file.Read(buf) // this should block
+		fs.Read(proc, file, buf) // this should block
 		fs.Close(proc, file)
 		wg.Done()
 	}()
@@ -103,7 +103,7 @@ func Test_BlockedRead_Open(test *testing.T) {
 // non-concurrent implementation this will deadlock, but it should pass in a
 // correct implementation.
 func Test_BlockedRead_Chdir(test *testing.T) {
-	fs, proc, release, blocked := getFaultyMinix3(test, map[int]bool {
+	fs, proc, release, blocked := getFaultyMinix3(test, map[int]bool{
 		2364: true,
 	})
 
@@ -116,7 +116,7 @@ func Test_BlockedRead_Chdir(test *testing.T) {
 			test.Errorf("Failed when opening file: %s - %s", err, herestr(2))
 		}
 		buf := make([]byte, 1024)
-		file.Read(buf) // this should block
+		fs.Read(proc, file, buf) // this should block
 		fs.Close(proc, file)
 		wg.Done()
 	}()
@@ -154,7 +154,7 @@ func Test_BlockedRead_Close(test *testing.T) {
 			test.Errorf("Failed when opening file: %s - %s", err, herestr(2))
 		}
 		buf := make([]byte, 1024)
-		file.Read(buf) // this should block
+		fs.Read(proc, file, buf) // this should block
 		fs.Close(proc, file)
 		wg.Done()
 	}()
