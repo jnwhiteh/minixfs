@@ -3,22 +3,25 @@ include $(GOROOT)/src/Make.inc
 TARG=jnwhiteh/minixfs
 GOFILES=\
 		blocks.go \
-		bitmap.go \
-		cache.go \
-		cache_lru.go \
-		const.go \
+		super/bitmap.go \
+		bcache/cache.go \
+		bcache/cache_lru.go \
+		bcache/messages.go \
+		common/const.go \
 		debug.go \
-		device.go \
-		dev_file.go \
-		dev_ramdisk.go \
-		errors.go \
+		device/device.go \
+		device/dev_file.go \
+		device/dev_ramdisk.go \
+		device/messages.go \
+		common/errors.go \
 		file.go \
 		filp.go \
 		filedes.go \
-		finode.go \
+		finode/finode.go \
+		finode/messages.go \
 		fs.go \
 		fs_syscalls.go \
-		icache.go \
+		icache/icache.go \
 		link.go \
 		macros.go \
 		messages.go \
@@ -29,7 +32,8 @@ GOFILES=\
 		path.go \
 		proc.go \
 		read.go \
-		super.go \
+		super/super.go \
+		super/messages.go \
 		types.go \
 		write.go \
 

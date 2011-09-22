@@ -5,7 +5,7 @@ import (
 )
 
 // Mount the filesystem on 'dev' at 'path' in the root filesystem
-func (fs *fileSystem) do_mount(dev BlockDevice, path string) os.Error {
+func (fs *fileSystem) do_mount(dev RandDevice, path string) os.Error {
 	// argument check
 	if dev == nil {
 		return EINVAL
@@ -77,7 +77,7 @@ func (fs *fileSystem) do_mount(dev BlockDevice, path string) os.Error {
 	}
 
 	// Get the root inode of the mounted file system
-	var root_ip *Inode
+	var root_ip *CacheInode
 	if r == nil {
 		root_ip, err = fs.get_inode(freeIndex, ROOT_INODE)
 		if err != nil {
@@ -125,7 +125,7 @@ func (fs *fileSystem) do_mount(dev BlockDevice, path string) os.Error {
 }
 
 // Unmount a given block device
-func (fs *fileSystem) do_unmount(dev BlockDevice) os.Error {
+func (fs *fileSystem) do_unmount(dev RandDevice) os.Error {
 	// Determine the numeric index of this device
 	devnum := -1
 	for i := 0; i < NR_SUPERS; i++ {

@@ -10,7 +10,7 @@ import (
 var _ = log.Printf
 
 type faultyDevice struct {
-	BlockDevice
+	RandDevice
 	blocksize int
 	bad       map[int]bool // a map of bad blocks
 	release   chan bool
@@ -25,7 +25,7 @@ func (dev *faultyDevice) Read(buf interface{}, pos int64) os.Error {
 		<-dev.release
 	}
 
-	return dev.BlockDevice.Read(buf, pos)
+	return dev.RandDevice.Read(buf, pos)
 }
 
 // Create a minix3root.img faulty device, with the list of bad blocks

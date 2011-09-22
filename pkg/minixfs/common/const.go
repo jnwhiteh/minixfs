@@ -1,4 +1,6 @@
-package minixfs
+package common
+
+type BlockType int
 
 const (
 	CHAR_BIT    = 8 // number of bits in a char
@@ -41,6 +43,7 @@ const (
 	NO_BIT   = 0
 	NO_DEV   = -1
 	NO_FILE  = -1
+	NO_INODE = -1
 
 	// When a block is released, the type of usage is passed to put_block()
 	WRITE_IMMED = 0100 // block should be written to disk now
@@ -91,4 +94,11 @@ const (
 
 	READING = 0 // copy data from user
 	WRITING = 1 // copy data to user
+
+	INODE_BLOCK        BlockType = 0 // inode block
+	DIRECTORY_BLOCK    BlockType = 1 // directory block
+	INDIRECT_BLOCK     BlockType = 2 // pointer block
+	MAP_BLOCK          BlockType = 3 // bit map
+	FULL_DATA_BLOCK    BlockType = 5 // data, fully used
+	PARTIAL_DATA_BLOCK BlockType = 6 // data, partly used
 )

@@ -1,6 +1,7 @@
-package minixfs
+package device
 
 import (
+	. "minixfs/common"
 	"encoding/binary"
 	"io"
 	"io/ioutil"
@@ -42,7 +43,7 @@ type ramdiskDevice struct {
 	rwait *sync.WaitGroup     // a waitgroup used to
 }
 
-func NewRamdiskDevice(data []byte) (BlockDevice, os.Error) {
+func NewRamdiskDevice(data []byte) (RandDevice, os.Error) {
 	dev := &ramdiskDevice{
 		data,
 		make(chan m_dev_req),
@@ -54,7 +55,7 @@ func NewRamdiskDevice(data []byte) (BlockDevice, os.Error) {
 	return dev, nil
 }
 
-func NewRamdiskDeviceFile(filename string) (BlockDevice, os.Error) {
+func NewRamdiskDeviceFile(filename string) (RandDevice, os.Error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err

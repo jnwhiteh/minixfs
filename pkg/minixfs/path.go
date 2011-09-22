@@ -7,7 +7,7 @@ import (
 )
 
 // EathPath parses the path 'path' and retrieves the associated inode.
-func (fs *fileSystem) eat_path(proc *Process, path string) (*Inode, os.Error) {
+func (fs *fileSystem) eat_path(proc *Process, path string) (*CacheInode, os.Error) {
 	ldip, rest, err := fs.last_dir(proc, path)
 	if err != nil {
 		return nil, err // could not open final directory
@@ -27,10 +27,10 @@ func (fs *fileSystem) eat_path(proc *Process, path string) (*Inode, os.Error) {
 // LastDir parses 'path' as far as the last directory, fetching the inode and
 // returning it along with the final portion of the path and any error that
 // might have occurred.
-func (fs *fileSystem) last_dir(proc *Process, path string) (*Inode, string, os.Error) {
+func (fs *fileSystem) last_dir(proc *Process, path string) (*CacheInode, string, os.Error) {
 	path = filepath.Clean(path)
 
-	var rip *Inode
+	var rip *CacheInode
 	if filepath.IsAbs(path) {
 		rip = proc.rootdir
 	} else {
@@ -72,7 +72,7 @@ func (fs *fileSystem) last_dir(proc *Process, path string) (*Inode, string, os.E
 
 // Advance looks up the component 'path' in the directory 'dirp', returning
 // the inode.
-func (fs *fileSystem) advance(proc *Process, dirp *Inode, path string) (*Inode, os.Error) {
+func (fs *fileSystem) advance(proc *Process, dirp *CacheInode, path string) (*CacheInode, os.Error) {
 	// if there is no path, just return this inode
 	if len(path) == 0 {
 		return fs.get_inode(dirp.dev, dirp.inum)
@@ -158,7 +158,7 @@ const (
 // if flag == DELETE delete 'path' from the directory
 // if flag == LOOK_UP search for 'path' and return inode # in 'numb'
 // if flag == IS_EMPTY return OK if only . and .. in dir else ENOTEMPTY
-func (fs *fileSystem) search_dir(dirp *Inode, path string, numb *int, flag searchDirFlag) os.Error {
+func (fs *fileSystem) search_dir(dirp *CacheInode, path string, numb *int, flag searchDirFlag) os.Error {
 	// If dirp is not a pointer to a directory node, error
 	if dirp.GetType() != I_DIRECTORY {
 		return ENOTDIR

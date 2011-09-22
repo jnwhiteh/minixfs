@@ -3,6 +3,7 @@ package minixfs
 import (
 	"fmt"
 	"log"
+	. "minixfs/common"
 	"os"
 )
 
@@ -27,8 +28,8 @@ type LRUCache struct {
 	// These struct elements are duplicates of those that can be found in
 	// the FileSystem struct. By duplicating them, we make LRUCache a
 	// self-contained data structure that has a well-defined interface.
-	devs   []BlockDevice // the block devices that comprise the file system
-	supers []*Superblock // the superblocks for the given devices
+	devs   []RandDevice // the block devices that comprise the file system
+	bsizes []int        // the block sizes for the given devices
 
 	buf      []*lru_buf // static list of cache blocks
 	buf_hash []*lru_buf // the buffer hash table
@@ -45,8 +46,8 @@ var LRU_ALLINUSE *CacheBlock = new(CacheBlock)
 // NewLRUCache creates a new LRUCache with the given size
 func NewLRUCache() BlockCache {
 	cache := &LRUCache{
-		devs:     make([]BlockDevice, NR_SUPERS),
-		supers:   make([]*Superblock, NR_SUPERS),
+		devs:     make([]RandDevice, NR_SUPERS),
+		bsizes:   make([]int, NR_SUPERS),
 		buf:      make([]*lru_buf, NR_BUFS),
 		buf_hash: make([]*lru_buf, NR_BUF_HASH),
 		in:       make(chan m_cache_req),
@@ -57,7 +58,7 @@ func NewLRUCache() BlockCache {
 	for i := 0; i < NR_BUFS; i++ {
 		cache.buf[i] = new(lru_buf)
 		cache.buf[i].CacheBlock = new(CacheBlock)
-		cache.buf[i].dev = NO_DEV
+		cache.buf[i].Devno = NO_DEV
 	}
 
 	for i := 1; i < NR_BUFS-1; i++ {
@@ -90,7 +91,7 @@ func (c *LRUCache) loop() {
 	for req := range in {
 		switch req := req.(type) {
 		case m_cache_req_mount:
-			err := c.mountDevice(req.devno, req.dev, req.super)
+			err := c.mountDevice(req.devno, req.dev, req.blocksize)
 			out <- m_cache_res_err{err}
 		case m_cache_req_unmount:
 			err := c.unmountDevice(req.dev)
@@ -141,8 +142,8 @@ func (c *LRUCache) loop() {
 	}
 }
 
-func (c *LRUCache) MountDevice(devno int, dev BlockDevice, super *Superblock) os.Error {
-	c.in <- m_cache_req_mount{devno, dev, super}
+func (c *LRUCache) MountDevice(devno int, dev RandDevice, blocksize int) os.Error {
+	c.in <- m_cache_req_mount{devno, dev, blocksize}
 	res := (<-c.out).(m_cache_res_err)
 	return res.err
 }
@@ -201,14 +202,14 @@ func (c *LRUCache) Close() os.Error {
 // Private implementations
 //////////////////////////////////////////////////////////////////////////////
 
-// Associate a BlockDevice and *Superblock with a device number so it can be
+// Associate a BlockDevice and a blocksize with a device number so it can be
 // used internally.
-func (c *LRUCache) mountDevice(devno int, dev BlockDevice, super *Superblock) os.Error {
-	if c.devs[devno] != nil || c.supers[devno] != nil {
+func (c *LRUCache) mountDevice(devno int, dev RandDevice, blocksize int) os.Error {
+	if c.devs[devno] != nil || c.bsizes[devno] != 0 {
 		return EBUSY
 	}
 	c.devs[devno] = dev
-	c.supers[devno] = super
+	c.bsizes[devno] = blocksize
 	return nil
 }
 
@@ -216,7 +217,7 @@ func (c *LRUCache) mountDevice(devno int, dev BlockDevice, super *Superblock) os
 // number.
 func (c *LRUCache) unmountDevice(devno int) os.Error {
 	c.devs[devno] = nil
-	c.supers[devno] = nil
+	c.bsizes[devno] = 0
 	return nil
 }
 
@@ -233,12 +234,12 @@ func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 		b := bnum & HASH_MASK
 		bp = c.buf_hash[b]
 		for bp != nil {
-			if bp.blocknr == bnum && bp.dev == dev {
+			if bp.Blockno == bnum && bp.Devno == dev {
 				// Block needed has been found
-				if bp.count == 0 {
+				if bp.Count == 0 {
 					c.rm_lru(bp)
 				}
-				bp.count++
+				bp.Count++
 				return bp.CacheBlock
 			} else {
 				// This block is not the one sought
@@ -257,7 +258,7 @@ func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 	c.rm_lru(bp)
 
 	// Remove the block that was just taken from its hash chain
-	b := bp.blocknr & HASH_MASK
+	b := bp.Blockno & HASH_MASK
 	prev_ptr := c.buf_hash[b]
 	if prev_ptr == bp {
 		c.buf_hash[b] = bp.b_hash
@@ -276,8 +277,8 @@ func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 	// If the block taken is dirty, make it clean by writing it to the disk.
 	// Avoid hysterisis by flushing all other dirty blocks for the same
 	// device.
-	if bp.dev != NO_DEV && bp.dirty {
-		c.flush(bp.dev)
+	if bp.Devno != NO_DEV && bp.Dirty {
+		c.flush(bp.Devno)
 	}
 
 	// We use the garbage collector for the actual block data, so invalidate
@@ -285,45 +286,45 @@ func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 	// avoid lots of runtime checking to see if we already have a useable
 	// block of data.
 
-	blocksize := c.supers[dev].Block_size
+	blocksize := c.bsizes[dev]
 
 	switch btype {
 	case INODE_BLOCK:
-		bp.block = make(InodeBlock, blocksize/V2_INODE_SIZE)
+		bp.Block = make(InodeBlock, blocksize/V2_INODE_SIZE)
 	case DIRECTORY_BLOCK:
-		bp.block = make(DirectoryBlock, blocksize/V2_DIRENT_SIZE)
+		bp.Block = make(DirectoryBlock, blocksize/V2_DIRENT_SIZE)
 	case INDIRECT_BLOCK:
-		bp.block = make(IndirectBlock, blocksize/4)
+		bp.Block = make(IndirectBlock, blocksize/4)
 	case MAP_BLOCK:
-		bp.block = make(MapBlock, blocksize/2)
+		bp.Block = make(MapBlock, blocksize/2)
 	case FULL_DATA_BLOCK:
-		bp.block = make(FullDataBlock, blocksize)
+		bp.Block = make(FullDataBlock, blocksize)
 	case PARTIAL_DATA_BLOCK:
-		bp.block = make(PartialDataBlock, blocksize)
+		bp.Block = make(PartialDataBlock, blocksize)
 	default:
 		panic(fmt.Sprintf("Invalid block type specified: %d", btype))
 	}
 
 	// we avoid hard-setting count (we increment instead) and we don't reset
 	// the dirty flag (since the previous flushall would have done that)
-	bp.dev = dev
-	bp.blocknr = bnum
-	bp.count++
-	b = bp.blocknr & HASH_MASK
+	bp.Devno = dev
+	bp.Blockno = bnum
+	bp.Count++
+	b = bp.Blockno & HASH_MASK
 	bp.b_hash = c.buf_hash[b]
 	c.buf_hash[b] = bp
-	bp.buf = bp
+	bp.Buf = bp
 
 	// Go get the requested block unless searching or prefetching
 	if dev != NO_DEV {
 		if only_search == PREFETCH {
-			bp.dev = NO_DEV
+			bp.Devno = NO_DEV
 		} else {
 			if only_search == NORMAL {
 				pos := int64(blocksize) * int64(bnum)
 
 				// This read needs to be performed asynchronously.
-				err := c.devs[bp.dev].Read(bp.block, pos)
+				err := c.devs[bp.Devno].Read(bp.Block, pos)
 				if err != nil {
 					return nil
 				}
@@ -346,14 +347,14 @@ func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) os.Error {
 		return nil
 	}
 
-	cb.count--
-	if cb.count > 0 { // block is still in use
+	cb.Count--
+	if cb.Count > 0 { // block is still in use
 		return nil
 	}
 
 	// We can find the lru_buf that corresponds to the given CacheBlock by
 	// checking the 'buf' field and coercing it.
-	bp := cb.buf.(*lru_buf)
+	bp := cb.Buf.(*lru_buf)
 
 	if bp.reservations > 0 { // cannot evict this block, oustanding reservation
 		return nil
@@ -390,7 +391,7 @@ func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) os.Error {
 	// Some blocks are so important (e.g., inodes, indirect blocks) that they
 	// should be written to the disk immediately to avoid messing up the file
 	// system in the event of a crash.
-	if (btype&WRITE_IMMED > 0) && bp.dirty {
+	if (btype&WRITE_IMMED > 0) && bp.Dirty {
 		return c.WriteBlock(bp)
 	}
 
@@ -403,7 +404,7 @@ func (c *LRUCache) reserveBlock(dev, bnum int) bool {
 		b := bnum & HASH_MASK
 		bp = c.buf_hash[b]
 		for bp != nil {
-			if bp.blocknr == bnum && bp.dev == dev {
+			if bp.Blockno == bnum && bp.Devno == dev {
 				// Block needed has been found
 				bp.reservations++
 				return true
@@ -419,9 +420,9 @@ func (c *LRUCache) reserveBlock(dev, bnum int) bool {
 func (c *LRUCache) claimBlock(dev, bnum int, btype BlockType) *CacheBlock {
 	// Perform a getBlock and then decrement the reservations
 	cb := c.getBlock(dev, bnum, btype, NORMAL)
-	if cb != nil && cb.buf != nil {
+	if cb != nil && cb.Buf != nil {
 		// ensure that there is an outstanding reservation, first
-		bp := cb.buf.(*lru_buf)
+		bp := cb.Buf.(*lru_buf)
 		if bp.reservations > 0 {
 			bp.reservations--
 			return cb
@@ -435,8 +436,8 @@ func (c *LRUCache) claimBlock(dev, bnum int, btype BlockType) *CacheBlock {
 
 func (c *LRUCache) invalidate(dev int) {
 	for i := 0; i < NR_BUFS; i++ {
-		if c.buf[i].dev == dev {
-			c.buf[i].dev = NO_DEV
+		if c.buf[i].Devno == dev {
+			c.buf[i].Devno = NO_DEV
 		}
 	}
 }
@@ -454,11 +455,11 @@ func (c *LRUCache) flush(dev int) {
 	var bp *lru_buf
 	for i := 0; i < NR_BUFS; i++ {
 		bp = c.buf[i]
-		if bp.dirty && bp.dev == dev {
+		if bp.Dirty && bp.Devno == dev {
 			if _showdebug {
-				log.Printf("Found a dirty block: %d", bp.blocknr)
-				log.Printf("Block type: %T", bp.block)
-				_debugPrintBlock(bp.CacheBlock, c.supers[bp.dev])
+				log.Printf("Found a dirty block: %d", bp.Blockno)
+				log.Printf("Block type: %T", bp.Block)
+				//_debugPrintBlock(bp.CacheBlock, c.bsizes[bp.Devno])
 			}
 			dirty[ndirty] = bp
 			ndirty++
@@ -466,14 +467,14 @@ func (c *LRUCache) flush(dev int) {
 	}
 
 	if ndirty > 0 {
-		blocksize := int64(c.supers[dirty[0].dev].Block_size)
-		dev := c.devs[dirty[0].dev]
+		blocksize := int64(c.bsizes[dirty[0].Devno])
+		dev := c.devs[dirty[0].Devno]
 		// TODO: Use the 'Scatter' method instead, if we can
 		for i := 0; i < ndirty; i++ {
 			bp = dirty[i]
-			pos := blocksize * int64(bp.blocknr)
+			pos := blocksize * int64(bp.Blockno)
 			if _actuallywrite {
-				err := dev.Write(bp.block, pos)
+				err := dev.Write(bp.Block, pos)
 				if err != nil {
 					panic("something went wrong during flushall")
 				}
@@ -484,9 +485,9 @@ func (c *LRUCache) flush(dev int) {
 }
 
 func (c *LRUCache) WriteBlock(bp *lru_buf) os.Error {
-	blocksize := c.supers[bp.dev].Block_size
-	pos := int64(blocksize) * int64(bp.blocknr)
-	err := c.devs[bp.dev].Write(bp.block, pos)
+	blocksize := c.bsizes[bp.Devno]
+	pos := int64(blocksize) * int64(bp.Blockno)
+	err := c.devs[bp.Devno].Write(bp.Block, pos)
 	return err
 }
 

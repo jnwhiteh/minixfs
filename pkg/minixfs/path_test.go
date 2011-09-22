@@ -9,14 +9,14 @@ func TestAdvance(test *testing.T) {
 	fs, proc := OpenMinix3(test)
 
 	// Helper function to ensure filesystem gets cleaned up properly
-	advance := func(proc *Process, rip *Inode, path string) (*Inode, os.Error) {
+	advance := func(proc *Process, rip *CacheInode, path string) (*CacheInode, os.Error) {
 		inode, err := fs.advance(proc, rip, path)
 		fs.put_inode(rip)
 		return inode, err
 	}
 
-	var dirp *Inode
-	var rip *Inode
+	var dirp *CacheInode
+	var rip *CacheInode
 	var err os.Error
 
 	// Advance to /root/.ssh/known_hosts at inode 541

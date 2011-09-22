@@ -4,7 +4,7 @@ import "log"
 
 // Given an inode and a position within the corresponding file, locate the
 // block (not zone) number in which that position is to be found and return
-func read_map(inode *Inode, position int, cache BlockCache) int {
+func read_map(inode *CacheInode, position int, cache BlockCache) int {
 	scale := inode.Scale() // for block-zone conversion
 	blocksize := inode.BlockSize()
 	block_pos := position / blocksize            // relative block # in file

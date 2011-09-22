@@ -12,12 +12,12 @@ type InodeCache struct {
 	// These struct elements are duplicates of those that can be found in the
 	// FileSystem struct. By duplicating them, we make InodeCache a
 	// self-contained data structure that has a well-defined interface.
-	devs   []BlockDevice // the block devices that comprise the file system
+	devs   []RandDevice  // the block devices that comprise the file system
 	supers []*Superblock // the superblocks for the given devices
 
 	bcache BlockCache
 
-	inodes []*Inode // the list of in-memory inodes
+	inodes []*CacheInode // the list of in-memory inodes
 	size   int
 
 	m *sync.RWMutex
@@ -27,11 +27,11 @@ type InodeCache struct {
 // synchronized, ensuring that the cache is only updated atomically.
 func NewInodeCache(bcache BlockCache, size int) *InodeCache {
 	cache := new(InodeCache)
-	cache.devs = make([]BlockDevice, NR_SUPERS)
+	cache.devs = make([]RandDevice, NR_SUPERS)
 	cache.supers = make([]*Superblock, NR_SUPERS)
 	cache.bcache = bcache
 
-	cache.inodes = make([]*Inode, size)
+	cache.inodes = make([]*CacheInode, size)
 	cache.size = size
 
 	cache.m = new(sync.RWMutex)
@@ -39,7 +39,7 @@ func NewInodeCache(bcache BlockCache, size int) *InodeCache {
 	return cache
 }
 
-func (c *InodeCache) GetInode(dev int, num uint) (*Inode, os.Error) {
+func (c *InodeCache) GetInode(dev int, num uint) (*CacheInode, os.Error) {
 	// Acquire the mutex so we can alter the inode cache
 	c.m.Lock()
 	defer c.m.Unlock()
@@ -95,7 +95,7 @@ func (c *InodeCache) GetInode(dev int, num uint) (*Inode, os.Error) {
 }
 
 // An entry in the inode table is to be written to disk (via the buffer cache)
-func (c *InodeCache) WriteInode(rip *Inode) {
+func (c *InodeCache) WriteInode(rip *CacheInode) {
 	// Get the super-block on which the inode resides
 	super := c.supers[rip.dev]
 
@@ -137,7 +137,7 @@ func (c *InodeCache) IsDeviceBusy(devno int) bool {
 // Associate a BlockDevice and *Superblock with a device number so it can be
 // used internally. This operation requires the write portion of the RWMutex
 // since it alters the devs and supers arrays.
-func (c *InodeCache) MountDevice(devno int, dev BlockDevice, super *Superblock) os.Error {
+func (c *InodeCache) MountDevice(devno int, dev RandDevice, super *Superblock) os.Error {
 	if c.devs[devno] != nil || c.supers[devno] != nil {
 		return EBUSY
 	}

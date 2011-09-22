@@ -7,7 +7,7 @@ import (
 // Acquire a new block and return a pointer to it. Doing so may require
 // allocating a complete zone, and then returning the initial block. On the
 // other hand, the current zone may still have some unused blocks.
-func new_block(rip *Inode, position int, btype BlockType, cache BlockCache) (*CacheBlock, os.Error) {
+func new_block(rip *CacheInode, position int, btype BlockType, cache BlockCache) (*CacheBlock, os.Error) {
 	var b int
 	var z int
 	var err os.Error
@@ -58,7 +58,7 @@ func zero_block(bp *CacheBlock, btype BlockType, blocksize int) {
 }
 
 // Write a new zone into an inode
-func write_map(rip *Inode, position int, new_zone int, cache BlockCache) os.Error {
+func write_map(rip *CacheInode, position int, new_zone int, cache BlockCache) os.Error {
 	rip.SetDirty(true) // inode will be changed
 	var bp *CacheBlock = nil
 	var z int
@@ -68,8 +68,8 @@ func write_map(rip *Inode, position int, new_zone int, cache BlockCache) os.Erro
 
 	// relative zone # to insert
 	zone := int((position / rip.BlockSize()) >> rip.Scale())
-	zones := V2_NR_DZONES                                // # direct zones in the inode
-	nr_indirects := int(rip.BlockSize()/ V2_ZONE_NUM_SIZE) // # indirect zones per indirect block
+	zones := V2_NR_DZONES                                   // # direct zones in the inode
+	nr_indirects := int(rip.BlockSize() / V2_ZONE_NUM_SIZE) // # indirect zones per indirect block
 
 	// Is 'position' to be found in the inode itself?
 	if zone < zones {
@@ -140,7 +140,7 @@ func write_map(rip *Inode, position int, new_zone int, cache BlockCache) os.Erro
 		}
 		if z1 == NO_ZONE {
 			cache.PutBlock(bp, INDIRECT_BLOCK) // release dbl indirect block
-			return err                            // couldn't create single indirect block
+			return err                         // couldn't create single indirect block
 		}
 	}
 	cache.PutBlock(bp, INDIRECT_BLOCK) // release dbl indirect block
@@ -166,7 +166,7 @@ func write_map(rip *Inode, position int, new_zone int, cache BlockCache) os.Erro
 // Zero a zone, possibly starting in the middle. The parameter 'pos' gives a
 // byte in the first block to be zeroed. clear_zone is called from
 // read_write() and new_block().
-func clear_zone(rip *Inode, pos int, flag int, cache BlockCache) {
+func clear_zone(rip *CacheInode, pos int, flag int, cache BlockCache) {
 	scale := rip.Scale()
 
 	// If the block size and zone size are the same, clear_zone not needed
@@ -210,7 +210,7 @@ func wr_indir(bp *CacheBlock, index int, zone int) {
 
 // Write 'chunk' bytes from 'buff' into 'rip' at position 'pos' in the file.
 // This is at offset 'off' within the current block.
-func write_chunk(rip *Inode, pos, off, chunk int, buff []byte, cache BlockCache) os.Error {
+func write_chunk(rip *CacheInode, pos, off, chunk int, buff []byte, cache BlockCache) os.Error {
 	var bp *CacheBlock
 	var err os.Error
 

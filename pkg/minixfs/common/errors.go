@@ -1,4 +1,4 @@
-package minixfs
+package common
 
 import (
 	"os"

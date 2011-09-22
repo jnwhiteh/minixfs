@@ -43,12 +43,12 @@ func (fs *fileSystem) shutdown() (err os.Error) {
 }
 
 // Mount the filesystem on 'dev' at 'path' in the root filesystem
-func (fs *fileSystem) mount(dev BlockDevice, path string) os.Error {
+func (fs *fileSystem) mount(dev RandDevice, path string) os.Error {
 	return fs.do_mount(dev, path)
 }
 
 // Unmount a file system by device
-func (fs *fileSystem) unmount(dev BlockDevice) os.Error {
+func (fs *fileSystem) unmount(dev RandDevice) os.Error {
 	return fs.do_unmount(dev)
 }
 
@@ -101,7 +101,7 @@ func (fs *fileSystem) open(proc *Process, path string, oflags int, omode uint16)
 	bits := mode_map[oflags&O_ACCMODE]
 
 	var err os.Error = nil
-	var rip *Inode = nil
+	var rip *CacheInode = nil
 	var exist bool = false
 
 	// If O_CREATE is set, try to make the file
@@ -244,7 +244,7 @@ func (fs *fileSystem) mkdir(proc *Process, path string, mode uint16) os.Error {
 		return EMLINK
 	}
 
-	var rip *Inode
+	var rip *CacheInode
 
 	// Next make the inode. If that fails, return error code
 	bits := I_DIRECTORY | (mode & RWX_MODES & proc.umask)

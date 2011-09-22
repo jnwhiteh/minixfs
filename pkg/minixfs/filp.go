@@ -5,12 +5,12 @@ package minixfs
 type filp struct {
 	mode  uint16
 	flags int
-	inode *Inode
+	inode *CacheInode
 	count int
 	pos   int
 }
 
-func NewFilp(mode uint16, flags int, inode *Inode, count, pos int) *filp {
+func NewFilp(mode uint16, flags int, inode *CacheInode, count, pos int) *filp {
 	return &filp{
 		mode, flags, inode, count, pos,
 	}

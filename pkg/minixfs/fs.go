@@ -6,8 +6,8 @@ import "os"
 
 type FileSystem interface {
 	Shutdown() os.Error
-	Mount(dev BlockDevice, path string) os.Error
-	Unmount(dev BlockDevice) os.Error
+	Mount(dev RandDevice, path string) os.Error
+	Unmount(dev RandDevice) os.Error
 	Spawn(pid int, umask uint16, rootpath string) (*Process, os.Error)
 	Exit(proc *Process)
 	Open(proc *Process, path string, flags int, mode uint16) (*File, os.Error)
@@ -26,7 +26,7 @@ type FileSystem interface {
 // exported methods is thread-safe by ensuring that only one file-system level
 // system call may occur at a time.
 type fileSystem struct {
-	devs   []BlockDevice // the block devices that comprise the file system
+	devs   []RandDevice  // the block devices that comprise the file system
 	supers []*Superblock // the superblocks for the given devices
 
 	// These two members are individually locked and protected, although the
@@ -36,7 +36,7 @@ type fileSystem struct {
 
 	filp    []*filp    // the filp table
 	procs   []*Process // an array of processes that have been spawned
-	finodes map[*Inode]*Finode
+	finodes map[*CacheInode]*Finode
 
 	in  chan m_fs_req
 	out chan m_fs_res
@@ -54,7 +54,7 @@ func OpenFileSystemFile(filename string) (*fileSystem, os.Error) {
 }
 
 // Create a new FileSystem from a given file on the filesystem
-func NewFileSystem(dev BlockDevice) (*fileSystem, os.Error) {
+func NewFileSystem(dev RandDevice) (*fileSystem, os.Error) {
 	var fs *fileSystem = new(fileSystem)
 
 	fs.cache = NewLRUCache()
@@ -66,7 +66,7 @@ func NewFileSystem(dev BlockDevice) (*fileSystem, os.Error) {
 	super.devno = ROOT_DEVICE
 	super.cache = fs.cache
 
-	fs.devs = make([]BlockDevice, NR_SUPERS)
+	fs.devs = make([]RandDevice, NR_SUPERS)
 	fs.supers = make([]*Superblock, NR_SUPERS)
 
 	fs.icache = NewInodeCache(fs.cache, NR_INODES)
@@ -101,7 +101,7 @@ func NewFileSystem(dev BlockDevice) (*fileSystem, os.Error) {
 	}
 
 	// TODO: Limit this?
-	fs.finodes = make(map[*Inode]*Finode, OPEN_MAX)
+	fs.finodes = make(map[*CacheInode]*Finode, OPEN_MAX)
 
 	fs.in = make(chan m_fs_req)
 	fs.out = make(chan m_fs_res)
@@ -164,13 +164,13 @@ func (fs *fileSystem) Shutdown() os.Error {
 	return res.err
 }
 
-func (fs *fileSystem) Mount(dev BlockDevice, path string) os.Error {
+func (fs *fileSystem) Mount(dev RandDevice, path string) os.Error {
 	fs.in <- m_fs_req_mount{dev, path}
 	res := (<-fs.out).(m_fs_res_err)
 	return res.err
 }
 
-func (fs *fileSystem) Unmount(dev BlockDevice) os.Error {
+func (fs *fileSystem) Unmount(dev RandDevice) os.Error {
 	fs.in <- m_fs_req_unmount{dev}
 	res := (<-fs.out).(m_fs_res_err)
 	return res.err

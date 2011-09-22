@@ -5,7 +5,7 @@ import (
 )
 
 // Remove all the zones from the inode and mark it as dirty
-func (fs *fileSystem) truncate(rip *Inode) {
+func (fs *fileSystem) truncate(rip *CacheInode) {
 	file_type := rip.Mode() & I_TYPE
 
 	// check to see if the file is special
@@ -58,7 +58,7 @@ func (fs *fileSystem) truncate(rip *Inode) {
 	// leave zone numbers for de(1) to recover file after an unlink(2)
 }
 
-func (fs *fileSystem) prep_unlink(proc *Process, path string) (*Inode, *Inode, string, os.Error) {
+func (fs *fileSystem) prep_unlink(proc *Process, path string) (*CacheInode, *CacheInode, string, os.Error) {
 	// Get the last directory in the path
 	rldirp, rest, err := fs.last_dir(proc, path)
 	if rldirp == nil {
@@ -95,7 +95,7 @@ func (fs *fileSystem) prep_unlink(proc *Process, path string) (*Inode, *Inode, s
 //   - The directory must be empty (except for . and ..)
 //   - The directory must not be the root of a mounted file system
 //   - The directory must not be anybody's root/working directory
-func (fs *fileSystem) remove_dir(proc *Process, rldirp, rip *Inode, dir_name string) os.Error {
+func (fs *fileSystem) remove_dir(proc *Process, rldirp, rip *CacheInode, dir_name string) os.Error {
 	// check to see if the directory is empty
 	zeroinode := 0
 	if err := fs.search_dir(rip, "", &zeroinode, IS_EMPTY); err != nil {
@@ -128,7 +128,7 @@ func (fs *fileSystem) remove_dir(proc *Process, rldirp, rip *Inode, dir_name str
 }
 
 // Unlink 'file_name'; rip must be the inode of 'file_name' or nil
-func (fs *fileSystem) unlink_file(dirp, rip *Inode, file_name string) os.Error {
+func (fs *fileSystem) unlink_file(dirp, rip *CacheInode, file_name string) os.Error {
 	var numb int
 
 	// If rip is not nil, it is used to get faster access to the inode
