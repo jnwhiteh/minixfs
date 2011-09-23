@@ -155,7 +155,17 @@ func (c *LRUCache) UnmountDevice(devno int) os.Error {
 }
 
 func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
-	c.in <- m_cache_req_get{dev, bnum, btype, only_search}
+	c.in <- m_cache_req_get{dev, bnum, btype, only_search, false}
+	ares := (<-c.out).(m_cache_res_async_block)
+	res := <-ares.ch
+	if res.cb == LRU_ALLINUSE {
+		panic("all buffers in use")
+	}
+	return res.cb
+}
+
+func (c *LRUCache) GetOffsetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
+	c.in <- m_cache_req_get{dev, bnum, btype, only_search, true}
 	ares := (<-c.out).(m_cache_res_async_block)
 	res := <-ares.ch
 	if res.cb == LRU_ALLINUSE {

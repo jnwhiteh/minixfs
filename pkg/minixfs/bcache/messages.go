@@ -27,6 +27,7 @@ type m_cache_req_get struct {
 	bnum        int
 	btype       BlockType
 	only_search int
+	offset      bool
 }
 type m_cache_req_put struct {
 	cb    *CacheBlock

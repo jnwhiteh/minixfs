@@ -20,6 +20,9 @@ type BlockCache interface {
 	UnmountDevice(devno int) os.Error
 	// Get a block from the cache
 	GetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock
+	// Get a block by number, offset by the boot block, superblock and the
+	// bitmap blocks. Block 0 is the first inode block on the filesystem.
+	GetOffsetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock
 	// Release (free) a block back to the cache
 	PutBlock(cb *CacheBlock, btype BlockType) os.Error
 	// Check if the cache contains the given block. If the block exists in the
