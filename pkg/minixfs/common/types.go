@@ -17,6 +17,11 @@ type CacheBlock struct {
 	Buf interface{}
 }
 
+type DeviceInfo struct {
+	MapOffset int // offset to move past bitmap blocks
+	Blocksize int
+}
+
 // CacheInode is a self-aware wrapper around an inode stored on disk.
 type CacheInode struct {
 	Inode Disk_Inode // the inode as stored on disk

@@ -28,8 +28,8 @@ type LRUCache struct {
 	// These struct elements are duplicates of those that can be found in
 	// the FileSystem struct. By duplicating them, we make LRUCache a
 	// self-contained data structure that has a well-defined interface.
-	devs   []RandDevice // the block devices that comprise the file system
-	bsizes []int        // the block sizes for the given devices
+	devs    []RandDevice // the block devices that comprise the file system
+	devinfo []DeviceInfo // the information/parameters for the device
 
 	buf      []*lru_buf // static list of cache blocks
 	buf_hash []*lru_buf // the buffer hash table
@@ -47,7 +47,7 @@ var LRU_ALLINUSE *CacheBlock = new(CacheBlock)
 func NewLRUCache() BlockCache {
 	cache := &LRUCache{
 		devs:     make([]RandDevice, NR_SUPERS),
-		bsizes:   make([]int, NR_SUPERS),
+		devinfo:  make([]DeviceInfo, NR_SUPERS),
 		buf:      make([]*lru_buf, NR_BUFS),
 		buf_hash: make([]*lru_buf, NR_BUF_HASH),
 		in:       make(chan m_cache_req),
@@ -91,7 +91,7 @@ func (c *LRUCache) loop() {
 	for req := range in {
 		switch req := req.(type) {
 		case m_cache_req_mount:
-			err := c.mountDevice(req.devno, req.dev, req.blocksize)
+			err := c.mountDevice(req.devno, req.dev, req.devinfo)
 			out <- m_cache_res_err{err}
 		case m_cache_req_unmount:
 			err := c.unmountDevice(req.dev)
@@ -142,8 +142,8 @@ func (c *LRUCache) loop() {
 	}
 }
 
-func (c *LRUCache) MountDevice(devno int, dev RandDevice, blocksize int) os.Error {
-	c.in <- m_cache_req_mount{devno, dev, blocksize}
+func (c *LRUCache) MountDevice(devno int, dev RandDevice, info DeviceInfo) os.Error {
+	c.in <- m_cache_req_mount{devno, dev, info}
 	res := (<-c.out).(m_cache_res_err)
 	return res.err
 }
@@ -156,16 +156,6 @@ func (c *LRUCache) UnmountDevice(devno int) os.Error {
 
 func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
 	c.in <- m_cache_req_get{dev, bnum, btype, only_search, false}
-	ares := (<-c.out).(m_cache_res_async_block)
-	res := <-ares.ch
-	if res.cb == LRU_ALLINUSE {
-		panic("all buffers in use")
-	}
-	return res.cb
-}
-
-func (c *LRUCache) GetOffsetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
-	c.in <- m_cache_req_get{dev, bnum, btype, only_search, true}
 	ares := (<-c.out).(m_cache_res_async_block)
 	res := <-ares.ch
 	if res.cb == LRU_ALLINUSE {
@@ -214,12 +204,12 @@ func (c *LRUCache) Close() os.Error {
 
 // Associate a BlockDevice and a blocksize with a device number so it can be
 // used internally.
-func (c *LRUCache) mountDevice(devno int, dev RandDevice, blocksize int) os.Error {
-	if c.devs[devno] != nil || c.bsizes[devno] != 0 {
+func (c *LRUCache) mountDevice(devno int, dev RandDevice, info DeviceInfo) os.Error {
+	if c.devs[devno] != nil {
 		return EBUSY
 	}
 	c.devs[devno] = dev
-	c.bsizes[devno] = blocksize
+	c.devinfo[devno] = info
 	return nil
 }
 
@@ -227,7 +217,6 @@ func (c *LRUCache) mountDevice(devno int, dev RandDevice, blocksize int) os.Erro
 // number.
 func (c *LRUCache) unmountDevice(devno int) os.Error {
 	c.devs[devno] = nil
-	c.bsizes[devno] = 0
 	return nil
 }
 
@@ -296,7 +285,7 @@ func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 	// avoid lots of runtime checking to see if we already have a useable
 	// block of data.
 
-	blocksize := c.bsizes[dev]
+	blocksize := c.devinfo[dev].Blocksize
 
 	switch btype {
 	case INODE_BLOCK:
@@ -477,7 +466,7 @@ func (c *LRUCache) flush(dev int) {
 	}
 
 	if ndirty > 0 {
-		blocksize := int64(c.bsizes[dirty[0].Devno])
+		blocksize := int64(c.devinfo[dirty[0].Devno].Blocksize)
 		dev := c.devs[dirty[0].Devno]
 		// TODO: Use the 'Scatter' method instead, if we can
 		for i := 0; i < ndirty; i++ {
@@ -495,7 +484,7 @@ func (c *LRUCache) flush(dev int) {
 }
 
 func (c *LRUCache) WriteBlock(bp *lru_buf) os.Error {
-	blocksize := c.bsizes[bp.Devno]
+	blocksize := c.devinfo[bp.Devno].Blocksize
 	pos := int64(blocksize) * int64(bp.Blockno)
 	err := c.devs[bp.Devno].Write(bp.Block, pos)
 	return err

@@ -18,9 +18,9 @@ type m_cache_res interface {
 }
 
 type m_cache_req_mount struct {
-	devno     int
-	dev       RandDevice
-	blocksize int
+	devno   int
+	dev     RandDevice
+	devinfo DeviceInfo
 }
 type m_cache_req_get struct {
 	devno       int
