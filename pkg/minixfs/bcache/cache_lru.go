@@ -30,8 +30,9 @@ type LRUCache struct {
 	devs    []RandDevice // the block devices that comprise the file system
 	devinfo []DeviceInfo // the information/parameters for the device
 
-	buf      []*lru_buf // static list of cache blocks
-	buf_hash []*lru_buf // the buffer hash table
+	buf       []*lru_buf // static list of cache blocks
+	buf_hash  []*lru_buf // the buffer hash table
+	hash_mask int        // the mask for entries in the buffer hash table
 
 	front *lru_buf // a pointer to the least recently used block
 	rear  *lru_buf // a pointer to the most recently used block
@@ -43,12 +44,12 @@ type LRUCache struct {
 var LRU_ALLINUSE *CacheBlock = new(CacheBlock)
 
 // NewLRUCache creates a new LRUCache with the given size
-func NewLRUCache(numdevices int, numslots int) BlockCache {
+func NewLRUCache(numdevices int, numslots int, numhash int) BlockCache {
 	cache := &LRUCache{
 		devs:     make([]RandDevice, numdevices),
 		devinfo:  make([]DeviceInfo, numdevices),
 		buf:      make([]*lru_buf, numslots),
-		buf_hash: make([]*lru_buf, numslots),
+		buf_hash: make([]*lru_buf, numhash),
 		in:       make(chan m_cache_req),
 		out:      make(chan m_cache_res),
 	}
@@ -77,6 +78,7 @@ func NewLRUCache(numdevices int, numslots int) BlockCache {
 	}
 
 	cache.buf_hash[0] = cache.front
+	cache.hash_mask = numhash - 1
 
 	// Start the main processing loop
 	go cache.loop()
@@ -102,7 +104,7 @@ func (c *LRUCache) loop() {
 			// search for the desired block in the cache
 			var bp *lru_buf
 			if req.devno != NO_DEV {
-				b := req.bnum & HASH_MASK
+				b := req.bnum & c.hash_mask
 				for bp = c.buf_hash[b]; bp != nil; bp = bp.b_hash {
 					if bp.Blockno == req.bnum && bp.Devno == req.devno {
 						// we found what we were looking for!
@@ -151,6 +153,7 @@ func (c *LRUCache) loop() {
 						for _, callback := range bp.waiting {
 							callback <- m_cache_res_block{bp.CacheBlock}
 						}
+						bp.waiting = nil
 						bp.m.Unlock()
 					}()
 				}
@@ -251,7 +254,7 @@ func (c *LRUCache) evictBlock() *lru_buf {
 	c.rm_lru(bp)
 
 	// Remove the block that was just taken from its hash chain
-	b := bp.Blockno & HASH_MASK
+	b := bp.Blockno & c.hash_mask
 	prev_ptr := c.buf_hash[b]
 	if prev_ptr == bp {
 		c.buf_hash[b] = bp.b_hash
@@ -280,7 +283,7 @@ func (c *LRUCache) evictBlock() *lru_buf {
 // loadBlock loads a specified block from a given device into the buffer slot
 // 'bp'. This function requires that the specified device is a valid device,
 // as no further error checking is performed here.
-func (c *LRUCache) loadBlock(bp *lru_buf, dev, bnum int, btype BlockType, only_search int) (os.Error) {
+func (c *LRUCache) loadBlock(bp *lru_buf, dev, bnum int, btype BlockType, only_search int) os.Error {
 	// We use the garbage collector for the actual block data, so invalidate
 	// what we have here and create a new block of data. This allows us to
 	// avoid lots of runtime checking to see if we already have a useable
@@ -310,7 +313,7 @@ func (c *LRUCache) loadBlock(bp *lru_buf, dev, bnum int, btype BlockType, only_s
 	bp.Devno = dev
 	bp.Blockno = bnum
 	bp.Count++
-	b := bp.Blockno & HASH_MASK
+	b := bp.Blockno & c.hash_mask
 	bp.b_hash = c.buf_hash[b]
 	c.buf_hash[b] = bp
 	bp.Buf = bp
@@ -372,7 +375,7 @@ func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) os.Error {
 		}
 		c.front = bp
 	} else {
-		// Block probably will be needed quickly. Put it on read of chain. It
+		// Block probably will be needed quickly. Put it on rear of chain. It
 		// will not be evicted from the cache for a long time.
 		bp.prev = c.rear
 		bp.next = nil

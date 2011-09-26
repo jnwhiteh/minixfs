@@ -19,7 +19,7 @@ func openTestCache(test *testing.T) (RandDevice, *LRUCache) {
 	if err != nil {
 		ErrorHere(test, "Failed when opening ramdisk device: %s", err)
 	}
-	cache := NewLRUCache(1, 10)
+	cache := NewLRUCache(1, 10, 16)
 	err = cache.MountDevice(0, dev, DeviceInfo{0, 64})
 	if err != nil {
 		ErrorHere(test, "Failed when mounting ramdisk device into cache: %s", err)
@@ -44,7 +44,7 @@ func closeTestCache(test *testing.T, dev RandDevice, cache *LRUCache) {
 
 // Check for proper resource cleanup when the cache is closed
 func TestClose(test *testing.T) {
-	cache := NewLRUCache(NR_SUPERS, NR_BUFS).(*LRUCache)
+	cache := NewLRUCache(NR_SUPERS, NR_BUFS, NR_BUF_HASH).(*LRUCache)
 	cache.Close()
 
 	if _, ok := <-cache.in; ok {
