@@ -1,7 +1,7 @@
-package minixfs
+package bcache
 
 import (
-	. "minixfs/common"
+	. "../../minixfs/common/_obj/minixfs/common"
 	"os"
 )
 

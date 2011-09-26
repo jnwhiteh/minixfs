@@ -1,7 +1,7 @@
 package device
 
 import (
-	. "minixfs/common"
+	. "../../minixfs/common/_obj/minixfs/common"
 	"encoding/binary"
 	"io"
 	"io/ioutil"

@@ -1,10 +1,11 @@
-package minixfs
+package bcache
 
 import (
 	"fmt"
 	"log"
-	. "minixfs/common"
+	. "../../minixfs/common/_obj/minixfs/common"
 	"os"
+	"sync"
 )
 
 // An elaboration of the CacheBlock type, decorated with the members we need
@@ -16,10 +17,8 @@ type lru_buf struct {
 
 	b_hash *lru_buf // used to link all bufs for a hash mask together
 
-	// A block can be reserved, preventing it from being evicted. This field
-	// stores the number of reservations that are outstanding for a given
-	// block. A block may only be evicted when this value is 0.
-	reservations int
+	waiting []chan m_cache_res_block // a list of waiting get requests
+	m       *sync.Mutex              // mutex for the waiting slice
 }
 
 // LRUCache is a block cache implementation that will evict the least recently
@@ -44,24 +43,25 @@ type LRUCache struct {
 var LRU_ALLINUSE *CacheBlock = new(CacheBlock)
 
 // NewLRUCache creates a new LRUCache with the given size
-func NewLRUCache() BlockCache {
+func NewLRUCache(numdevices int, numslots int) BlockCache {
 	cache := &LRUCache{
-		devs:     make([]RandDevice, NR_SUPERS),
-		devinfo:  make([]DeviceInfo, NR_SUPERS),
-		buf:      make([]*lru_buf, NR_BUFS),
-		buf_hash: make([]*lru_buf, NR_BUF_HASH),
+		devs:     make([]RandDevice, numdevices),
+		devinfo:  make([]DeviceInfo, numdevices),
+		buf:      make([]*lru_buf, numslots),
+		buf_hash: make([]*lru_buf, numslots),
 		in:       make(chan m_cache_req),
 		out:      make(chan m_cache_res),
 	}
 
 	// Create all of the entries in buf ahead of time
-	for i := 0; i < NR_BUFS; i++ {
+	for i := 0; i < numslots; i++ {
 		cache.buf[i] = new(lru_buf)
 		cache.buf[i].CacheBlock = new(CacheBlock)
 		cache.buf[i].Devno = NO_DEV
+		cache.buf[i].m = new(sync.Mutex)
 	}
 
-	for i := 1; i < NR_BUFS-1; i++ {
+	for i := 1; i < numslots-1; i++ {
 		cache.buf[i].prev = cache.buf[i-1]
 		cache.buf[i].next = cache.buf[i+1]
 	}
@@ -69,10 +69,10 @@ func NewLRUCache() BlockCache {
 	cache.front = cache.buf[0]
 	cache.front.next = cache.buf[1]
 
-	cache.rear = cache.buf[NR_BUFS-1]
-	cache.rear.prev = cache.buf[NR_BUFS-2]
+	cache.rear = cache.buf[numslots-1]
+	cache.rear.prev = cache.buf[numslots-2]
 
-	for i := 0; i < NR_BUFS-1; i++ {
+	for i := 0; i < numslots-1; i++ {
 		cache.buf[i].b_hash = cache.buf[i].next
 	}
 
@@ -98,36 +98,66 @@ func (c *LRUCache) loop() {
 			out <- m_cache_res_err{err}
 		case m_cache_req_get:
 			callback := make(chan m_cache_res_block)
-			out <- m_cache_res_async_block{callback}
 
-			doasync := true
-			if doasync {
-				// Check to see if the block is available
-				avail := c.reserveBlock(req.devno, req.bnum)
-				if avail {
-					// If the block is available, only_search isn't used, so we
-					// drop it in the call to claimBlock.
-					block := c.claimBlock(req.devno, req.bnum, req.btype)
-					callback <- m_cache_res_block{block}
+			// search for the desired block in the cache
+			var bp *lru_buf
+			if req.devno != NO_DEV {
+				b := req.bnum & HASH_MASK
+				for bp = c.buf_hash[b]; bp != nil; bp = bp.b_hash {
+					if bp.Blockno == req.bnum && bp.Devno == req.devno {
+						// we found what we were looking for!
+						break
+					}
+				}
+			}
+
+			if bp != nil && bp.Blockno == req.bnum && bp.Devno == req.devno {
+				bp.m.Lock()
+				if len(bp.waiting) > 0 {
+					// this block is being loaded asynchronously, join the
+					// waiting list
+					bp.waiting = append(bp.waiting, callback)
+					bp.m.Unlock()
+					// the server will become available for another request,
+					// and this request will be finished when the block has
+					// been loaded.
 				} else {
-					go func() {
-						block := c.getBlock(req.devno, req.bnum, req.btype, req.only_search)
-						callback <- m_cache_res_block{block}
-					}()
+					// the block is ready now, so return it
+					bp.m.Unlock()
+					out <- m_cache_res_async_block{callback}
+					callback <- m_cache_res_block{bp.CacheBlock}
 				}
 			} else {
-				block := c.getBlock(req.devno, req.bnum, req.btype, req.only_search)
-				callback <- m_cache_res_block{block}
+				// We will need to load the block from the backing store,
+				// asynchronously. Any get requests performed during this load
+				// should be blocked and woken in FIFO order of the original
+				// request.
+				bp := c.evictBlock()
+				if bp == nil {
+					// LRU_ALLINUSE happened
+					out <- m_cache_res_async_block{callback}
+					callback <- m_cache_res_block{LRU_ALLINUSE}
+				} else {
+					bp.m.Lock()
+					bp.waiting = append(bp.waiting, callback)
+					bp.m.Unlock()
+
+					out <- m_cache_res_async_block{callback}
+
+					// perform a load of this block asynchronously
+					go func() {
+						c.loadBlock(bp, req.devno, req.bnum, req.btype, req.only_search)
+						bp.m.Lock()
+						for _, callback := range bp.waiting {
+							callback <- m_cache_res_block{bp.CacheBlock}
+						}
+						bp.m.Unlock()
+					}()
+				}
 			}
 		case m_cache_req_put:
 			err := c.putBlock(req.cb, req.btype)
 			out <- m_cache_res_err{err}
-		case m_cache_req_reserve:
-			avail := c.reserveBlock(req.dev, req.bnum)
-			out <- m_cache_res_reserve{avail}
-		case m_cache_req_claim:
-			block := c.claimBlock(req.dev, req.bnum, req.btype)
-			out <- m_cache_res_block{block}
 		case m_cache_req_invalidate:
 			c.invalidate(req.dev)
 			out <- m_cache_res_empty{}
@@ -170,18 +200,6 @@ func (c *LRUCache) PutBlock(cb *CacheBlock, btype BlockType) os.Error {
 	return res.err
 }
 
-func (c *LRUCache) Reserve(dev, bnum int) bool {
-	c.in <- m_cache_req_reserve{dev, bnum}
-	res := (<-c.out).(m_cache_res_reserve)
-	return res.avail
-}
-
-func (c *LRUCache) Claim(dev, bnum int, btype BlockType) *CacheBlock {
-	c.in <- m_cache_req_claim{dev, bnum, btype}
-	res := (<-c.out).(m_cache_res_block)
-	return res.cb
-}
-
 func (c *LRUCache) Invalidate(dev int) {
 	c.in <- m_cache_req_invalidate{dev}
 	<-c.out
@@ -220,39 +238,15 @@ func (c *LRUCache) unmountDevice(devno int) os.Error {
 	return nil
 }
 
-// getBlock obtains a specified block from a given device. This function
-// requires that the device specifed is a mounted valid device, no further
-// error checking is performed here.
-func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock {
+func (c *LRUCache) evictBlock() *lru_buf {
 	var bp *lru_buf
-
-	// Search the hash chain for (dev, block). Each block number is hashed to
-	// a bucket in c.buf_hash and the blocks stored there are linked via the
-	// b_hash pointers in the *buf struct.
-	if dev != NO_DEV {
-		b := bnum & HASH_MASK
-		bp = c.buf_hash[b]
-		for bp != nil {
-			if bp.Blockno == bnum && bp.Devno == dev {
-				// Block needed has been found
-				if bp.Count == 0 {
-					c.rm_lru(bp)
-				}
-				bp.Count++
-				return bp.CacheBlock
-			} else {
-				// This block is not the one sought
-				bp = bp.b_hash
-			}
-		}
-	}
 
 	// Desired block is not available on chain. Take oldest block ('front')
 	bp = c.front
 	if bp == nil {
 		// This panic can no longer be raised here, it crashes the server.
 		// Instead we need to return an error, and panic from the handler.
-		return LRU_ALLINUSE
+		return nil
 	}
 	c.rm_lru(bp)
 
@@ -280,6 +274,13 @@ func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 		c.flush(bp.Devno)
 	}
 
+	return bp
+}
+
+// loadBlock loads a specified block from a given device into the buffer slot
+// 'bp'. This function requires that the specified device is a valid device,
+// as no further error checking is performed here.
+func (c *LRUCache) loadBlock(bp *lru_buf, dev, bnum int, btype BlockType, only_search int) (os.Error) {
 	// We use the garbage collector for the actual block data, so invalidate
 	// what we have here and create a new block of data. This allows us to
 	// avoid lots of runtime checking to see if we already have a useable
@@ -309,7 +310,7 @@ func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 	bp.Devno = dev
 	bp.Blockno = bnum
 	bp.Count++
-	b = bp.Blockno & HASH_MASK
+	b := bp.Blockno & HASH_MASK
 	bp.b_hash = c.buf_hash[b]
 	c.buf_hash[b] = bp
 	bp.Buf = bp
@@ -325,13 +326,13 @@ func (c *LRUCache) getBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 				// This read needs to be performed asynchronously.
 				err := c.devs[bp.Devno].Read(bp.Block, pos)
 				if err != nil {
-					return nil
+					return err
 				}
 			}
 		}
 	}
 
-	return bp.CacheBlock
+	return nil
 }
 
 // Return a block to the list of available blocks. Depending on block_type it
@@ -354,10 +355,6 @@ func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) os.Error {
 	// We can find the lru_buf that corresponds to the given CacheBlock by
 	// checking the 'buf' field and coercing it.
 	bp := cb.Buf.(*lru_buf)
-
-	if bp.reservations > 0 { // cannot evict this block, oustanding reservation
-		return nil
-	}
 
 	// Put this block back on the LRU chain. If the ONE_SHOT bit is set in
 	// block_type, the block is not likely to be needed again shortly, so put
@@ -394,42 +391,6 @@ func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) os.Error {
 		return c.WriteBlock(bp)
 	}
 
-	return nil
-}
-
-func (c *LRUCache) reserveBlock(dev, bnum int) bool {
-	var bp *lru_buf
-	if dev != NO_DEV {
-		b := bnum & HASH_MASK
-		bp = c.buf_hash[b]
-		for bp != nil {
-			if bp.Blockno == bnum && bp.Devno == dev {
-				// Block needed has been found
-				bp.reservations++
-				return true
-			} else {
-				// This block is not the one sought
-				bp = bp.b_hash
-			}
-		}
-	}
-	return false
-}
-
-func (c *LRUCache) claimBlock(dev, bnum int, btype BlockType) *CacheBlock {
-	// Perform a getBlock and then decrement the reservations
-	cb := c.getBlock(dev, bnum, btype, NORMAL)
-	if cb != nil && cb.Buf != nil {
-		// ensure that there is an outstanding reservation, first
-		bp := cb.Buf.(*lru_buf)
-		if bp.reservations > 0 {
-			bp.reservations--
-			return cb
-		}
-	}
-
-	// something went wrong with the claim
-	c.putBlock(cb, btype)
 	return nil
 }
 

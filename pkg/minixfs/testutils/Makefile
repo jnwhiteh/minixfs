@@ -1,9 +1,8 @@
 include $(GOROOT)/src/Make.inc
 
-TARG=minixfs/bcache
+TARG=minixfs/testutils
 GOFILES=\
-		cache_lru.go \
-		messages.go \
+		utils.go \
 
 include $(GOROOT)/src/Make.pkg
 

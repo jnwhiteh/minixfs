@@ -1,0 +1,13 @@
+include $(GOROOT)/src/Make.inc
+
+TARG=minixfs/common
+GOFILES=\
+		blocks.go \
+		const.go \
+		disk.go \
+		errors.go \
+		interfaces.go \
+		types.go \
+
+include $(GOROOT)/src/Make.pkg
+

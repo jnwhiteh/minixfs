@@ -1,8 +1,10 @@
 include $(GOROOT)/src/Make.inc
 
-TARG=minixfs/bcache
+TARG=minixfs/device
 GOFILES=\
-		cache_lru.go \
+		device.go \
+		dev_file.go \
+		dev_ramdisk.go \
 		messages.go \
 
 include $(GOROOT)/src/Make.pkg

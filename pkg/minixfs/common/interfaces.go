@@ -22,13 +22,6 @@ type BlockCache interface {
 	GetBlock(dev, bnum int, btype BlockType, only_search int) *CacheBlock
 	// Release (free) a block back to the cache
 	PutBlock(cb *CacheBlock, btype BlockType) os.Error
-	// Check if the cache contains the given block. If the block exists in the
-	// cache, it is marked as ineligible for eviction. If the block is not
-	// currently a member of the cache, returns false.
-	Reserve(dev, bnum int) bool
-	// Claim the reservation on a reserved block. A reservation cannot be
-	// revoked, you must Claim and then Put instead.
-	Claim(dev, bnum int, btype BlockType) *CacheBlock
 	// Invalidate all blocks for a given device
 	Invalidate(dev int)
 	// Flush any dirty blocks for a given device to the device
