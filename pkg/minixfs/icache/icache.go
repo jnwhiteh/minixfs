@@ -1,99 +1,110 @@
 package minixfs
 
 import (
+	. "minixfs/common"
 	"os"
 	"sync"
 )
 
-// The InodeCache provides a way to retrieve inodes and to cache open inodes.
-// There is no explicit way of 'releasing' a cached inode, but an inode with 0
-// count may be re-used.
-type InodeCache struct {
-	// These struct elements are duplicates of those that can be found in the
-	// FileSystem struct. By duplicating them, we make InodeCache a
-	// self-contained data structure that has a well-defined interface.
-	devs   []RandDevice  // the block devices that comprise the file system
-	supers []*Superblock // the superblocks for the given devices
-
-	bcache BlockCache
-
-	inodes []*CacheInode // the list of in-memory inodes
-	size   int
-
-	m *sync.RWMutex
+// A cache for inodes, alleviating the need to directly address the BlockCache
+// each time an inode is required.
+type inodeCache struct {
+	bcache  BlockCache
+	devinfo []DeviceInfo
+	inodes  []*CacheInode
+	m       *sync.Mutex
 }
 
-// Create a new InodeCache with a given size. This cache is internally
-// synchronized, ensuring that the cache is only updated atomically.
-func NewInodeCache(bcache BlockCache, size int) *InodeCache {
-	cache := new(InodeCache)
-	cache.devs = make([]RandDevice, NR_SUPERS)
-	cache.supers = make([]*Superblock, NR_SUPERS)
-	cache.bcache = bcache
+func NewInodeCache(bcache BlockCache) InodeCache {
+	icache := &inodeCache{
+		bcache,
+		make([]DeviceInfo, NR_INODES),
+		make([]*CacheInode, NR_INODES),
+		new(sync.Mutex),
+	}
 
-	cache.inodes = make([]*CacheInode, size)
-	cache.size = size
+	for i := 0; i < NR_INODES; i++ {
+		icache.inodes[i] = new(CacheInode)
+	}
 
-	cache.m = new(sync.RWMutex)
-
-	return cache
+	return icache
 }
 
-func (c *InodeCache) GetInode(dev int, num uint) (*CacheInode, os.Error) {
-	// Acquire the mutex so we can alter the inode cache
+func (c *inodeCache) UpdateDeviceInfo(devno int, info DeviceInfo) {
 	c.m.Lock()
-	defer c.m.Unlock()
+	c.devinfo[devno] = info
+	c.m.Unlock()
+}
 
-	avail := -1
-	for i := 0; i < c.size; i++ {
+func (c *inodeCache) GetInode(devno, inum int) (*CacheInode, os.Error) {
+	var xp *CacheInode
+
+	// Find an available slot
+	c.m.Lock()
+	for i := 0; i < NR_INODES; i++ {
 		rip := c.inodes[i]
-		if rip != nil && rip.Count() > 0 { // only check used slots for (dev, numb)
-			if int(rip.dev) == dev && rip.inum == num {
-				// this is the inode that we are looking for
-				rip.IncCount()
+		if rip.Count > 0 {
+			// only check used slots for (devno, inum)
+			if rip.Devno == devno && rip.Inum == inum {
+				// this is the inode that we're looking for
+				rip.Count++
 				return rip, nil
 			}
 		} else {
-			avail = i // remember this free slot for late
+			xp = rip // remember this free slot for later
 		}
 	}
 
-	// Inode we want is not currently in ise. Did we find a free slot?
-	if avail == -1 { // inode table completely full
+	// Claim this block so it isn't re-used
+	if xp != nil {
+		xp.Count++
+		xp.Devno = devno
+		xp.Inum = inum
+	}
+	c.m.Unlock()
+
+	// Is the inode table completely full?
+	if xp == nil {
 		return nil, ENFILE
 	}
 
-	// A free inode slot has been located. Load the inode into it
-	xp := c.inodes[avail]
-	if xp == nil {
-		xp = NewInode()
-	}
+	// The device cannot be unmounted at this point, because this inode will
+	// appear busy.
+	info := c.devinfo[devno]
+	ioffset := (inum - 1) / info.Blocksize
+	blocknum := ioffset + info.MapOffset
+	inodes_per_block := info.Blocksize / V2_INODE_SIZE
 
-	super := c.supers[dev]
-
-	// For a 4096 block size, inodes 0-63 reside in the first block
-	block_offset := super.Imap_blocks + super.Zmap_blocks + 2
-	block_num := ((num - 1) / super.inodes_per_block) + uint(block_offset)
-
-	// Load the inode from the disk and create in-memory version of it
-	bp := c.bcache.GetBlock(dev, int(block_num), INODE_BLOCK, NORMAL)
-	inodeb := bp.block.(InodeBlock)
+	// Load the inode from the disk and create an in-memory version of it
+	bp := c.bcache.GetBlock(devno, blocknum, INODE_BLOCK, NORMAL)
+	inodeb := bp.Block.(InodeBlock)
 
 	// We have the full block, now get the correct inode entry
-	inode_d := &inodeb[(num-1)%super.inodes_per_block]
-	xp.disk = inode_d
-	xp.super = super
-	xp.dev = dev
-	xp.inum = num
-	xp.SetCount(1)
-	xp.SetDirty(false)
-
-	// add the inode to the cache
-	c.inodes[avail] = xp
+	inode_d := &inodeb[(inum-1)%inodes_per_block]
+	xp.Inode = inode_d
+	xp.Devno = devno
+	xp.Inum = inum
+	xp.Dirty = false
+	xp.Mount = false
 
 	return xp, nil
 }
 
+func (c *inodeCache) PutInode(rip *CacheInode) {
+}
+
+func (c *inodeCache) IsDeviceBusy(devno int) bool {
+	c.m.Lock()
+	count := 0
+	for i := 0; i < NR_INODES; i++ {
+		count += c.inodes[i].Count
+	}
+	c.m.Unlock()
+
+	return count != 1
+}
+
+/*
 // An entry in the inode table is to be written to disk (via the buffer cache)
 func (c *InodeCache) WriteInode(rip *CacheInode) {
 	// Get the super-block on which the inode resides
@@ -153,3 +164,5 @@ func (c *InodeCache) UnmountDevice(devno int) os.Error {
 	c.supers[devno] = nil
 	return nil
 }
+
+*/

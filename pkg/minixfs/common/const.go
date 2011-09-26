@@ -38,12 +38,13 @@ const (
 	IMAP = 0 // operations are on the inode bitmap
 	ZMAP = 1 // operations are on the zone bitmap
 
-	NO_ZONE  = 0
-	NO_BLOCK = 0
-	NO_BIT   = 0
-	NO_DEV   = -1
-	NO_FILE  = -1
-	NO_INODE = -1
+	NO_ZONE        = 0
+	NO_BLOCK       = 0
+	NO_BIT         = 0
+	NO_DEV         = -1
+	NO_FILE        = -1
+	NO_INODE       = -1
+	RESERVED_INODE = -2
 
 	// When a block is released, the type of usage is passed to put_block()
 	WRITE_IMMED = 0100 // block should be written to disk now

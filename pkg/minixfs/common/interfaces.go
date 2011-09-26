@@ -51,3 +51,16 @@ type Superblock interface {
 	// Close the superblock
 	Close() os.Error
 }
+
+type InodeCache interface {
+	// Update the information about a given device
+	UpdateDeviceInfo(devno int, info DeviceInfo)
+	// Get an inode from the given device
+	GetInode(devno, inum int) (*CacheInode, os.Error)
+	// Return the given inode to the cache. If the inode has been altered and
+	// it has no other clients, it should be written to the block cache.
+	PutInode(rip *CacheInode)
+	// Returns whether or not the given device is busy. As non-busy device has
+	// exactly one client of the root inode.
+	IsDeviceBusy(devno int) bool
+}
