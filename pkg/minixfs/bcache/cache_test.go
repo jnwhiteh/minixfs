@@ -9,10 +9,10 @@ import (
 
 func openTestCache(test *testing.T) (RandDevice, *LRUCache) {
 	bsize := 64
-	data := make([]byte, bsize * 100)
-	for i := 0; i < 100; i ++ {
+	data := make([]byte, bsize*100)
+	for i := 0; i < 100; i++ {
 		for j := 0; j < 64; j++ {
-			data[(i * 64) + j] = byte(i)
+			data[(i*64)+j] = byte(i)
 		}
 	}
 	dev, err := NewRamdiskDevice(data)
@@ -64,6 +64,20 @@ func TestLRUOrder(test *testing.T) {
 	blocks := make([]*CacheBlock, 10)
 	for i := 0; i < 10; i++ {
 		blocks[i] = cache.GetBlock(0, i, FULL_DATA_BLOCK, NORMAL)
+	}
+
+	// put them back
+	for i := 0; i < 10; i++ {
+		cache.PutBlock(blocks[i], FULL_DATA_BLOCK)
+	}
+
+	// now fetch 10 more different blocks
+	blocks2 := make([]*CacheBlock, 10)
+	for i := 0; i < 10; i++ {
+		blocks2[i] = cache.GetBlock(0, i+10, FULL_DATA_BLOCK, NORMAL)
+		if blocks2[i] != blocks[0+i] {
+			ErrorHere(test, "cache block mismatch, expected %p, got %p", blocks[9-i], blocks2[i])
+		}
 	}
 
 	closeTestCache(test, dev, cache)
