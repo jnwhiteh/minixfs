@@ -2,25 +2,14 @@ package bcache
 
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
-	. "../../minixfs/device/_obj/minixfs/device"
 	. "../../minixfs/testutils/_obj/minixfs/testutils"
 	"testing"
 )
 
 func openTestCache(test *testing.T) (RandDevice, *LRUCache) {
-	bsize := 64
-	data := make([]byte, bsize*100)
-	for i := 0; i < 100; i++ {
-		for j := 0; j < 64; j++ {
-			data[(i*64)+j] = byte(i)
-		}
-	}
-	dev, err := NewRamdiskDevice(data)
-	if err != nil {
-		ErrorHere(test, "Failed when opening ramdisk device: %s", err)
-	}
-	cache := NewLRUCache(1, 10, 16)
-	err = cache.MountDevice(0, dev, DeviceInfo{0, 64})
+	dev := NewTestDevice(test, 64, 100)
+	cache := NewLRUCache(4, 10, 16)
+	err := cache.MountDevice(0, dev, DeviceInfo{0, 64})
 	if err != nil {
 		ErrorHere(test, "Failed when mounting ramdisk device into cache: %s", err)
 	}
