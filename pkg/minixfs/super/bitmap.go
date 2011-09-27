@@ -1,4 +1,4 @@
-package minixfs
+package super
 
 import "os"
 

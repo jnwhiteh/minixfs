@@ -2,7 +2,7 @@ package super
 
 import (
 	"math"
-	. "minixfs/common"
+	. "../../minixfs/common/_obj/minixfs/common"
 	"os"
 )
 

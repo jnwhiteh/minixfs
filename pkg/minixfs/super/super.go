@@ -2,7 +2,7 @@ package super
 
 import "log"
 import "math"
-import . "minixfs/common"
+import . "../../minixfs/common/_obj/minixfs/common"
 import "os"
 
 const FS_BITCHUNK_BITS = 16 // the number of bits in a bitchunk_t
