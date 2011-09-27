@@ -56,4 +56,6 @@ type InodeCache interface {
 	// Returns whether or not the given device is busy. As non-busy device has
 	// exactly one client of the root inode.
 	IsDeviceBusy(devno int) bool
+	// Close the inode cache
+	Close() os.Error
 }
