@@ -71,3 +71,25 @@ func TestLRUOrder(test *testing.T) {
 
 	closeTestCache(test, dev, cache)
 }
+
+func TestCacheFullPanic(test *testing.T) {
+	dev, cache := openTestCache(test)
+
+	for i := 0; i < 10; i++ {
+		_ = cache.GetBlock(0, i, FULL_DATA_BLOCK, NORMAL)
+	}
+
+	done := make(chan bool)
+	go func() {
+		defer func() {
+			if x := recover(); x == nil {
+				ErrorHere(test, "Expected all buffers in use panic")
+			}
+			done <- true
+		}()
+		_ = cache.GetBlock(0, 11, FULL_DATA_BLOCK, NORMAL)
+	}()
+
+	<-done
+	closeTestCache(test, dev, cache)
+}
