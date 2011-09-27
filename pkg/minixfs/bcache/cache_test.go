@@ -3,6 +3,7 @@ package bcache
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
 	. "../../minixfs/testutils/_obj/minixfs/testutils"
+	"sync"
 	"testing"
 )
 
@@ -91,5 +92,42 @@ func TestCacheFullPanic(test *testing.T) {
 	}()
 
 	<-done
+	closeTestCache(test, dev, cache)
+}
+
+func TestGetConcurrency(test *testing.T) {
+	dev, cache := openTestCache(test)
+	bdev := NewBlockingDevice(NewTestDevice(test, 64, 100))
+	cache.MountDevice(1, bdev, DeviceInfo{0, 64})
+
+	// Test that reads from a normal device are not blocked by reads from a
+	// broken device.
+	wg := new(sync.WaitGroup)
+	wg.Add(2)
+	go func() {
+		// Do the read on the broken device
+		cb := cache.GetBlock(1, 0, FULL_DATA_BLOCK, NORMAL)
+		cache.PutBlock(cb, FULL_DATA_BLOCK)
+		wg.Done()
+	}()
+
+	go func() {
+		// Wait for the device to be blocked
+		<-bdev.HasBlocked
+		cb := cache.GetBlock(0, 0, FULL_DATA_BLOCK, NORMAL)
+		// Now unblock that device so we can shut down
+		bdev.Unblock <- true
+		cache.PutBlock(cb, FULL_DATA_BLOCK)
+
+		wg.Done()
+	}()
+
+	wg.Wait()
+	if err := cache.UnmountDevice(1); err != nil {
+		ErrorHere(test, "Failed when unmounting device: %s", err)
+	}
+	if err := bdev.Close(); err != nil {
+		ErrorHere(test, "Failed when closing device: %s", err)
+	}
 	closeTestCache(test, dev, cache)
 }
