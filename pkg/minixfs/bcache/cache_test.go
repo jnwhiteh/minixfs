@@ -131,3 +131,69 @@ func TestGetConcurrency(test *testing.T) {
 	}
 	closeTestCache(test, dev, cache)
 }
+
+// Test that blocks are cached. This test will deadlock if more than one block
+// read is attempted from the underlying device.
+func TestDoesCache(test *testing.T) {
+	// Open an always-broken device
+	dev := NewBlockingDevice(NewTestDevice(test, 64, 100))
+	cache := NewLRUCache(4, 10, 16)
+	err := cache.MountDevice(0, dev, DeviceInfo{0, 64})
+	if err != nil {
+		ErrorHere(test, "Failed when mounting ramdisk device into cache: %s", err)
+	}
+
+	wg := new(sync.WaitGroup)
+	wg.Add(2)
+
+	go func() {
+		// Allow a single block to be read
+		<-dev.HasBlocked
+		dev.Unblock <- true
+		wg.Done()
+	}()
+
+	go func() {
+		cb1 := cache.GetBlock(0, 5, FULL_DATA_BLOCK, NORMAL)
+		data, ok := cb1.Block.(FullDataBlock)
+		if !ok {
+			ErrorHere(test, "Did not get a FullDataBlock")
+		}
+		if data[0] != 5 {
+			ErrorHere(test, "Data in block did not match, expected %x, got %x", 5, data[0])
+		}
+
+		// this should be pulled from the cache, not from the device
+		cb2 := cache.GetBlock(0, 5, FULL_DATA_BLOCK, NORMAL)
+		if cb1 != cb2 {
+			ErrorHere(test, "Cache block mismatch, expected %p, got %p", cb1, cb2)
+		}
+		data, ok = cb2.Block.(FullDataBlock)
+		if !ok {
+			ErrorHere(test, "Did not get a FullDataBlock")
+		}
+		if data[0] != 5 {
+			ErrorHere(test, "Data in block did not match, expected %x, got %x", 5, data[0])
+		}
+
+		cache.PutBlock(cb1, FULL_DATA_BLOCK)
+		cache.PutBlock(cb2, FULL_DATA_BLOCK)
+
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	err = cache.UnmountDevice(0)
+	if err != nil {
+		ErrorHere(test, "Failed when unmounting ramdisk device: %s", err)
+	}
+
+	if err = cache.Close(); err != nil {
+		ErrorHere(test, "Failed when closing cache: %s", err)
+	}
+
+	if err = dev.Close(); err != nil {
+		ErrorHere(test, "Failed when closing device: %s", err)
+	}
+}
