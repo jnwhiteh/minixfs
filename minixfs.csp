@@ -1,51 +1,74 @@
-N=4
-Clients = {0..N-1}
+datatype CallType = C | R | X
+datatype B = GetB | PutB
+datatype S = Alloc | Free
+datatype I = GetI | PutI
+datatype F = Read | Write
+datatype D = Lookup | Link
+datatype SC = Fopen | Fclose | Fread | Fwrite
 
-channel read_block, write_block
-channel get_block, put_block
-channel sc_mount, sc_unmount, sc_open, sc_unlink : Clients
-channel sc_close, sc_read, sc_write, sc_seek : Clients
+channel dev_read
+channel b : B.CallType
+channel s : S.CallType
+channel i : I.CallType
+channel f : F.CallType
+channel d : D.CallType
+channel sc : SC.CallType
 
--- Block device, able to read and write blocks in hardware
-Device = read_block -> Device
-      [] write_block -> Device
+CACHE_SIZE=3
+OPEN_FILES=3
 
--- A cache that performs no caching
-PassCache = get_block -> read_block -> PassCache
-         [] put_block -> write_block -> PassCache
+BlockCache(n,m) = (m > 0) & b.PutB.X -> BlockCache(n,m-1)
+             [] ((n + m) < CACHE_SIZE) & b.GetB.C -> BlockCache(n+1,m)
+             [] (n > 0) & dev_read -> b.GetB.R -> BlockCache(n-1,m+1)
 
--- A single threaded client that can open exactly one file at a time.
-SimpleClient(n) = sc_mount!n -> SimpleClient(n)
-               [] sc_unmount!n -> SimpleClient(n)
-               [] sc_unlink!n -> SimpleClient(n)
-               [] sc_open!n -> SimpleClientOpen(n)
+BlockCache0 = BlockCache(0,0)
 
--- A single threaded client with exactly one file open
-SimpleClientOpen(n) = sc_close!n -> SimpleClient(n)
-                   [] sc_read!n -> SimpleClientOpen(n)
-                   [] sc_write!n -> SimpleClientOpen(n)
-                   [] sc_seek!n -> SimpleClientOpen(n)
+Superblock = s.Alloc.C -> b.GetB.C -> b.GetB.R -> b.PutB.X -> s.Alloc.R -> Superblock
+          [] s.Free.C -> b.GetB.C -> b.GetB.R ->  b.PutB.X -> s.Free.R -> Superblock
 
--- A single-threaded file server that
-SimpleFS = sc_mount?n -> SimpleFS
-        [] sc_unmount?n -> SimpleFS
-        [] sc_open?n -> SimpleFS
-        [] sc_unlink?n -> SimpleFS
-        [] sc_close?n -> SimpleFS
-        [] sc_read?n -> SimpleFS
-        [] sc_write?n -> SimpleFS
-        [] sc_seek?n -> SimpleFS
+InodeCache(n,m) = (m > 0) & i.PutI.X -> InodeCache(n,m-1)
+             [] ((n + m) < CACHE_SIZE) & i.GetI.C -> InodeCache(n+1,m)
+             [] (n > 0) & b.GetB.C -> b.GetB.R -> i.GetI.R -> b.PutB.X -> InodeCache(n-1,m+1)
 
-allevents = {|sc_mount, sc_unmount, sc_open, sc_unlink, sc_close, sc_read, sc_write, sc_seek|}
-openhide = {|sc_mount, sc_unmount, sc_unlink, sc_read, sc_write, sc_seek|}
+InodeCache0 = InodeCache(0,0)
 
-OpenClose(n) = sc_open!n -> sc_close!n -> OpenClose(n)
-OpenOpen(n) = sc_open!n -> sc_open!n -> OpenOpen(n)
+Finode = f.Read.C -> FinodeReading
+      [] f.Write.C -> FinodeWriting
 
-SimpleSystem = SimpleClient(0) [allevents||allevents] SimpleFS
-SimpleSystemH = SimpleSystem \ openhide
+FinodeReading = b.GetB.C -> b.GetB.R -> b.PutB.X -> FinodeReading
+             [] b.GetB.C -> b.GetB.R -> b.PutB.X -> f.Read.R -> Finode
 
--- Trace refinement indicates that the left can perform at least everything in right
-assert SimpleSystemH [T= STOP               -- can do nothing
-assert SimpleSystemH [T= OpenClose(0)       -- can open and close files
-assert SimpleSystemH [T= OpenOpen(0)        -- (fail) cannot open file twice
+FinodeWriting = b.GetB.C -> b.GetB.R -> b.PutB.X -> FinodeWriting
+             [] b.GetB.C -> b.GetB.R -> b.PutB.X -> s.Alloc.C -> s.Alloc.R -> s.Free.C -> s.Free.R -> FinodeWriting
+             [] b.GetB.C -> b.GetB.R -> b.PutB.X -> f.Write.R -> Finode
+
+Dinode = d.Lookup.C -> b.GetB.C -> b.GetB.R -> b.PutB.X -> i.GetI.C -> i.GetI.R -> i.PutI.X -> d.Lookup.R -> Dinode
+      [] d.Link.C -> b.GetB.C -> b.GetB.R -> b.PutB.X -> s.Alloc.C -> s.Alloc.R -> s.Free.C -> s.Free.R -> b.GetB.C -> b.GetB.R -> b.PutB.X -> d.Link.R -> Dinode
+
+Syscalls = sc.Fopen.C -> d.Lookup.C -> d.Lookup.R -> s.Alloc.C -> s.Alloc.R -> d.Link.C -> d.Link.R -> sc.Fopen.R -> Syscalls
+        [] sc.Fclose.C -> sc.Fclose.R -> Syscalls
+        [] sc.Fread.C -> f.Fread.C -> f.Fread.R -> sc.Fread.R -> Syscalls
+        [] sc.Fwrite.C -> f.Fwrite.C -> f.Fwrite.R -> sc.Fwrite.R -> Syscalls 
+
+Alpha = Dinode ||| Finode
+Beta = Syscalls [| {|d.Lookup, d.Link, f.Read, f.Write|} |] Alpha
+Gamma = Superblock [| {|s.Alloc, s.Free|} |] Beta
+Delta = InodeCache0 [| {|i.GetI, i.PutI|} |] Gamma
+FileSystem = BlockCache0 [| {|b.GetB, b.PutB|} |] Delta
+FileSystemH = FileSystem \ InternalEvents
+
+InternalEvents = {|b, s, i, f, d, dev_read|}
+
+Client(n) = (n < 3) & sc.Fopen.C -> sc.Fopen.R -> Client(n+1)
+         [] (n > 0) & sc.Fclose.C -> sc.Fclose.R -> Client(n-1)
+         [] (n > 0) & sc.Fread.C -> sc.Fread.R -> Client(n)
+         [] (n > 0) & sc.Fwrite.C -> sc.Fwrite.R -> Client(n)
+
+
+ClientSpec(n) = (n < 3) & sc.Fopen.C -> sc.Fopen.R -> ClientSpec(n+1)
+             [] (n > 0) & sc.Fclose.C -> sc.Fclose.R -> ClientSpec(n-1)
+             [] (n > 0) & sc.Fread.C -> sc.Fread.R -> ClientSpec(n)
+             [] (n > 0) & sc.Fwrite.C -> sc.Fwrite.R -> ClientSpec(n)
+
+assert (FileSystem [| SyscallEvents |] Client(0)) [T= STOP
+assert (FileSystem [| SyscallEvents |] Client(0)) [T= ClientSpec(0)

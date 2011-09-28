@@ -1,0 +1,14 @@
+digraph G {
+
+    Syscalls -> Dinode;
+    Syscalls -> Finode;
+    Syscalls -> Superblock;
+    Dinode -> BlockCache;
+    Dinode -> Superblock;
+    Dinode -> InodeCache;
+    Finode -> BlockCache;
+    Finode -> Superblock;
+    InodeCache -> BlockCache;
+    Superblock -> BlockCache;
+};
+
