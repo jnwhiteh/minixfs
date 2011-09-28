@@ -1,6 +1,7 @@
 package minixfs
 
 import (
+	. "../../minixfs/common/_obj/minixfs/common"
 	"log"
 	"os"
 	"sync"
@@ -99,7 +100,7 @@ func (fi *Finode) read(b []byte, pos int) (int, os.Error) {
 
 	// Determine what the ending position to be read is
 	endpos := curpos + len(b)
-	fsize := int(fi.inode.Size())
+	fsize := int(fi.inode.Inode.Size)
 	if endpos >= int(fsize) {
 		endpos = int(fsize) - 1
 	}
@@ -113,8 +114,8 @@ func (fi *Finode) read(b []byte, pos int) (int, os.Error) {
 
 	// TODO: Error check this
 	// read the first data block and copy the portion of data we need
-	bp := fi.cache.GetBlock(fi.inode.dev, bnum, FULL_DATA_BLOCK, NORMAL)
-	bdata, bok := bp.block.(FullDataBlock)
+	bp := fi.cache.GetBlock(fi.inode.Devno, bnum, FULL_DATA_BLOCK, NORMAL)
+	bdata, bok := bp.Block.(FullDataBlock)
 	if !bok {
 		// TODO: Attempt to read from an invalid location, what should happen?
 		return 0, EINVAL
@@ -143,13 +144,13 @@ func (fi *Finode) read(b []byte, pos int) (int, os.Error) {
 	// will likely be a partial block, so handle that specially.
 	for numBytes < len(b) {
 		bnum = read_map(fi.inode, curpos, fi.cache)
-		bp := fi.cache.GetBlock(fi.inode.dev, bnum, FULL_DATA_BLOCK, NORMAL)
-		if _, sok := bp.block.(FullDataBlock); !sok {
-			log.Printf("block num: %d, count: %d", bp.blocknr, bp.count)
+		bp := fi.cache.GetBlock(fi.inode.Devno, bnum, FULL_DATA_BLOCK, NORMAL)
+		if _, sok := bp.Block.(FullDataBlock); !sok {
+			log.Printf("block num: %d, count: %d", bp.Blockno, bp.Count)
 			log.Panicf("When reading block %d for position %d, got IndirectBlock", bnum, curpos)
 		}
 
-		bdata = bp.block.(FullDataBlock)
+		bdata = bp.Block.(FullDataBlock)
 
 		bytesLeft := len(b) - numBytes // the number of bytes still needed
 
@@ -184,7 +185,7 @@ func (fi *Finode) write(data []byte, pos int) (n int, err os.Error) {
 	// in the original source. At some point it should be reviewed.
 	cum_io := 0
 	position := pos
-	fsize := int(fi.inode.Size())
+	fsize := int(fi.inode.Inode.Size)
 
 	// Check in advance to see if file will grow too big
 	if position > fi.maxsize-len(data) {
@@ -203,7 +204,13 @@ func (fi *Finode) write(data []byte, pos int) (n int, err os.Error) {
 	// Split the transfer into chunks that don't span two blocks.
 	for nbytes != 0 {
 		off := (position % bsize)
-		chunk := _MIN(nbytes, bsize-off)
+		var min int
+		if nbytes < bsize-off {
+			min = nbytes
+		} else {
+			min = bsize-off
+		}
+		chunk := min
 		if chunk < 0 {
 			chunk = bsize - off
 		}
@@ -221,15 +228,16 @@ func (fi *Finode) write(data []byte, pos int) (n int, err os.Error) {
 		position += chunk   // position within the file
 	}
 
-	if fi.inode.GetType() == I_REGULAR || fi.inode.GetType() == I_DIRECTORY {
+	itype := fi.inode.Inode.Mode & I_TYPE
+	if itype == I_REGULAR || itype == I_DIRECTORY {
 		if position > fsize {
-			fi.inode.SetSize(int32(position))
+			fi.inode.Inode.Size = int32(position)
 		}
 	}
 
 	// TODO: Update times
 	if err == nil {
-		fi.inode.SetDirty(true)
+		fi.inode.Dirty = true
 	}
 
 	return cum_io, err
