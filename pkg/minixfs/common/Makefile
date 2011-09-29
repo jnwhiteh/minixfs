@@ -7,6 +7,8 @@ GOFILES=\
 		disk.go \
 		errors.go \
 		interfaces.go \
+		read.go \
+		write.go \
 		types.go \
 
 include $(GOROOT)/src/Make.pkg
