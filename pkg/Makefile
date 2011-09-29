@@ -1,4 +1,4 @@
-all: bcache common device icache super testutils
+all: bcache common device finode icache super testutils
 
 common:
 	make -C minixfs/common
@@ -15,11 +15,11 @@ super: common
 testutils: common device
 	make -C minixfs/testutils
 
-icache: common
-	make -C minixfs/icache
-
 finode: common
 	make -C minixfs/finode
+
+icache: common
+	make -C minixfs/icache
 
 clean:
 	make clean -C minixfs/bcache
