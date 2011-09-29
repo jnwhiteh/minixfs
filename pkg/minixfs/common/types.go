@@ -18,8 +18,12 @@ type CacheBlock struct {
 }
 
 type DeviceInfo struct {
-	MapOffset int // offset to move past bitmap blocks
-	Blocksize int
+	MapOffset     int // offset to move past bitmap blocks
+	Blocksize     int
+	Scale         uint // Log_zone_scale from the superblock
+	Firstdatazone int  // the first data zone on the system
+	Zones         int
+	Maxsize       int
 }
 
 // CacheInode is a self-aware wrapper around an inode stored on disk.
