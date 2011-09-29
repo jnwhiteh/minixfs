@@ -28,10 +28,12 @@ type DeviceInfo struct {
 
 // CacheInode is a self-aware wrapper around an inode stored on disk.
 type CacheInode struct {
-	Inode *Disk_Inode // the inode as stored on disk
-	Devno int
-	Inum  int
-	Count int
-	Dirty bool
-	Mount bool
+	Inode   *Disk_Inode // the inode as stored on disk
+	Super   Superblock
+	Devinfo DeviceInfo
+	Devno   int
+	Inum    int
+	Count   int
+	Dirty   bool
+	Mount   bool
 }
