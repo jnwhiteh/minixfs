@@ -36,7 +36,7 @@ func NewTestDevice(test *testing.T, bsize, blocks int) RandDevice {
 type BlockingDevice struct {
 	RandDevice
 	HasBlocked chan bool
-	Unblock chan bool
+	Unblock    chan bool
 }
 
 func NewBlockingDevice(rdev RandDevice) *BlockingDevice {

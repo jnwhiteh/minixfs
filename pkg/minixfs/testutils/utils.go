@@ -9,7 +9,7 @@ import (
 func ErrorLevel(test *testing.T, level int, str string, args ...interface{}) {
 	_, file, line, _ := runtime.Caller(level)
 	info := fmt.Sprintf("[%s:%d] ", file, line)
-	test.Errorf(info + str, args...)
+	test.Errorf(info+str, args...)
 }
 
 func ErrorHere(test *testing.T, str string, args ...interface{}) {
@@ -19,5 +19,5 @@ func ErrorHere(test *testing.T, str string, args ...interface{}) {
 func FatalHere(test *testing.T, str string, args ...interface{}) {
 	_, file, line, _ := runtime.Caller(1)
 	info := fmt.Sprintf("[%s:%d] ", file, line)
-	test.Fatalf(info + str, args...)
+	test.Fatalf(info+str, args...)
 }
