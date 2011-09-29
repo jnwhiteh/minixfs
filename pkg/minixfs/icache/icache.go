@@ -15,6 +15,8 @@ type inodeCache struct {
 	devinfo []DeviceInfo  // information about the devices attached to the block cache
 	inodes  []*CacheInode // all cache slots
 
+	// TODO: Need to store superblocks
+
 	in  chan m_icache_req
 	out chan m_icache_res
 
