@@ -14,12 +14,10 @@ import (
 // read() call for this file. In particular, open/close operations must not
 // block reads, and multiple independent read requests must be allowed.
 type Finode struct {
-	inode     *CacheInode
-	scale     uint
-	blocksize int
-	maxsize   int
-	cache     BlockCache
-	count     int
+	inode   *CacheInode
+	devinfo DeviceInfo
+	cache   BlockCache
+	count   int
 
 	in  chan m_finode_req
 	out chan m_finode_res
@@ -105,12 +103,12 @@ func (fi *Finode) read(b []byte, pos int) (int, os.Error) {
 		endpos = int(fsize) - 1
 	}
 
-	blocksize := fi.blocksize
+	blocksize := fi.devinfo.Blocksize
 
 	// We can't just start reading at the start of a block, since we may be at
 	// an offset within that block. So work out the first chunk to read
 	offset := curpos % blocksize
-	bnum := read_map(fi.inode, curpos, fi.cache)
+	bnum := ReadMap(fi.inode, curpos, fi.cache)
 
 	// TODO: Error check this
 	// read the first data block and copy the portion of data we need
@@ -143,7 +141,7 @@ func (fi *Finode) read(b []byte, pos int) (int, os.Error) {
 	// At this stage, all reads should be on block boundaries. The final block
 	// will likely be a partial block, so handle that specially.
 	for numBytes < len(b) {
-		bnum = read_map(fi.inode, curpos, fi.cache)
+		bnum = ReadMap(fi.inode, curpos, fi.cache)
 		bp := fi.cache.GetBlock(fi.inode.Devno, bnum, FULL_DATA_BLOCK, NORMAL)
 		if _, sok := bp.Block.(FullDataBlock); !sok {
 			log.Printf("block num: %d, count: %d", bp.Blockno, bp.Count)
@@ -188,7 +186,7 @@ func (fi *Finode) write(data []byte, pos int) (n int, err os.Error) {
 	fsize := int(fi.inode.Inode.Size)
 
 	// Check in advance to see if file will grow too big
-	if position > fi.maxsize-len(data) {
+	if position > fi.devinfo.Maxsize-len(data) {
 		return 0, EFBIG
 	}
 
@@ -196,10 +194,10 @@ func (fi *Finode) write(data []byte, pos int) (n int, err os.Error) {
 	// created. This is necessary because all unwritten blocks prior to the
 	// EOF must read as zeros.
 	if position > fsize {
-		clear_zone(fi.inode, fsize, 0, fi.cache)
+		ClearZone(fi.inode, fsize, 0, fi.cache)
 	}
 
-	bsize := fi.blocksize
+	bsize := fi.devinfo.Blocksize
 	nbytes := len(data)
 	// Split the transfer into chunks that don't span two blocks.
 	for nbytes != 0 {
@@ -208,7 +206,7 @@ func (fi *Finode) write(data []byte, pos int) (n int, err os.Error) {
 		if nbytes < bsize-off {
 			min = nbytes
 		} else {
-			min = bsize-off
+			min = bsize - off
 		}
 		chunk := min
 		if chunk < 0 {
@@ -216,7 +214,7 @@ func (fi *Finode) write(data []byte, pos int) (n int, err os.Error) {
 		}
 
 		// Read or write 'chunk' bytes, fetch the first block
-		err = write_chunk(fi.inode, position, off, chunk, data, fi.cache)
+		err = WriteChunk(fi.inode, position, off, chunk, data, fi.cache)
 		if err != nil {
 			break // EOF reached
 		}
