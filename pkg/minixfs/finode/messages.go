@@ -39,7 +39,9 @@ type m_finode_res_asyncio struct {
 	callback <-chan m_finode_res_io
 }
 
-type m_finode_res_empty struct{}
+type m_finode_res_err struct {
+	err os.Error
+}
 
 // For type-checking
 func (m m_finode_req_read) is_m_finode_req()  {}
@@ -48,7 +50,7 @@ func (m m_finode_req_close) is_m_finode_req() {}
 
 func (m m_finode_res_io) is_m_finode_res()      {}
 func (m m_finode_res_asyncio) is_m_finode_res() {}
-func (m m_finode_res_empty) is_m_finode_res()   {}
+func (m m_finode_res_err) is_m_finode_res()   {}
 
 // Check interface implementation
 var _ m_finode_req = m_finode_req_read{}
@@ -57,4 +59,4 @@ var _ m_finode_req = m_finode_req_close{}
 
 var _ m_finode_res = m_finode_res_io{}
 var _ m_finode_res = m_finode_res_asyncio{}
-var _ m_finode_res = m_finode_res_empty{}
+var _ m_finode_res = m_finode_res_err{}

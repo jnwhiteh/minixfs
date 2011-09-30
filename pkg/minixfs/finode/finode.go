@@ -80,15 +80,10 @@ func (fi *Finode) Write(data []byte, pos int) (n int, err os.Error) {
 }
 
 // Close an instance of this finode.
-func (fi *Finode) Close() {
+func (fi *finode) Close() os.Error {
 	fi.in <- m_finode_req_close{}
-	<-fi.out
-
-	// this fails
-	// res := (<-fi.out).(m_finode_res_empty)
-	// _ = res // dummy
-
-	return
+	res := (<-fi.out).(m_finode_res_err)
+	return res.err
 }
 
 func (fi *Finode) read(b []byte, pos int) (int, os.Error) {
