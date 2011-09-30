@@ -18,8 +18,9 @@ type m_icache_res interface {
 }
 
 // Request types
-type m_icache_req_updatedevinfo struct {
+type m_icache_req_mount struct {
 	devno int
+	super Superblock
 	info  DeviceInfo
 }
 type m_icache_req_getinode struct {
@@ -51,7 +52,7 @@ type m_icache_res_err struct {
 }
 
 // For interface implementations
-func (m m_icache_req_updatedevinfo) is_m_icache_req() {}
+func (m m_icache_req_mount) is_m_icache_req() {}
 func (m m_icache_req_getinode) is_m_icache_req()      {}
 func (m m_icache_req_putinode) is_m_icache_req()      {}
 func (m m_icache_req_isbusy) is_m_icache_req()        {}
@@ -64,7 +65,7 @@ func (m m_icache_res_isbusy) is_m_icache_res()   {}
 func (m m_icache_res_err) is_m_icache_res()      {}
 
 // Type assertions
-var _ m_icache_req = m_icache_req_updatedevinfo{}
+var _ m_icache_req = m_icache_req_mount{}
 var _ m_icache_req = m_icache_req_getinode{}
 var _ m_icache_req = m_icache_req_putinode{}
 var _ m_icache_req = m_icache_req_isbusy{}

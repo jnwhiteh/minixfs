@@ -13,6 +13,7 @@ import (
 type inodeCache struct {
 	bcache  BlockCache    // the backing store for this cache
 	devinfo []DeviceInfo  // information about the devices attached to the block cache
+	supers  []Superblock  // a way to allocate new inodes/zones on the given device
 	inodes  []*CacheInode // all cache slots
 
 	// TODO: Need to store superblocks
@@ -30,6 +31,7 @@ func NewInodeCache(bcache BlockCache, numdevs int, size int) InodeCache {
 	icache := &inodeCache{
 		bcache,
 		make([]DeviceInfo, numdevs),
+		make([]Superblock, numdevs),
 		make([]*CacheInode, size),
 		make(chan m_icache_req),
 		make(chan m_icache_res),
@@ -52,8 +54,9 @@ func (c *inodeCache) loop() {
 
 	for req := range in {
 		switch req := req.(type) {
-		case m_icache_req_updatedevinfo:
+		case m_icache_req_mount:
 			c.devinfo[req.devno] = req.info
+			c.supers[req.devno] = req.super
 			out <- m_icache_res_empty{}
 		case m_icache_req_getinode:
 			callback := make(chan m_icache_res)
@@ -89,6 +92,8 @@ func (c *inodeCache) loop() {
 			} else {
 				// Need to load the inode asynchronously, so make sure the
 				// cache slot isn't claimed by someone else in the meantime
+				xp.Devinfo = c.devinfo[req.devno]
+				xp.Super = c.supers[req.devno]
 				xp.Devno = req.devno
 				xp.Inum = req.inum
 				xp.Count++
@@ -157,8 +162,8 @@ func (c *inodeCache) PutInode(cb *CacheInode) {
 	return
 }
 
-func (c *inodeCache) UpdateDeviceInfo(devno int, info DeviceInfo) {
-	c.in <- m_icache_req_updatedevinfo{devno, info}
+func (c *inodeCache) Mount(devno int, super Superblock, info DeviceInfo) {
+	c.in <- m_icache_req_mount{devno, super, info}
 	<-c.out
 	return
 }
