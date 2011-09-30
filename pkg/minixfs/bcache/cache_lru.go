@@ -470,3 +470,5 @@ func (c *LRUCache) rm_lru(bp *lru_buf) {
 		c.rear = prevp
 	}
 }
+
+var _ BlockCache = &LRUCache{}

@@ -146,3 +146,5 @@ func (dev *ramdiskDevice) Close() os.Error {
 	res := <-cback
 	return res.err
 }
+
+var _ RandDevice = &ramdiskDevice{}

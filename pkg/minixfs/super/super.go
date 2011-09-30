@@ -328,3 +328,5 @@ func (sup *superblock) check_bit(bmap int, bit_check int) bool {
 	sup.cache.PutBlock(bp, MAP_BLOCK)
 	return k&mask > 0
 }
+
+var _ Superblock = &superblock{}

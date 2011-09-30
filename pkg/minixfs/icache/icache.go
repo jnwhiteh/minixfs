@@ -198,6 +198,7 @@ func (c *inodeCache) loadInode(xp *CacheInode) {
 	xp.Mount = false
 }
 
+var _ InodeCache = &inodeCache{}
 /*
 
 func (c *inodeCache) PutInode(rip *CacheInode) {

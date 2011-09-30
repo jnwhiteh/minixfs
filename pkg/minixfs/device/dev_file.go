@@ -93,3 +93,5 @@ func (dev *fileDevice) Close() os.Error {
 	res := <-dev.out
 	return res.err
 }
+
+var _ RandDevice = &fileDevice{}
