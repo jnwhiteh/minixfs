@@ -1,4 +1,4 @@
-package minixfs
+package dinode
 
 import (
 	"os"

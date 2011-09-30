@@ -32,12 +32,12 @@ type Disk_Inode struct {
 	Zone   [10]uint32
 }
 
-type disk_dirent struct {
+type Disk_dirent struct {
 	Inum uint32
 	Name [60]byte
 }
 
-func (entry disk_dirent) HasName(s string) bool {
+func (entry Disk_dirent) HasName(s string) bool {
 	b := entry.Name
 	if len(b) < len(s) {
 		return false

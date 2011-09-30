@@ -5,7 +5,7 @@ type Block interface {
 }
 
 type InodeBlock []Disk_Inode      // block containing a series of inodes
-type DirectoryBlock []disk_dirent // block containing directory entries
+type DirectoryBlock []Disk_dirent // block containing directory entries
 type IndirectBlock []uint32       // block containing 32-bit zone numbers
 type MapBlock []uint16            // block containing bitmaps (in 16-bit chunks)
 type FullDataBlock []uint8        // block containing data (in bytes)

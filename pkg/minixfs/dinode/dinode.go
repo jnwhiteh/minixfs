@@ -1,4 +1,4 @@
-package minixfs
+package dinode
 
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
