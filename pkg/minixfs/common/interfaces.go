@@ -71,3 +71,16 @@ type Finode interface {
 	// Close the finode
 	Close() os.Error
 }
+
+type Dinode interface {
+	// Search the directory for an entry named 'name' and return the
+	// devno/inum of the inode, if found.
+	Lookup(name string) (bool, int, int)
+	// Add an entry 'name' to the directory listing, pointing to the 'inum'
+	// inode.
+	Link(name string, inum int) os.Error
+	// Remove the entry named 'name' from the directory listing.
+	Unlink(name string) os.Error
+	// close the dinode
+	Close() os.Error
+}
