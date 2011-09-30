@@ -13,11 +13,10 @@ import (
 // Additionally, no read operations on this file should block an independent
 // read() call for this file. In particular, open/close operations must not
 // block reads, and multiple independent read requests must be allowed.
-type Finode struct {
+type finode struct {
 	inode   *CacheInode
 	devinfo DeviceInfo
 	cache   BlockCache
-	count   int
 
 	in  chan m_finode_req
 	out chan m_finode_res
@@ -26,7 +25,7 @@ type Finode struct {
 	closed    chan bool
 }
 
-func (fi *Finode) loop() {
+func (fi *finode) loop() {
 	var in <-chan m_finode_req = fi.in
 	var out chan<- m_finode_res = fi.out
 	for req := range in {
@@ -53,7 +52,7 @@ func (fi *Finode) loop() {
 			out <- m_finode_res_io{n, err}
 		case m_finode_req_close:
 			fi.waitGroup.Wait()
-			out <- m_finode_res_empty{}
+			out <- m_finode_res_err{nil}
 			close(fi.in)
 			close(fi.out)
 		}
@@ -65,7 +64,7 @@ func (fi *Finode) loop() {
 }
 
 // Read up to len(b) bytes from the file from position 'pos'
-func (fi *Finode) Read(b []byte, pos int) (int, os.Error) {
+func (fi *finode) Read(b []byte, pos int) (int, os.Error) {
 	fi.in <- m_finode_req_read{b, pos}
 	ares := (<-fi.out).(m_finode_res_asyncio)
 	res := (<-ares.callback)
@@ -73,7 +72,7 @@ func (fi *Finode) Read(b []byte, pos int) (int, os.Error) {
 }
 
 // Write len(b) bytes to the file at position 'pos'
-func (fi *Finode) Write(data []byte, pos int) (n int, err os.Error) {
+func (fi *finode) Write(data []byte, pos int) (n int, err os.Error) {
 	fi.in <- m_finode_req_write{data, pos}
 	res := (<-fi.out).(m_finode_res_io)
 	return res.n, res.err
@@ -86,7 +85,7 @@ func (fi *finode) Close() os.Error {
 	return res.err
 }
 
-func (fi *Finode) read(b []byte, pos int) (int, os.Error) {
+func (fi *finode) read(b []byte, pos int) (int, os.Error) {
 	// We want to read at most len(b) bytes from the given file. This data
 	// will almost certainly be split up amongst multiple blocks.
 	curpos := pos
@@ -173,7 +172,7 @@ func (fi *Finode) read(b []byte, pos int) (int, os.Error) {
 	return numBytes, nil
 }
 
-func (fi *Finode) write(data []byte, pos int) (n int, err os.Error) {
+func (fi *finode) write(data []byte, pos int) (n int, err os.Error) {
 	// TODO: This implementation is direct and doesn't match the abstractions
 	// in the original source. At some point it should be reviewed.
 	cum_io := 0
@@ -235,3 +234,5 @@ func (fi *Finode) write(data []byte, pos int) (n int, err os.Error) {
 
 	return cum_io, err
 }
+
+var _ Finode = &finode{}

@@ -59,3 +59,15 @@ type InodeCache interface {
 	// Close the inode cache
 	Close() os.Error
 }
+
+type Finode interface {
+	// Read up to len(buf) bytes from pos within the file. Return the number
+	// of bytes actually read and any error that may have occurred.
+	Read(buf []byte, pos int) (int, os.Error)
+	// Write len(buf) bytes from buf to the given position in the file. Return
+	// the number of bytes actually written and any error that may have
+	// occurred.
+	Write(buf []byte, pos int) (int, os.Error)
+	// Close the finode
+	Close() os.Error
+}
