@@ -1,140 +1,123 @@
-datatype CallType = C | R | X
-datatype B = GetB | PutB
-datatype S = Alloc | Free
-datatype I = GetI | PutI
-datatype F = Read | Write
-datatype D = Lookup | Link
-datatype SC = Fopen | Fclose | Fread | Fwrite
+datatype Func = GetB | Alloc | Free | GetI | Read | Write | Lookup | Link
+datatype AFunc = PutB | PutI
+datatype Syscalls = Fopen | Fclose | Fread | Fwrite
 
-channel dev_read, dev_write
-channel b : B.CallType
-channel s : S.CallType
-channel i : I.CallType
-channel f : F.CallType
-channel d : D.CallType
-channel sc : SC.CallType
-channel client : SC.Int
+channel scall: Syscalls
+channel sret: Syscalls
+
+channel call,ecall : Func
+channel ret,eret : Func
+channel callret,ecallret : AFunc
 channel recurse
 
-CACHE_SIZE=5
-OPEN_FILES=5
-WAIT_READ=2
-WAIT_WRITE=2
+CONC_LEVEL = 2
 
--- A block cache with n outstanding dev_read requests, m active blocks and
--- o outstanding write requests. This model assumes that all put requests
--- will require a write, and that every get is a cache miss, requiring a
--- device read. However, the interface between the cache and the device is
--- non-blocking, allowing for multiple outstanding requests.
-BlockCache(n,m,o) = ((m > 0) and o < WAIT_WRITE) & b.PutB.X -> (BlockCacheFlush ||| BlockCache(n,m-1,o+1))
-                 [] ((n+m) < CACHE_SIZE) & b.GetB.C -> (BlockCacheRead ||| BlockCache(n+1,m,o))
+------------------------------------------------------------------------------
+-- BlockCache
+------------------------------------------------------------------------------
+channel dev_read, dev_write
 
-BlockCacheFlush = dev_read -> b.GetB.R -> STOP
-BlockCacheRead = dev_write -> STOP
+DeviceEvents = {dev_read, dev_write}
+Device = dev_read -> Device
+      [] dev_write -> Device
 
-BlockCache0 = BlockCache(0,0,0)
+BlockCacheSlotEmpty = call.GetB -> BlockCacheSlotGet
+BlockCacheSlotFull = callret.PutB -> BlockCacheSlotPut
 
--- Superblock allows you to allocate/free inodes/zones. Each of these
--- operations requires fetching the bitmap block and writing it back.
-Superblock = s.Alloc.C -> b.GetB.C -> b.GetB.R -> b.PutB.X -> s.Alloc.R -> Superblock
-          [] s.Free.C -> b.GetB.C -> b.GetB.R ->  b.PutB.X -> s.Free.R -> Superblock
+BlockCacheSlotGet = dev_read -> ret.GetB -> BlockCacheSlotFull
+BlockCacheSlotPut = dev_write -> BlockCacheSlotEmpty
 
--- An inode cache with n outstanding block read requests, m active blocks and
--- o oustanding put requests. This model assumes that all put requests result
--- in the inode being written back to the block, and that all get requests
--- require a block fetch.
-InodeCache(n,m,o) = (m > 0 and o < WAIT_WRITE) & i.PutI.X -> (IcacheFlush ||| InodeCache(n,m-1,o+1))
-                 [] ((n + m) < CACHE_SIZE) & i.GetI.C -> (IcacheLoad ||| InodeCache(n+1,m,o))
+BlockCache = (||| i : {1..CONC_LEVEL} @ BlockCacheSlotEmpty) [|DeviceEvents|] Device \ DeviceEvents
 
-IcacheFlush = b.GetB.C -> b.GetB.R -> i.GetI.R -> b.PutB.X -> STOP
-IcacheLoad = b.GetB.C -> b.GetB.R -> b.PutB.X -> STOP
+------------------------------------------------------------------------------
+-- InodeCache
+------------------------------------------------------------------------------
+InodeCacheSlotEmpty = ecall.GetI -> InodeCacheSlotGet
+InodeCacheSlotFull = ecallret.PutI -> InodeCacheSlotPut
 
-InodeCache0 = InodeCache(0,0,0)
+InodeCacheSlotGet = call.GetB -> ret.GetB -> callret.PutB -> eret.GetI -> InodeCacheSlotFull
+InodeCacheSlotPut = call.GetB -> ret.GetB -> callret.PutB -> InodeCacheSlotEmpty
 
--- A read request may involve a sequence of block get/read requests in order
--- to follow the indirect blocks to the actual data block. A write may involve
--- a sequence of block get/read along with zone allocations. The 'recurse'
--- event prevents this from tripping the livelock detection. An infinite sequence
--- of externally visible recurse events indicates a read/write to an infinite file.
---
--- The presence of s.Free in this process indicates an error state
-Finode = f.Read.C -> FinodeReading
-      [] f.Write.C -> FinodeWriting
+InodeCache = ||| i : {1 .. CONC_LEVEL} @ InodeCacheSlotEmpty
 
-FinodeReading = b.GetB.C -> b.GetB.R -> b.PutB.X -> recurse -> FinodeReading
-             [] b.GetB.C -> b.GetB.R -> b.PutB.X -> f.Read.R -> Finode
+------------------------------------------------------------------------------
+-- Superblock
+------------------------------------------------------------------------------
+Superblock = [] (c,r) : {(call,ret),(ecall,eret)} @ (
+                c.Alloc -> call.GetB -> ret.GetB -> callret.PutB -> r.Alloc -> Superblock
+                [] c.Free -> call.GetB -> ret.GetB -> callret.PutB -> r.Free -> Superblock
+            )
 
-FinodeWriting = b.GetB.C -> b.GetB.R -> b.PutB.X -> recurse -> FinodeWriting
-             [] b.GetB.C -> b.GetB.R -> b.PutB.X -> s.Alloc.C -> s.Alloc.R -> s.Free.C -> s.Free.R -> recurse -> FinodeWriting
-             [] b.GetB.C -> b.GetB.R -> b.PutB.X -> f.Write.R -> Finode
+------------------------------------------------------------------------------
+-- OpenFile
+------------------------------------------------------------------------------
+channel f_lock, f_unlock
 
--- A directory lookup involves a sequence of block get/put requests in order to
--- explore all of the data blocks. A link request might involve block requests
--- and the allocation of a new zone.
---
--- The presence of s.Free in this process indicates an error state
-Dinode = d.Lookup.C -> DinodeLookup
-      [] d.Link.C -> b.GetB.C -> b.GetB.R -> b.PutB.X -> s.Alloc.C -> s.Alloc.R -> s.Free.C -> s.Free.R -> b.GetB.C -> b.GetB.R -> b.PutB.X -> d.Link.R -> Dinode
+-- A file op represents a single operation that can be performed on a file. It
+-- performs this operation sequentially. Write operations are guarded by a
+-- lock, upon which all file ops sync on.
+FileOp = ecall.Read -> FileOpRead
+      [] ecall.Write -> f_lock -> FileOpWrite
+      [] f_lock -> f_unlock -> FileOp
 
-DinodeLookup = b.GetB.C -> b.GetB.R -> b.PutB.X -> recurse -> DinodeLookup
-           [] b.GetB.C -> b.GetB.R -> b.PutB.X -> d.Lookup.R -> Dinode
+FileOpRead = call.GetB -> ret.GetB -> callret.PutB -> (recurse -> FileOpRead |~| eret.Read -> FileOp)
+FileOpWrite = call.GetB -> ret.GetB -> callret.PutB -> (recurse -> FileOpWrite
+                 |~| call.Alloc -> ret. Alloc -> call.Free -> ret.Free -> recurse -> FileOpWrite
+                 |~| eret.Write -> f_unlock -> FileOp)
 
--- An open syscall may involve a sequence of lookups and fetching of inodes
--- followed by allocation/free of a new inode, followed by the actual link
--- event. Close/read/write are all straightforward.
-Syscalls = sc.Fopen.C -> SyscallOpen
-        [] sc.Fclose.C -> sc.Fclose.R -> Syscalls
-        [] sc.Fread.C -> f.Read.C -> f.Read.R -> sc.Fread.R -> Syscalls
-        [] sc.Fwrite.C -> f.Write.C -> f.Write.R -> sc.Fwrite.R -> Syscalls
+FileRegulator = ecall.Write -> f_lock -> FileRegulator
 
-SyscallOpen = d.Lookup.C -> d.Lookup.R -> i.PutI.X -> i.GetI.C -> i.GetI.R -> recurse -> SyscallOpen
-           [] s.Alloc.C -> s.Alloc.R -> s.Free.C -> s.Free.R -> d.Link.C -> d.Link.R -> sc.Fopen.R -> Syscalls
+OpenFile = (([|{f_lock,f_unlock}|] i : {1..CONC_LEVEL} @ FileOp) [|{ecall.Write, f_lock}|] FileRegulator) \ {f_lock,f_unlock}
 
-Alpha = Dinode ||| Finode
-Beta = Syscalls [| {|d.Lookup, d.Link, f.Read, f.Write|} |] Alpha
-Gamma(n) = (||| x:{0..n-1} @ Superblock) [| {|s.Alloc, s.Free|} |] Beta
-Delta(n) = InodeCache0 [| {|i.GetI, i.PutI|} |] Gamma(n)
-FileSystem(n) = BlockCache0 [| {|b.GetB, b.PutB|} |] Delta(n)
-FileSystemH(n) = FileSystem(n) \ InternalEvents
+------------------------------------------------------------------------------
+-- OpenDir
+------------------------------------------------------------------------------
+channel d_lock, d_unlock
 
-InternalEvents = {|b, s, i, f, d, dev_read, dev_write|}
-SyscallEvents = {|sc|}
+DirOp = ecall.Lookup -> DirOpLookup
+     [] ecall.Link -> d_lock -> DirOpLink
+     [] d_lock -> d_unlock -> DirOp
 
-Client(id,n) = (n < 3) & sc.Fopen.C -> sc.Fopen.R -> client.Fopen.id -> Client(id,n+1)
-            [] (n > 0) & sc.Fclose.C -> sc.Fclose.R -> client.Fclose.id -> Client(id,n-1)
-            [] (n > 0) & sc.Fread.C -> sc.Fread.R -> client.Fread.id -> Client(id,n)
-            [] (n > 0) & sc.Fwrite.C -> sc.Fwrite.R -> client.Fwrite.id -> Client(id,n)
+DirOpLookup = call.GetB -> ret.GetB -> callret.PutB -> recurse -> DirOpLookup
+           [] call.GetB -> ret.GetB -> callret.PutB -> eret.Lookup -> DirOp
 
-ClientSpec(id,n) = ((n < 3) & client.Fopen.id -> ClientSpec(id,n+1)
-               |~| (n > 0) & client.Fclose.id -> ClientSpec(id,n-1)
-               |~| (n > 0) & client.Fread.id -> ClientSpec(id,n)
-               |~| (n > 0) & client.Fwrite.id -> ClientSpec(id,n))
-               |~| recurse -> ClientSpec(id,n)
+DirOpLink = call.GetB -> ret.GetB -> callret.PutB -> call.Alloc -> ret.Alloc -> call.Free -> ret.Free -> call.GetB -> ret.GetB -> callret.PutB -> eret.Link -> d_unlock -> DirOp
 
-NClients(n) = (||| x : {0..n-1} @ Client(n,0))
-NClientSpec(n) = ||| x : {0..n-1} @ ClientSpec(n,0)
+DirRegulator = ecall.Link -> d_lock -> DirRegulator
 
-FS1Client = FileSystemH(1) [| SyscallEvents |] NClients(1)
-FS2Client = FileSystemH(2) [| SyscallEvents |] NClients(2)
-FS3Client = FileSystemH(3) [| SyscallEvents |] NClients(3)
-FS4Client = FileSystemH(4) [| SyscallEvents |] NClients(4)
-FS5Client = FileSystemH(5) [| SyscallEvents |] NClients(5)
+OpenDir = (([|{d_lock,d_unlock}|] i : {1..CONC_LEVEL} @ DirOp) [|{ecall.Link, d_lock}|] DirRegulator) \ {d_lock,d_unlock}
 
-assert FileSystem [| SyscallEvents |] NClients(1) [T= STOP
-assert NClientSpec(1) [T= FS1Client \ SyscallEvents
-assert NClientSpec(2) [T= FS2Client \ SyscallEvents
-assert NClientSpec(3) [T= FS3Client \ SyscallEvents
-assert NClientSpec(4) [T= FS4Client \ SyscallEvents
-assert NClientSpec(5) [T= FS5Client \ SyscallEvents
+------------------------------------------------------------------------------
+-- Process
+------------------------------------------------------------------------------
+Process = scall.Fopen -> ProcessOpen
+       [] scall.Fclose -> ecall.Write -> eret.Write -> sret.Fclose -> Process
+       [] scall.Fread -> ecall.Read -> eret.Read -> sret.Fread -> Process
+       [] scall.Fwrite -> ecall.Write -> eret.Write -> sret.Fwrite -> Process
 
-assert NClientSpec(1) [F= FS1Client \ SyscallEvents
-assert NClientSpec(2) [F= FS2Client \ SyscallEvents
-assert NClientSpec(3) [F= FS3Client \ SyscallEvents
-assert NClientSpec(4) [F= FS4Client \ SyscallEvents
-assert NClientSpec(5) [F= FS5Client \ SyscallEvents
+ProcessOpen = ecall.Lookup -> eret.Lookup -> ecall.GetI -> eret.GetI -> ecallret.PutI -> recurse -> ProcessOpen
+           [] ecall.Alloc -> eret.Alloc -> ecall.Free -> eret.Free -> ecall.Link -> eret.Link -> sret.Fopen -> Process
 
-assert NClientSpec(1) [FD= FS1Client \ SyscallEvents
-assert NClientSpec(2) [FD= FS2Client \ SyscallEvents
-assert NClientSpec(3) [FD= FS3Client \ SyscallEvents
-assert NClientSpec(4) [FD= FS4Client \ SyscallEvents
-assert NClientSpec(5) [FD= FS5Client \ SyscallEvents
+Processes(n) = (||| x:{0..n-1} @ Process)
+------------------------------------------------------------------------------
+-- System construction
+------------------------------------------------------------------------------
+
+FSSuper = (OpenDir ||| OpenFile) [|{call.Alloc, ret.Alloc, call.Free, ret.Free}|] (Superblock ||| InodeCache)
+FileSystem = BlockCache [|{call.GetB, ret.GetB, callret.PutB}|] FSSuper \ {|call, ret, callret|}
+FSClients(n) = FileSystem [|{|ecall, eret, ecallret|}|] Processes(n) \ {|ecall, eret, ecallret|}
+
+-- Specifications
+ClientSpec = scall?x -> ClientSpecWait(x)
+
+ClientSpecWait(x) = sret!x -> ClientSpec
+                |~| recurse -> ClientSpecWait(x)
+
+ClientSpecs(n) = ||| x:{0..n-1} @ ClientSpec
+
+assert ClientSpecs(1) [T= FSClients(1)
+assert ClientSpecs(2) [T= FSClients(2)
+assert ClientSpecs(3) [T= FSClients(3)
+assert ClientSpecs(4) [T= FSClients(4)
+
+assert ClientSpecs(1) [FD= FSClients(1)
