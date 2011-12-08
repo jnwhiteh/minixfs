@@ -1,7 +1,14 @@
 package icache
 
+// TODO: There is a dependency here between icache and finode/dinode because
+// the icache is responsible for spawning/killing the open file/directory
+// servers. I'm not sure if this causes any issues, so it probably needs to be
+// reviewed.
+
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
+	finode "../finode/_obj/minixfs/finode"
+	dinode "../dinode/_obj/minixfs/dinode"
 	"os"
 	"sync"
 )
@@ -103,7 +110,16 @@ func (c *inodeCache) loop() {
 				c.waiting_m.Unlock()
 
 				go func() {
+					// Load the inode into the CacheInode
 					c.loadInode(xp)
+					// Spawn the Finode or Dinode as appropriate
+					mode := xp.Inode.Mode & I_TYPE
+					if mode == I_REGULAR {
+						xp.Server = finode.New(xp, xp.Devinfo, c.bcache)
+					} else if mode == I_DIRECTORY {
+						xp.Server = dinode.New(xp, xp.Devinfo, c.bcache)
+					}
+
 					c.waiting_m.Lock()
 					for _, callback := range c.waiting[slot] {
 						callback <- m_icache_res_getinode{xp, nil}
