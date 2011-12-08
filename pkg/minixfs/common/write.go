@@ -269,3 +269,57 @@ func WrIndir(bp *CacheBlock, index int, zone int) {
 	indb := bp.Block.(IndirectBlock)
 	indb[index] = uint32(zone)
 }
+
+// Remove all the zones from the inode and mark it as dirty
+func Truncate(rip *CacheInode, super Superblock, cache BlockCache) {
+	ftype := rip.Inode.Mode & I_TYPE
+
+	// check to see if the file is special
+	if ftype == I_CHAR_SPECIAL || ftype == I_BLOCK_SPECIAL {
+		return
+	}
+
+	scale := rip.Devinfo.Scale
+	zone_size := rip.Devinfo.Blocksize << scale
+	nr_indirects := rip.Devinfo.Blocksize / V2_ZONE_NUM_SIZE
+
+	// PIPE:
+	// // Pipes can shrink, so adjust size to make sure all zones are removed
+	// waspipe := rip.pipe
+	// if waspipe {
+	// 	rip.Size = PIPE_SIZE(fs.Block_size)
+	// }
+
+	// step through the file a zone at a time, finding and freeing the zones
+	for position := 0; position < int(rip.Inode.Size); position += zone_size {
+		if b := ReadMap(rip, position, cache); b != NO_BLOCK {
+			z := b >> scale
+			super.FreeZone(z)
+		}
+	}
+
+	// all the dirty zones have been freed. Now free the indirect zones
+	rip.Dirty = true
+	// PIPE:
+	// if waspipe {
+	// 	fs.WipeInode(rip)
+	// 	return
+	// }
+	single := V2_NR_DZONES
+	super.FreeZone(int(rip.Inode.Zone[single]))
+
+	if z := int(rip.Inode.Zone[single + 1]); z != NO_ZONE {
+		// free all the single indirect zones pointed to by the double
+		b := int(z << scale)
+		bp := cache.GetBlock(rip.Devno, b, INDIRECT_BLOCK, NORMAL)
+		for i := 0; i < nr_indirects; i++ {
+			z1 := RdIndir(bp, i, cache, rip.Devinfo.Firstdatazone, rip.Devinfo.Zones)
+			super.FreeZone(z1)
+		}
+		// now free the double indirect zone itself
+		cache.PutBlock(bp, INDIRECT_BLOCK)
+		super.FreeZone(z)
+	}
+
+	// leave zone numbers for de(1) to recover file after an unlink(2)
+}
