@@ -94,6 +94,7 @@ func (c *inodeCache) loop() {
 				callback <- m_icache_res_getinode{nil, ENFILE}
 			} else if xp.Count > 0 {
 				// We found the inode, just need to return it
+				xp.Count++
 				out <- m_icache_res_async{callback}
 				callback <- m_icache_res_getinode{xp, nil}
 			} else {
@@ -131,6 +132,45 @@ func (c *inodeCache) loop() {
 				out <- m_icache_res_async{callback}
 			}
 		case m_icache_req_putinode:
+			// TODO: Is this function correct?
+			rip := req.rip
+			if rip == nil {
+				return
+			}
+
+			rip.Count--
+			if rip.Count == 0 { // means no one is using it now
+
+				// Shut down the finode/dinode server
+				if finode := rip.Finode(); finode != nil {
+					// TODO: Don't ignore this
+					_ = finode.Close()
+				} else if dinode := rip.Dinode(); dinode != nil {
+					// TODO: Don't ignore this
+					_ = dinode.Close()
+				}
+
+				if rip.Inode.Nlinks == 0 { // free the inode
+					Truncate(rip, rip.Super, c.bcache) // return all the disk blocks
+					rip.Inode.Mode = I_NOT_ALLOC
+					rip.Dirty = true
+					rip.Super.FreeInode(rip.Inum)
+				} else {
+					// TODO: Handle the pipe case here
+					// if rip.pipe == true {
+					//   truncate(rip)
+					// }
+				}
+				// rip.pipe = false
+
+				if rip.Dirty {
+					// Write this inode out to disk
+					// TODO: Should this be performed asynchronously?
+					c.writeInode(rip)
+				}
+			}
+
+			out <- m_icache_res_empty{}
 		case m_icache_req_isbusy:
 			count := 0
 			for i := 0; i < len(c.inodes); i++ {
@@ -212,6 +252,25 @@ func (c *inodeCache) loadInode(xp *CacheInode) {
 	xp.Inode = inode_d
 	xp.Dirty = false
 	xp.Mount = false
+}
+
+func (c *inodeCache) writeInode(xp *CacheInode) {
+	// Calculate the block number we need
+	block_offset := xp.Devinfo.MapOffset
+	inodes_per_block := xp.Devinfo.Blocksize / V2_INODE_SIZE
+	block_num := ((xp.Inum - 1) / inodes_per_block) + block_offset
+
+	// Load the inode from the disk
+	bp := c.bcache.GetBlock(xp.Devno, block_num, INODE_BLOCK, NORMAL)
+	inodeb := bp.Block.(InodeBlock)
+
+	// TODO: Update times, handle read-only superblocks
+	bp.Dirty = true
+
+	// Copy the disk_inode from rip into the inode block
+	inodeb[xp.Inum%inodes_per_block] = *xp.Inode
+	xp.Dirty = false
+	c.bcache.PutBlock(bp, INODE_BLOCK)
 }
 
 var _ InodeCache = &inodeCache{}
