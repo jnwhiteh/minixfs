@@ -29,6 +29,7 @@ clean:
 	make clean -C minixfs/bcache
 	make clean -C minixfs/common
 	make clean -C minixfs/device
+	make clean -C minixfs/dinode
 	make clean -C minixfs/finode
 	make clean -C minixfs/fs
 	make clean -C minixfs/icache
