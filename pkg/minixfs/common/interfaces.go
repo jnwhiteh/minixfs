@@ -47,7 +47,7 @@ type Superblock interface {
 
 type InodeCache interface {
 	// Update the information about a given device
-	Mount(devno int, super Superblock, info DeviceInfo)
+	MountDevice(devno int, super Superblock, info DeviceInfo)
 	// Get an inode from the given device
 	GetInode(devno, inum int) (*CacheInode, os.Error)
 	// Return the given inode to the cache. If the inode has been altered and

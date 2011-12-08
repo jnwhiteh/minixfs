@@ -218,7 +218,7 @@ func (c *inodeCache) PutInode(cb *CacheInode) {
 	return
 }
 
-func (c *inodeCache) Mount(devno int, super Superblock, info DeviceInfo) {
+func (c *inodeCache) MountDevice(devno int, super Superblock, info DeviceInfo) {
 	c.in <- m_icache_req_mount{devno, super, info}
 	<-c.out
 	return
