@@ -42,7 +42,7 @@ type CacheInode struct {
 func (ci *CacheInode) Dinode() Dinode {
 	if ci.Inode == nil {
 		return nil
-	} else if ci.Inode.Mode & I_TYPE != I_DIRECTORY {
+	} else if ci.Inode.Mode&I_TYPE != I_DIRECTORY {
 		return nil
 	}
 
@@ -55,7 +55,7 @@ func (ci *CacheInode) Dinode() Dinode {
 func (ci *CacheInode) Finode() Finode {
 	if ci.Inode == nil {
 		return nil
-	} else if ci.Inode.Mode & I_TYPE != I_REGULAR {
+	} else if ci.Inode.Mode&I_TYPE != I_REGULAR {
 		return nil
 	}
 

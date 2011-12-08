@@ -34,8 +34,8 @@ type fileSystem struct {
 	cache  BlockCache  // the block cache (shared across all devices)
 	icache *InodeCache // the inode cache (shared across all devices)
 
-	filp    []*filp    // the filp table
-	procs   []*Process // an array of processes that have been spawned
+	filp  []*filp    // the filp table
+	procs []*Process // an array of processes that have been spawned
 
 	in  chan m_fs_req
 	out chan m_fs_res

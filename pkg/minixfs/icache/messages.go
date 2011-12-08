@@ -52,11 +52,11 @@ type m_icache_res_err struct {
 }
 
 // For interface implementations
-func (m m_icache_req_mount) is_m_icache_req() {}
-func (m m_icache_req_getinode) is_m_icache_req()      {}
-func (m m_icache_req_putinode) is_m_icache_req()      {}
-func (m m_icache_req_isbusy) is_m_icache_req()        {}
-func (m m_icache_req_close) is_m_icache_req()         {}
+func (m m_icache_req_mount) is_m_icache_req()    {}
+func (m m_icache_req_getinode) is_m_icache_req() {}
+func (m m_icache_req_putinode) is_m_icache_req() {}
+func (m m_icache_req_isbusy) is_m_icache_req()   {}
+func (m m_icache_req_close) is_m_icache_req()    {}
 
 func (m m_icache_res_empty) is_m_icache_res()    {}
 func (m m_icache_res_async) is_m_icache_res()    {}

@@ -308,7 +308,7 @@ func Truncate(rip *CacheInode, super Superblock, cache BlockCache) {
 	single := V2_NR_DZONES
 	super.FreeZone(int(rip.Inode.Zone[single]))
 
-	if z := int(rip.Inode.Zone[single + 1]); z != NO_ZONE {
+	if z := int(rip.Inode.Zone[single+1]); z != NO_ZONE {
 		// free all the single indirect zones pointed to by the double
 		b := int(z << scale)
 		bp := cache.GetBlock(rip.Devno, b, INDIRECT_BLOCK, NORMAL)

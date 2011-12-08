@@ -50,7 +50,7 @@ func (m m_finode_req_close) is_m_finode_req() {}
 
 func (m m_finode_res_io) is_m_finode_res()      {}
 func (m m_finode_res_asyncio) is_m_finode_res() {}
-func (m m_finode_res_err) is_m_finode_res()   {}
+func (m m_finode_res_err) is_m_finode_res()     {}
 
 // Check interface implementation
 var _ m_finode_req = m_finode_req_read{}
