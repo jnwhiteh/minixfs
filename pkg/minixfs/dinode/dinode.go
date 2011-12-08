@@ -42,16 +42,48 @@ func (d *dinode) loop() {
 	var in <-chan m_dinode_req = d.in
 	var out chan<- m_dinode_res = d.out
 
-	_ = out
-
 	for req := range in {
 		switch req := req.(type) {
 		case m_dinode_req_lookup:
+			d.waitGroup.Add(1)
+			callback := make(chan m_dinode_res_lookup)
+			out <- m_dinode_res_asynclookup{callback}
+
+			go func() {
+				defer close(callback)
+				defer d.waitGroup.Done()
+
+				inum := 0
+				err := d.search_dir(req.name, &inum, LOOKUP)
+				if err != nil {
+					callback <- m_dinode_res_lookup{false, 0, 0}
+				} else {
+					callback <- m_dinode_res_lookup{true, d.inode.Devno, inum}
+				}
+			}()
 		case m_dinode_req_link:
+			// Wait for any outstanding lookup requests to finish
+			d.waitGroup.Wait()
+
+			inum := req.inum
+			err := d.search_dir(req.name, &inum, ENTER)
+			out <- m_dinode_res_err{err}
 		case m_dinode_req_unlink:
+			// Wait for any outstanding lookup requests to finish
+			d.waitGroup.Wait()
+
+			inum := 0
+			err := d.search_dir(req.name, &inum, DELETE)
+			out <- m_dinode_res_err{err}
 		case m_dinode_req_close:
+			d.waitGroup.Wait()
+			out <- m_dinode_res_err{nil}
+			break
 		}
 	}
+
+	close(d.in)
+	close(d.out)
 }
 
 func (d *dinode) Lookup(name string) (bool, int, int) {
