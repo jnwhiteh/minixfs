@@ -8,6 +8,7 @@ GOFILES=\
 		errors.go \
 		interfaces.go \
 		read.go \
+		super.go \
 		write.go \
 		types.go \
 

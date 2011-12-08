@@ -3,9 +3,9 @@ package fs
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
 	"../bcache/_obj/minixfs/bcache"
+	"../bitmap/_obj/minixfs/bitmap"
 	"../device/_obj/minixfs/device"
 	"../icache/_obj/minixfs/icache"
-	"../super/_obj/minixfs/super"
 	"encoding/binary"
 	"log"
 	"os"
@@ -16,7 +16,7 @@ import (
 type FileSystem struct {
 	devs    []RandDevice // the block devices that comprise the file system
 	devinfo []DeviceInfo // the geometry/params for the given device
-	supers  []Superblock // the superblocks for the given devices
+	bitmaps []Bitmap     // the bitmaps for the given devices
 
 	bcache BlockCache // the block cache (shared across all devices)
 	icache InodeCache // the inode cache (shared across all devices)
@@ -47,21 +47,21 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 func NewFileSystem(dev RandDevice) (*FileSystem, os.Error) {
 	fs := new(FileSystem)
 
-	fs.devs = make([]RandDevice, NR_SUPERS)
-	fs.devinfo = make([]DeviceInfo, NR_SUPERS)
-	fs.supers = make([]Superblock, NR_SUPERS)
+	fs.devs = make([]RandDevice, NR_DEVICES)
+	fs.devinfo = make([]DeviceInfo, NR_DEVICES)
+	fs.bitmaps = make([]Bitmap, NR_DEVICES)
 
-	sblock, devinfo, err := super.ReadSuperblock(dev)
+	devinfo, err := GetDeviceInfo(dev)
 	if err != nil {
 		return nil, err
 	}
 
+	fs.bcache = bcache.NewLRUCache(NR_DEVICES, NR_BUFS, NR_BUF_HASH)
+	fs.icache = icache.NewInodeCache(fs.bcache, NR_DEVICES, NR_INODES)
+
 	fs.devs[ROOT_DEVICE] = dev
 	fs.devinfo[ROOT_DEVICE] = devinfo
-	fs.supers[ROOT_DEVICE] = sblock
-
-	fs.bcache = bcache.NewLRUCache(NR_SUPERS, NR_BUFS, NR_BUF_HASH)
-	fs.icache = icache.NewInodeCache(fs.bcache, NR_SUPERS, NR_INODES)
+	fs.bitmaps[ROOT_DEVICE] = bitmap.NewBitmap(devinfo, fs.bcache, ROOT_DEVICE)
 
 	fs.filps = make([]*filp, NR_INODES)
 	fs.procs = make([]*Process, NR_PROCS)
@@ -70,7 +70,7 @@ func NewFileSystem(dev RandDevice) (*FileSystem, os.Error) {
 		log.Printf("Could not mount root device: %s", err)
 		return nil, err
 	}
-	fs.icache.MountDevice(ROOT_DEVICE, sblock, devinfo)
+	fs.icache.MountDevice(ROOT_DEVICE, fs.bitmaps[ROOT_DEVICE], devinfo)
 
 	// Fetch the root inode
 	rip, err := fs.icache.GetInode(ROOT_DEVICE, ROOT_INODE)

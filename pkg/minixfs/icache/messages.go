@@ -20,7 +20,7 @@ type m_icache_res interface {
 // Request types
 type m_icache_req_mount struct {
 	devno int
-	super Superblock
+	bmap  Bitmap
 	info  DeviceInfo
 }
 type m_icache_req_getinode struct {

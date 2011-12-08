@@ -131,11 +131,11 @@ func NewBlock(rip *CacheInode, position int, btype BlockType, cache BlockCache) 
 		// Lose if the file is non-empty but the first zone number is NO_ZONE,
 		// corresponding to a zone full of zeros. It would be better to search
 		// near the last real zone.
-		if z, err = rip.Super.AllocZone(int(rip.Inode.Zone[0])); z == NO_ZONE {
+		if z, err = rip.Bitmap.AllocZone(int(rip.Inode.Zone[0])); z == NO_ZONE {
 			return nil, err
 		}
 		if err = WriteMap(rip, position, z, cache); err != nil {
-			rip.Super.FreeZone(z)
+			rip.Bitmap.FreeZone(z)
 			return nil, err
 		}
 
@@ -195,7 +195,7 @@ func WriteMap(rip *CacheInode, position int, new_zone int, cache BlockCache) os.
 		// 'position' can be located via the double indirect block
 		if z = int(rip.Inode.Zone[zones+1]); z == NO_ZONE {
 			// Create the double indirect block
-			z, err = rip.Super.AllocZone(int(rip.Inode.Zone[0]))
+			z, err = rip.Bitmap.AllocZone(int(rip.Inode.Zone[0]))
 			if z == NO_ZONE || err != nil {
 				return err
 			}
@@ -228,7 +228,7 @@ func WriteMap(rip *CacheInode, position int, new_zone int, cache BlockCache) os.
 	// z1 is now single indirect zone; 'excess' is index
 	if z1 == NO_ZONE {
 		// Create indirect block and store zone # in inode or dbl indir block
-		z1, err = rip.Super.AllocZone(int(rip.Inode.Zone[0]))
+		z1, err = rip.Bitmap.AllocZone(int(rip.Inode.Zone[0]))
 		if single {
 			rip.Inode.Zone[zones] = uint32(z1) // update inode
 		} else {
@@ -271,7 +271,7 @@ func WrIndir(bp *CacheBlock, index int, zone int) {
 }
 
 // Remove all the zones from the inode and mark it as dirty
-func Truncate(rip *CacheInode, super Superblock, cache BlockCache) {
+func Truncate(rip *CacheInode, bmap Bitmap, cache BlockCache) {
 	ftype := rip.Inode.Mode & I_TYPE
 
 	// check to see if the file is special
@@ -294,7 +294,7 @@ func Truncate(rip *CacheInode, super Superblock, cache BlockCache) {
 	for position := 0; position < int(rip.Inode.Size); position += zone_size {
 		if b := ReadMap(rip, position, cache); b != NO_BLOCK {
 			z := b >> scale
-			super.FreeZone(z)
+			bmap.FreeZone(z)
 		}
 	}
 
@@ -306,7 +306,7 @@ func Truncate(rip *CacheInode, super Superblock, cache BlockCache) {
 	// 	return
 	// }
 	single := V2_NR_DZONES
-	super.FreeZone(int(rip.Inode.Zone[single]))
+	bmap.FreeZone(int(rip.Inode.Zone[single]))
 
 	if z := int(rip.Inode.Zone[single+1]); z != NO_ZONE {
 		// free all the single indirect zones pointed to by the double
@@ -314,11 +314,11 @@ func Truncate(rip *CacheInode, super Superblock, cache BlockCache) {
 		bp := cache.GetBlock(rip.Devno, b, INDIRECT_BLOCK, NORMAL)
 		for i := 0; i < nr_indirects; i++ {
 			z1 := RdIndir(bp, i, cache, rip.Devinfo.Firstdatazone, rip.Devinfo.Zones)
-			super.FreeZone(z1)
+			bmap.FreeZone(z1)
 		}
 		// now free the double indirect zone itself
 		cache.PutBlock(bp, INDIRECT_BLOCK)
-		super.FreeZone(z)
+		bmap.FreeZone(z)
 	}
 
 	// leave zone numbers for de(1) to recover file after an unlink(2)

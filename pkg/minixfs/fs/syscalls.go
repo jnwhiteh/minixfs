@@ -2,7 +2,7 @@ package fs
 
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
-	"../super/_obj/minixfs/super"
+	"../bitmap/_obj/minixfs/bitmap"
 	"os"
 )
 
@@ -17,10 +17,10 @@ func (fs *FileSystem) Mount(dev RandDevice, path string) os.Error {
 	fs.m.device.Lock()
 	defer fs.m.device.Unlock()
 
-	// scan super block table to see if 'dev' is already mounted
+	// scan bitmap block table to see if 'dev' is already mounted
 	found := false
 	freeIndex := -1
-	for i := 0; i < NR_SUPERS; i++ {
+	for i := 0; i < NR_DEVICES; i++ {
 		if fs.devs[i] == dev {
 			found = true
 		} else if fs.devs[i] == nil {
@@ -33,38 +33,40 @@ func (fs *FileSystem) Mount(dev RandDevice, path string) os.Error {
 	}
 
 	if freeIndex == -1 {
-		return ENFILE // no super block available
+		return ENFILE // no device slot available
 	}
 
 	// Invalidate the cache, just to be sure
 	fs.bcache.Invalidate(freeIndex)
 
-	// Fill in the super block
-	sup, info, err := super.ReadSuperblock(dev)
+	// Fill in the device info
+	devinfo, err := GetDeviceInfo(dev)
 
 	// If it a recognized Minix filesystem
 	if err != nil {
-		// Shut down device/superblock
+		// Shut down device/bitmap
 		dev.Close()
-		sup.Close()
 		return err
 	}
 
-	// Add the super/dev to the the filesystem (will need to be cleared if
+	// Create a bitmap to handle allocation
+	bmap := bitmap.NewBitmap(devinfo, fs.bcache, freeIndex)
+
+	// Add the device/bitmap to the the filesystem (will need to be cleared if
 	// there is a problem)
 	fs.devs[freeIndex] = dev
-	fs.supers[freeIndex] = sup
-	fs.bcache.MountDevice(freeIndex, dev, info)
-	fs.icache.MountDevice(freeIndex, sup, info)
+	fs.bitmaps[freeIndex] = bmap
+	fs.bcache.MountDevice(freeIndex, dev, devinfo)
+	fs.icache.MountDevice(freeIndex, bmap, devinfo)
 
 	// Get the inode of the file to be mounted on
 	rip, err := fs.eatPath(fs.procs[ROOT_PROCESS], path)
 
 	if err != nil {
 		fs.devs[freeIndex] = nil
-		fs.supers[freeIndex] = nil
-		// Shut down device/superblock
-		sup.Close()
+		fs.bitmaps[freeIndex] = nil
+		// Shut down device/bitmap
+		bmap.Close()
 		dev.Close()
 		return err
 	}
@@ -104,20 +106,20 @@ func (fs *FileSystem) Mount(dev RandDevice, path string) os.Error {
 		}
 	}
 
-	// If error, return the super block and both inodes; release the maps
+	// If error, return the bitmap and both inodes; release the maps
 	if r != nil {
 		fs.icache.PutInode(rip)
 		fs.icache.PutInode(root_ip)
 		fs.bcache.Invalidate(freeIndex)
 		fs.devs[freeIndex] = nil
-		fs.supers[freeIndex] = nil
+		fs.bitmaps[freeIndex] = nil
 		fs.bcache.UnmountDevice(freeIndex)
 		// TODO: Should there be a way to unmount from icache?
 		//fs.icache.MountDevice(freeIndex, nil, nil)
 
-		// Shut down device/superblock
+		// Shut down device/bitmap
 		dev.Close()
-		sup.Close()
+		bmap.Close()
 		return r
 	}
 

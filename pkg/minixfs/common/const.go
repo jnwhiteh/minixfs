@@ -10,10 +10,10 @@ const (
 	ROOT_INODE   = 1 // the root inode number
 	ROOT_PROCESS = 0 // the root process number (dummy)
 
-	NR_FILPS  = 128 // # slots in filp table
-	NR_INODES = 64  // # slots in "in core" inode table
-	NR_SUPERS = 8   // # slots in the super block table
-	NR_PROCS  = 32  // # slots in the process table
+	NR_FILPS   = 128 // # slots in filp table
+	NR_INODES  = 64  // # slots in "in core" inode table
+	NR_PROCS   = 32  // # slots in the process table
+	NR_DEVICES = 8   // # slots in the devices/bitmap tables
 
 	OPEN_MAX = 20 // the maximum number of files that can be opened by a process
 	NAME_MAX = 60 // the maximum size of a filename

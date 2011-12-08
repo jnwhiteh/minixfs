@@ -22,14 +22,17 @@ type DeviceInfo struct {
 	Blocksize     int
 	Scale         uint // Log_zone_scale from the superblock
 	Firstdatazone int  // the first data zone on the system
-	Zones         int
-	Maxsize       int
+	Zones         int  // the number of zones on the disk
+	Inodes        int  // the number of inodes on the dik
+	Maxsize       int  // the maximum size of a file on the disk
+	ImapBlocks    int  // the number of inode bitmap blocks
+	ZmapBlocks    int  // the number of zone bitmap blocks
 }
 
 // CacheInode is a self-aware wrapper around an inode stored on disk.
 type CacheInode struct {
 	Inode   *Disk_Inode // the inode as stored on disk
-	Super   Superblock
+	Bitmap  Bitmap
 	Devinfo DeviceInfo
 	Devno   int
 	Inum    int

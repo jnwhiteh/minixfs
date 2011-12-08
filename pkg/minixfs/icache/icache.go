@@ -20,10 +20,8 @@ import (
 type inodeCache struct {
 	bcache  BlockCache    // the backing store for this cache
 	devinfo []DeviceInfo  // information about the devices attached to the block cache
-	supers  []Superblock  // a way to allocate new inodes/zones on the given device
+	bitmaps []Bitmap      // a way to allocate new inodes/zones on the given device
 	inodes  []*CacheInode // all cache slots
-
-	// TODO: Need to store superblocks
 
 	in  chan m_icache_req
 	out chan m_icache_res
@@ -38,7 +36,7 @@ func NewInodeCache(bcache BlockCache, numdevs int, size int) InodeCache {
 	icache := &inodeCache{
 		bcache,
 		make([]DeviceInfo, numdevs),
-		make([]Superblock, numdevs),
+		make([]Bitmap, numdevs),
 		make([]*CacheInode, size),
 		make(chan m_icache_req),
 		make(chan m_icache_res),
@@ -63,7 +61,7 @@ func (c *inodeCache) loop() {
 		switch req := req.(type) {
 		case m_icache_req_mount:
 			c.devinfo[req.devno] = req.info
-			c.supers[req.devno] = req.super
+			c.bitmaps[req.devno] = req.bmap
 			out <- m_icache_res_empty{}
 		case m_icache_req_getinode:
 			callback := make(chan m_icache_res)
@@ -101,7 +99,7 @@ func (c *inodeCache) loop() {
 				// Need to load the inode asynchronously, so make sure the
 				// cache slot isn't claimed by someone else in the meantime
 				xp.Devinfo = c.devinfo[req.devno]
-				xp.Super = c.supers[req.devno]
+				xp.Bitmap = c.bitmaps[req.devno]
 				xp.Devno = req.devno
 				xp.Inum = req.inum
 				xp.Count++
@@ -151,10 +149,10 @@ func (c *inodeCache) loop() {
 				}
 
 				if rip.Inode.Nlinks == 0 { // free the inode
-					Truncate(rip, rip.Super, c.bcache) // return all the disk blocks
+					Truncate(rip, rip.Bitmap, c.bcache) // return all the disk blocks
 					rip.Inode.Mode = I_NOT_ALLOC
 					rip.Dirty = true
-					rip.Super.FreeInode(rip.Inum)
+					rip.Bitmap.FreeInode(rip.Inum)
 				} else {
 					// TODO: Handle the pipe case here
 					// if rip.pipe == true {
@@ -218,8 +216,8 @@ func (c *inodeCache) PutInode(cb *CacheInode) {
 	return
 }
 
-func (c *inodeCache) MountDevice(devno int, super Superblock, info DeviceInfo) {
-	c.in <- m_icache_req_mount{devno, super, info}
+func (c *inodeCache) MountDevice(devno int, bmap Bitmap, info DeviceInfo) {
+	c.in <- m_icache_req_mount{devno, bmap, info}
 	<-c.out
 	return
 }
@@ -264,7 +262,7 @@ func (c *inodeCache) writeInode(xp *CacheInode) {
 	bp := c.bcache.GetBlock(xp.Devno, block_num, INODE_BLOCK, NORMAL)
 	inodeb := bp.Block.(InodeBlock)
 
-	// TODO: Update times, handle read-only superblocks
+	// TODO: Update times, handle read-only filesystems
 	bp.Dirty = true
 
 	// Copy the disk_inode from rip into the inode block

@@ -30,7 +30,7 @@ type BlockCache interface {
 	Close() os.Error
 }
 
-type Superblock interface {
+type Bitmap interface {
 	// Allocate a free inode, returning the number of the allocated inode
 	AllocInode(mode uint16) (int, os.Error)
 	// Allocate a free zone, returning the number of the allocated zone. Start
@@ -41,13 +41,13 @@ type Superblock interface {
 	FreeInode(inum int)
 	// Free an allocated zone
 	FreeZone(znum int)
-	// Close the superblock
+	// Close the bitmap server
 	Close() os.Error
 }
 
 type InodeCache interface {
 	// Update the information about a given device
-	MountDevice(devno int, super Superblock, info DeviceInfo)
+	MountDevice(devno int, bitmap Bitmap, info DeviceInfo)
 	// Get an inode from the given device
 	GetInode(devno, inum int) (*CacheInode, os.Error)
 	// Return the given inode to the cache. If the inode has been altered and
