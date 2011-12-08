@@ -39,10 +39,24 @@ type CacheInode struct {
 	Server  interface{}
 }
 
+func (ci *CacheInode) IsRegular() bool {
+	if ci.Inode == nil {
+		return false
+	}
+	return ci.Inode.Mode&I_TYPE == I_REGULAR
+}
+
+func (ci *CacheInode) IsDirectory() bool {
+	if ci.Inode == nil {
+		return false
+	}
+	return ci.Inode.Mode&I_TYPE == I_DIRECTORY
+}
+
 func (ci *CacheInode) Dinode() Dinode {
 	if ci.Inode == nil {
 		return nil
-	} else if ci.Inode.Mode&I_TYPE != I_DIRECTORY {
+	} else if !ci.IsDirectory() {
 		return nil
 	}
 
@@ -55,7 +69,7 @@ func (ci *CacheInode) Dinode() Dinode {
 func (ci *CacheInode) Finode() Finode {
 	if ci.Inode == nil {
 		return nil
-	} else if ci.Inode.Mode&I_TYPE != I_REGULAR {
+	} else if !ci.IsRegular() {
 		return nil
 	}
 
