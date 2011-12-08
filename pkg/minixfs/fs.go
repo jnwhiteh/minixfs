@@ -36,7 +36,6 @@ type fileSystem struct {
 
 	filp    []*filp    // the filp table
 	procs   []*Process // an array of processes that have been spawned
-	finodes map[*CacheInode]*Finode
 
 	in  chan m_fs_req
 	out chan m_fs_res
@@ -68,7 +67,6 @@ func NewFileSystem(dev RandDevice) (*fileSystem, os.Error) {
 
 	fs.devs = make([]RandDevice, NR_SUPERS)
 	fs.supers = make([]*Superblock, NR_SUPERS)
-
 	fs.icache = NewInodeCache(fs.cache, NR_INODES)
 
 	fs.filp = make([]*filp, NR_FILPS)
@@ -99,9 +97,6 @@ func NewFileSystem(dev RandDevice) (*fileSystem, os.Error) {
 		make([]*filp, OPEN_MAX),
 		make([]*File, OPEN_MAX),
 	}
-
-	// TODO: Limit this?
-	fs.finodes = make(map[*CacheInode]*Finode, OPEN_MAX)
 
 	fs.in = make(chan m_fs_req)
 	fs.out = make(chan m_fs_res)
