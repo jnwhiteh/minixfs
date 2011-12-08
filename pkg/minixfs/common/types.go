@@ -36,4 +36,31 @@ type CacheInode struct {
 	Count   int
 	Dirty   bool
 	Mount   bool
+	Server  interface{}
+}
+
+func (ci *CacheInode) Dinode() Dinode {
+	if ci.Inode == nil {
+		return nil
+	} else if ci.Inode.Mode & I_TYPE != I_DIRECTORY {
+		return nil
+	}
+
+	if dinode, ok := ci.Server.(Dinode); ok {
+		return dinode
+	}
+	return nil
+}
+
+func (ci *CacheInode) Finode() Finode {
+	if ci.Inode == nil {
+		return nil
+	} else if ci.Inode.Mode & I_TYPE != I_REGULAR {
+		return nil
+	}
+
+	if finode, ok := ci.Server.(Finode); ok {
+		return finode
+	}
+	return nil
 }
