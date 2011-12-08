@@ -14,7 +14,7 @@ import (
 
 // FileSystem encapsulates a MINIX file system.
 type FileSystem struct {
-	devs    []RandDevice // the block devices that comprise the file system
+	devices []RandDevice // the block devices that comprise the file system
 	devinfo []DeviceInfo // the geometry/params for the given device
 	bitmaps []Bitmap     // the bitmaps for the given devices
 
@@ -47,7 +47,7 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 func NewFileSystem(dev RandDevice) (*FileSystem, os.Error) {
 	fs := new(FileSystem)
 
-	fs.devs = make([]RandDevice, NR_DEVICES)
+	fs.devices = make([]RandDevice, NR_DEVICES)
 	fs.devinfo = make([]DeviceInfo, NR_DEVICES)
 	fs.bitmaps = make([]Bitmap, NR_DEVICES)
 
@@ -59,7 +59,7 @@ func NewFileSystem(dev RandDevice) (*FileSystem, os.Error) {
 	fs.bcache = bcache.NewLRUCache(NR_DEVICES, NR_BUFS, NR_BUF_HASH)
 	fs.icache = icache.NewInodeCache(fs.bcache, NR_DEVICES, NR_INODES)
 
-	fs.devs[ROOT_DEVICE] = dev
+	fs.devices[ROOT_DEVICE] = dev
 	fs.devinfo[ROOT_DEVICE] = devinfo
 	fs.bitmaps[ROOT_DEVICE] = bitmap.NewBitmap(devinfo, fs.bcache, ROOT_DEVICE)
 

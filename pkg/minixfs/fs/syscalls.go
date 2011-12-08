@@ -21,9 +21,9 @@ func (fs *FileSystem) Mount(dev RandDevice, path string) os.Error {
 	found := false
 	freeIndex := -1
 	for i := 0; i < NR_DEVICES; i++ {
-		if fs.devs[i] == dev {
+		if fs.devices[i] == dev {
 			found = true
-		} else if fs.devs[i] == nil {
+		} else if fs.devices[i] == nil {
 			freeIndex = i
 		}
 	}
@@ -54,7 +54,7 @@ func (fs *FileSystem) Mount(dev RandDevice, path string) os.Error {
 
 	// Add the device/bitmap to the the filesystem (will need to be cleared if
 	// there is a problem)
-	fs.devs[freeIndex] = dev
+	fs.devices[freeIndex] = dev
 	fs.bitmaps[freeIndex] = bmap
 	fs.bcache.MountDevice(freeIndex, dev, devinfo)
 	fs.icache.MountDevice(freeIndex, bmap, devinfo)
@@ -63,7 +63,7 @@ func (fs *FileSystem) Mount(dev RandDevice, path string) os.Error {
 	rip, err := fs.eatPath(fs.procs[ROOT_PROCESS], path)
 
 	if err != nil {
-		fs.devs[freeIndex] = nil
+		fs.devices[freeIndex] = nil
 		fs.bitmaps[freeIndex] = nil
 		// Shut down device/bitmap
 		bmap.Close()
@@ -111,7 +111,7 @@ func (fs *FileSystem) Mount(dev RandDevice, path string) os.Error {
 		fs.icache.PutInode(rip)
 		fs.icache.PutInode(root_ip)
 		fs.bcache.Invalidate(freeIndex)
-		fs.devs[freeIndex] = nil
+		fs.devices[freeIndex] = nil
 		fs.bitmaps[freeIndex] = nil
 		fs.bcache.UnmountDevice(freeIndex)
 		// TODO: Should there be a way to unmount from icache?
