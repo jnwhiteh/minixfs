@@ -41,7 +41,7 @@ type superblock struct {
 	devno int        // the device number of the device with this superblock
 }
 
-func NewSuperblock(sup_disk *Disk_Superblock) Superblock {
+func NewSuperblock(sup_disk *Disk_Superblock) (Superblock, DeviceInfo) {
 	sup := &superblock{
 		diskblock:        sup_disk,
 		inodes_per_block: int(sup_disk.Block_size / V2_INODE_SIZE),
@@ -60,8 +60,18 @@ func NewSuperblock(sup_disk *Disk_Superblock) Superblock {
 		in:               make(chan m_super_req),
 		out:              make(chan m_super_res),
 	}
+
+	info := DeviceInfo{
+		sup.imap_blocks + sup.zmap_blocks,
+		sup.blocksize,
+		uint(sup.log_zone_size),
+		sup.firstdatazone,
+		sup.zones,
+		sup.max_size,
+	}
+
 	go sup.loop()
-	return sup
+	return sup, info
 }
 
 func (sup *superblock) loop() {

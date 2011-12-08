@@ -110,12 +110,13 @@ func FormatSuperblock(blocks, inodes, block_size int) (Superblock, os.Error) {
 }
 
 // Read the superblock from the second 1024k block of the file
-func ReadSuperblock(dev RandDevice) (Superblock, os.Error) {
+func ReadSuperblock(dev RandDevice) (Superblock, DeviceInfo, os.Error) {
 	sup_disk := new(Disk_Superblock)
 	err := dev.Read(sup_disk, 1024)
 	if err != nil {
-		return nil, err
+		return nil, DeviceInfo{}, err
 	}
 
-	return NewSuperblock(sup_disk), nil
+	sup, info := NewSuperblock(sup_disk)
+	return sup, info, nil
 }
