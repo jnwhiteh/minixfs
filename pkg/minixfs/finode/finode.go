@@ -25,6 +25,22 @@ type finode struct {
 	closed    chan bool
 }
 
+func New(inode *CacheInode, devinfo DeviceInfo, cache BlockCache) Finode {
+	finode := &finode{
+		inode,
+		devinfo,
+		cache,
+		make(chan m_finode_req),
+		make(chan m_finode_res),
+		new(sync.WaitGroup),
+		nil,
+	}
+
+	go finode.loop()
+
+	return finode
+}
+
 func (fi *finode) loop() {
 	var in <-chan m_finode_req = fi.in
 	var out chan<- m_finode_res = fi.out

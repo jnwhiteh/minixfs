@@ -22,6 +22,21 @@ type dinode struct {
 	closed    chan bool
 }
 
+func New(inode *CacheInode, devinfo DeviceInfo, cache BlockCache) Dinode {
+	dinode := &dinode{
+		inode,
+		devinfo,
+		cache,
+		make(chan m_dinode_req),
+		make(chan m_dinode_res),
+		new(sync.WaitGroup),
+		nil,
+	}
+
+	go dinode.loop()
+
+	return dinode
+}
 
 func (d *dinode) loop() {
 	var in <-chan m_dinode_req = d.in
