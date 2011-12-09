@@ -3,6 +3,7 @@ package fs
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
 	"os"
+	"sync"
 )
 
 type fileSystem interface {
@@ -23,7 +24,12 @@ type fileSystem interface {
 	Write(proc *Process, file *File, b []byte) (int, os.Error)
 }
 
-type filp struct {
+type mountInfo struct {
+	imount *CacheInode
+	isup   *CacheInode
+}
+
+type Filp struct {
 	mode  uint16
 	flags int
 	inode *CacheInode
@@ -36,9 +42,12 @@ type Process struct {
 	umask   uint16      // file creation mask
 	rootdir *CacheInode // root directory of the process
 	workdir *CacheInode // working directory of the process
-	filp    []*filp     // the list of file descriptors
+	filp    []*Filp     // the list of file descriptors
+	files   []*File     // the list of open files
+	m       *sync.Mutex
 }
 
 type File struct {
-
+	*Filp     // the current position in the file, inode, etc.
+	fd    int // the numeric file descriptor for this file
 }
