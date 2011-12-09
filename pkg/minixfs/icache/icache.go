@@ -9,6 +9,7 @@ import (
 	. "../../minixfs/common/_obj/minixfs/common"
 	finode "../finode/_obj/minixfs/finode"
 	dinode "../dinode/_obj/minixfs/dinode"
+	"../../minixfs/utils/_obj/minixfs/utils"
 	"os"
 	"sync"
 )
@@ -149,7 +150,7 @@ func (c *inodeCache) loop() {
 				}
 
 				if rip.Inode.Nlinks == 0 { // free the inode
-					Truncate(rip, rip.Bitmap, c.bcache) // return all the disk blocks
+					utils.Truncate(rip, rip.Bitmap, c.bcache) // return all the disk blocks
 					rip.Inode.Mode = I_NOT_ALLOC
 					rip.Dirty = true
 					rip.Bitmap.FreeInode(rip.Inum)
@@ -168,6 +169,9 @@ func (c *inodeCache) loop() {
 				}
 			}
 
+			out <- m_icache_res_empty{}
+		case m_icache_req_flushinode:
+			c.writeInode(req.rip)
 			out <- m_icache_res_empty{}
 		case m_icache_req_isbusy:
 			count := 0
@@ -212,6 +216,12 @@ func (c *inodeCache) IsDeviceBusy(devno int) bool {
 
 func (c *inodeCache) PutInode(cb *CacheInode) {
 	c.in <- m_icache_req_putinode{cb}
+	<-c.out
+	return
+}
+
+func (c *inodeCache) FlushInode(cb *CacheInode) {
+	c.in <- m_icache_req_flushinode{cb}
 	<-c.out
 	return
 }
