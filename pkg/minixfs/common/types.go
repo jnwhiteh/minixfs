@@ -42,6 +42,10 @@ type CacheInode struct {
 	Server  interface{}
 }
 
+func (ci *CacheInode) GetType() int {
+	return int(ci.Inode.Mode & I_TYPE)
+}
+
 func (ci *CacheInode) IsRegular() bool {
 	if ci.Inode == nil {
 		return false
