@@ -1,6 +1,7 @@
-package common
+package utils
 
 import (
+	. "../../minixfs/common/_obj/minixfs/common"
 	"os"
 )
 

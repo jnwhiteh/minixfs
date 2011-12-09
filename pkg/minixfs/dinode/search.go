@@ -2,6 +2,7 @@ package dinode
 
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
+	"../../minixfs/utils/_obj/minixfs/utils"
 	"os"
 )
 
@@ -111,7 +112,7 @@ func (d *dinode) search_dir(path string, inum *int, op dirop) os.Error {
 			return EFBIG
 		}
 		var err os.Error
-		bp, err = NewBlock(dirp, int(dirp.Inode.Size), DIRECTORY_BLOCK, d.cache)
+		bp, err = utils.NewBlock(dirp, int(dirp.Inode.Size), DIRECTORY_BLOCK, d.cache)
 		if err != nil {
 			return err
 		}

@@ -9,7 +9,6 @@ GOFILES=\
 		interfaces.go \
 		read.go \
 		super.go \
-		write.go \
 		types.go \
 
 include $(GOROOT)/src/Make.pkg

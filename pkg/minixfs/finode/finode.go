@@ -2,6 +2,7 @@ package minixfs
 
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
+	"../../minixfs/utils/_obj/minixfs/utils"
 	"log"
 	"os"
 	"sync"
@@ -204,7 +205,7 @@ func (fi *finode) write(data []byte, pos int) (n int, err os.Error) {
 	// created. This is necessary because all unwritten blocks prior to the
 	// EOF must read as zeros.
 	if position > fsize {
-		ClearZone(fi.inode, fsize, 0, fi.cache)
+		utils.ClearZone(fi.inode, fsize, 0, fi.cache)
 	}
 
 	bsize := fi.devinfo.Blocksize
@@ -224,7 +225,7 @@ func (fi *finode) write(data []byte, pos int) (n int, err os.Error) {
 		}
 
 		// Read or write 'chunk' bytes, fetch the first block
-		err = WriteChunk(fi.inode, position, off, chunk, data, fi.cache)
+		err = utils.WriteChunk(fi.inode, position, off, chunk, data, fi.cache)
 		if err != nil {
 			break // EOF reached
 		}

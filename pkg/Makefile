@@ -1,4 +1,4 @@
-all: bcache bitmap common device dinode finode icache testutils
+all: bcache bitmap common device dinode finode icache testutils utils
 	make -C minixfs/fs
 
 bcache: common
@@ -13,10 +13,10 @@ common:
 device: common
 	make -C minixfs/device
 
-dinode: common
+dinode: common utils
 	make -C minixfs/dinode
 
-finode: common
+finode: common utils
 	make -C minixfs/finode
 
 icache: common
@@ -24,6 +24,9 @@ icache: common
 
 testutils: common device
 	make -C minixfs/testutils
+
+utils: common
+	make -C minixfs/utils
 
 clean:
 	make clean -C minixfs/bcache
@@ -35,4 +38,5 @@ clean:
 	make clean -C minixfs/fs
 	make clean -C minixfs/icache
 	make clean -C minixfs/testutils
+	make clean -C minixfs/utils
 
