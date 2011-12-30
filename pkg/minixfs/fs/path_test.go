@@ -1,7 +1,6 @@
 package fs
 
 import (
-	//	. "../../minixfs/common/_obj/minixfs/common"
 	. "../../minixfs/testutils/_obj/minixfs/testutils"
 	"testing"
 )
