@@ -19,9 +19,13 @@ func (fs *FileSystem) unmount(devno int) os.Error {
 	}
 
 	minfo := fs.mountinfo[devno]
-	minfo.imount.Mount = false       // inode returns to normal
-	fs.icache.PutInode(minfo.imount) // release the inode mounted on
-	fs.icache.PutInode(minfo.isup)   // release the root inode of the mounted fs
+	if minfo.imount != nil {
+		minfo.imount.Mount = false       // inode returns to normal
+		fs.icache.PutInode(minfo.imount) // release the inode mounted on
+	}
+	if minfo.isup != nil {
+		fs.icache.PutInode(minfo.isup) // release the root inode of the mounted fs
+	}
 
 	// Flush and invalidate the cache
 	fs.bcache.Flush(devno)

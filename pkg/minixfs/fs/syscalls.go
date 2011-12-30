@@ -4,7 +4,7 @@ import (
 	. "../../minixfs/common/_obj/minixfs/common"
 	"../../minixfs/utils/_obj/minixfs/utils"
 	"../bitmap/_obj/minixfs/bitmap"
-	"log"
+	"fmt"
 	"os"
 	"sync"
 )
@@ -36,14 +36,22 @@ func (fs *FileSystem) Shutdown() (err os.Error) {
 		// Cannot unmount this device, so we need to fail
 		return EBUSY
 	} else {
+		// TODO: Find a better way to do this
+		// Release the inode for the root process
+		proc := fs.procs[ROOT_PROCESS]
+		if proc.rootdir != proc.workdir && proc.workdir != nil {
+			fs.icache.PutInode(proc.workdir)
+		}
+		fs.icache.PutInode(proc.rootdir)
+
 		if err := fs.unmount(ROOT_DEVICE); err != nil {
-			log.Printf("Error unmounting root device: %s", err)
+			return fmt.Errorf("Error unmounting root device: %s", err)
 		}
 		if err := fs.bcache.Close(); err != nil {
-			log.Printf("Error closing block cache: %s", err)
+			return fmt.Errorf("Error closing block cache: %s", err)
 		}
 		if err := fs.icache.Close(); err != nil {
-			log.Printf("Error closing inode cache: %s", err)
+			return fmt.Errorf("Error closing inode cache: %s", err)
 		}
 	}
 
