@@ -182,6 +182,8 @@ func (fs *FileSystem) Mount(dev RandDevice, path string) os.Error {
 	return nil
 }
 
+// Unmount the mount device 'dev' from the filesystem. Each device may be
+// mount at most once.
 func (fs *FileSystem) Unmount(dev RandDevice) os.Error {
 	fs.m.device.Lock()
 	defer fs.m.device.Unlock()
@@ -206,7 +208,7 @@ func (fs *FileSystem) Unmount(dev RandDevice) os.Error {
 var ERR_PID_EXISTS = os.NewError("Process already exists")
 var ERR_PATH_LOOKUP = os.NewError("Could not lookup path")
 
-// Spawn a new process
+// Spawn a new process with a given pid, umask and root directory
 func (fs *FileSystem) Spawn(pid int, umask uint16, rootpath string) (*Process, os.Error) {
 	fs.m.device.RLock()
 	defer fs.m.device.RUnlock()
@@ -235,7 +237,7 @@ func (fs *FileSystem) Spawn(pid int, umask uint16, rootpath string) (*Process, o
 	return proc, nil
 }
 
-// Exit a spawned process.
+// Destroy a spawned process, closing all open files, etc.
 func (fs *FileSystem) Exit(proc *Process) {
 	// We'll be changing both the process itself and the process table, so
 	// make sure they are properly acquired
@@ -264,6 +266,7 @@ func (fs *FileSystem) Exit(proc *Process) {
 
 var mode_map = []uint16{R_BIT, W_BIT, R_BIT | W_BIT, 0}
 
+// Open the file at 'path' in 'proc' with the given flags and mode
 func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16) (*File, os.Error) {
 	// Remap the bottom two bits of oflags
 	bits := mode_map[oflags&O_ACCMODE]
@@ -276,6 +279,8 @@ func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16)
 	if oflags&O_CREAT > 0 {
 		// Create a new node by calling new_node()
 		omode := I_REGULAR | (omode & ALL_MODES & proc.umask)
+		// the use of proc here is simply for path lookup, the structure isn't
+		// altered in any way.
 		rip, err = fs.newNode(proc, path, omode, NO_ZONE)
 		if err == nil {
 			exist = false
@@ -354,7 +359,7 @@ func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16)
 		return nil, err
 	} else {
 		// Allocate a proper filp entry and update fs/filp tables
-		filp = &Filp{bits, oflags, rip, 1, 0}
+		filp = &Filp{filpidx, bits, oflags, rip, 1, 0}
 		proc.filp[fd] = filp
 		fs.filps[filpidx] = filp
 	}
@@ -362,4 +367,27 @@ func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16)
 	file := &File{filp, fd}
 	proc.files[fd] = file
 	return file, nil
+}
+
+// Close an open file in the given process
+func (fs *FileSystem) Close(proc *Process, file *File) os.Error {
+	// Acquire the filp table and process mutexes
+	fs.m.filp.Lock()
+	defer fs.m.filp.Unlock()
+	proc.m.Lock()
+	defer proc.m.Unlock()
+
+	// Release the inode
+	fs.icache.PutInode(file.inode)
+
+	proc.files[file.fd] = nil
+
+	file.count--
+
+	// If this was the last file using it...
+	if file.count == 0 {
+		fs.filps[file.filpidx] = nil
+	}
+
+	return nil
 }

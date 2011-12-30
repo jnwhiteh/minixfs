@@ -30,11 +30,12 @@ type mountInfo struct {
 }
 
 type Filp struct {
-	mode  uint16
-	flags int
-	inode *CacheInode
-	count int
-	pos   int
+	filpidx int // the numeric index of the entry in the global filp table
+	mode    uint16
+	flags   int
+	inode   *CacheInode
+	count   int
+	pos     int
 }
 
 type Process struct {
