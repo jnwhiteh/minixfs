@@ -88,7 +88,9 @@ func (d *dinode) loop() {
 
 func (d *dinode) Lookup(name string) (bool, int, int) {
 	d.in <- m_dinode_req_lookup{name}
-	res := (<-d.out).(m_dinode_res_lookup)
+	ares := (<-d.out).(m_dinode_res_asynclookup)
+	res := <-ares.callback
+
 	return res.ok, res.devno, res.inum
 }
 
