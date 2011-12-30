@@ -20,15 +20,15 @@ const (
 )
 
 func FS_BITS_PER_BLOCK(b int) int {
-	return FS_BITMAP_CHUNKS(b) * FS_BITCHUNK_BITS
+	return FS_BITMAP_CHUNKS(b) * int(FS_BITCHUNK_BITS)
 }
 
 func FS_BITMAP_CHUNKS(b int) int {
-	return b / Sizeof_bitchunk_t
+	return b / int(Sizeof_bitchunk_t)
 }
 
 func V2_INDIRECTS() int {
-	return block_size / V2_ZONE_NUM_SIZE
+	return block_size / int(V2_ZONE_NUM_SIZE)
 }
 
 func MAX_ZONES(b int) int {

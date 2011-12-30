@@ -164,7 +164,7 @@ func chksuper() {
 		log.Printf("warning: expected %d zmap_blocks instead of %d",
 			n, sb.Zmap_blocks)
 	}
-	if int(sb.Log_zone_size) >= 8*Sizeof_block_nr {
+	if int(sb.Log_zone_size) >= int(8*Sizeof_block_nr) {
 		log.Fatalf("log_zone_size too large")
 	}
 	if sb.Log_zone_size > 8 {
@@ -208,8 +208,8 @@ func lsi() {
 }
 
 func getbitmaps() {
-	ilen := (int(sb.Imap_blocks) * block_size) / Sizeof_bitchunk_t
-	zlen := (int(sb.Zmap_blocks) * block_size) / Sizeof_bitchunk_t
+	ilen := (int(sb.Imap_blocks) * block_size) / int(Sizeof_bitchunk_t)
+	zlen := (int(sb.Zmap_blocks) * block_size) / int(Sizeof_bitchunk_t)
 	imap = make([]bitchunk_t, ilen)
 	zmap = make([]bitchunk_t, zlen)
 	spec_imap = make([]bitchunk_t, ilen)
@@ -892,8 +892,8 @@ func chkmap(cmap, dmap []bitchunk_t, bit, blkno, nblk int, mtype string) {
 		if cmap[i] != dmap[i] {
 			chkword(uint32(cmap[i]), uint32(dmap[i]), bit, mtype, &nerr, &report, phys)
 		}
-		bit += 8 * Sizeof_bitchunk_t
-		phys += 8 * Sizeof_bitchunk_t
+		bit += int(8 * Sizeof_bitchunk_t)
+		phys += int(8 * Sizeof_bitchunk_t)
 	}
 
 	//if ((!repair || automatic) && !report) printf("etc. ");
@@ -966,7 +966,7 @@ func chkilist() {
 	fmt.Printf("Checking inode list\n")
 	for {
 		if !bitset(imap, ino) {
-			devread(inoblock(ino), inooff(ino), &mode, Sizeof_mode_t)
+			devread(inoblock(ino), inooff(ino), &mode, int(Sizeof_mode_t))
 			if mode != I_NOT_ALLOC {
 				fmt.Printf("mode inode %d not cleared\n", ino)
 				if yes(". clear") {
