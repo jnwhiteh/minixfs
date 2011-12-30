@@ -5,6 +5,7 @@ import (
 	"testing"
 )
 
+// Test that path lookups function properly
 func TestEatPath(test *testing.T) {
 	fs, err := OpenFileSystemFile("../../../minix3root.img")
 	if err != nil {
