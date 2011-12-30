@@ -246,17 +246,18 @@ func (c *inodeCache) loadInode(xp *CacheInode) {
 	// The count at this point is guaranteed to be > 0, so the device cannot
 	// be unmounted until the load has completed and the inode has been 'put'
 
+	inum := xp.Inum - 1
 	info := c.devinfo[xp.Devno]
-	ioffset := (xp.Inum - 1) / info.Blocksize
-	blocknum := ioffset + info.MapOffset
 	inodes_per_block := info.Blocksize / V2_INODE_SIZE
+	ioffset := inum % inodes_per_block
+	blocknum := info.MapOffset + (inum / inodes_per_block)
 
 	// Load the inode from the disk and create an in-memory version of it
 	bp := c.bcache.GetBlock(xp.Devno, blocknum, INODE_BLOCK, NORMAL)
 	inodeb := bp.Block.(InodeBlock)
 
 	// We have the full block, now get the correct inode entry
-	inode_d := &inodeb[(xp.Inum-1)%inodes_per_block]
+	inode_d := &inodeb[ioffset]
 	xp.Inode = inode_d
 	xp.Dirty = false
 	xp.Mount = false
