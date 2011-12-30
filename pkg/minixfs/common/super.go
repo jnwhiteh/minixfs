@@ -17,7 +17,7 @@ func GetDeviceInfo(dev RandDevice) (DeviceInfo, os.Error) {
 	}
 
 	info := DeviceInfo{
-		int(sup.Imap_blocks + sup.Zmap_blocks),
+		int(sup.Imap_blocks + sup.Zmap_blocks + 2),
 		int(sup.Block_size),
 		uint(sup.Log_zone_size),
 		int(sup.Firstdatazone),
