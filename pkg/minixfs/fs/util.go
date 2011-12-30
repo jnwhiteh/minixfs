@@ -4,6 +4,8 @@ import (
 	. "../../minixfs/common/_obj/minixfs/common"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 // Unmount a device (must be called under the fs.m.device mutex)
@@ -120,18 +122,140 @@ func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) 
 }
 
 func (fs *FileSystem) eatPath(proc *Process, path string) (*CacheInode, os.Error) {
-	// NYI
-	return nil, nil
+	ldip, rest, err := fs.lastDir(proc, path)
+	if err != nil {
+		return nil, err // could not open final directory
+	}
+
+	// If there is no more path to go, return
+	if len(rest) == 0 {
+		return ldip, nil
+	}
+
+	// Get final component of the path
+	rip, err := fs.advance(proc, ldip, rest)
+	fs.icache.PutInode(ldip)
+	return rip, err
 }
 
 func (fs *FileSystem) wipeInode(rip *CacheInode) {
 	// NYI
 }
 
-func (fs *FileSystem) lastDir(proc *Process, path string) (*CacheInode, string, os.Error) {
-	return nil, "", nil
+// TODO: Remove this function?
+func (fs *FileSystem) dupInode(rip *CacheInode) {
+	rip.Count++
 }
 
-func (fs *FileSystem) advance(proc *Process, rip *CacheInode, path string) (*CacheInode, os.Error) {
-	return nil, nil
+func (fs *FileSystem) lastDir(proc *Process, path string) (*CacheInode, string, os.Error) {
+	path = filepath.Clean(path)
+
+	var rip *CacheInode
+	if filepath.IsAbs(path) {
+		rip = proc.rootdir
+	} else {
+		rip = proc.workdir
+	}
+
+	// If directory has been removed or path is empty, return ENOENT
+	if rip.Inode.Nlinks == 0 || len(path) == 0 {
+		return nil, "", ENOENT
+	}
+
+	fs.dupInode(rip) // inode will be returned with put_inode
+
+	var pathlist []string
+	if filepath.IsAbs(path) {
+		pathlist = strings.Split(path, string(filepath.Separator))
+		pathlist = pathlist[1:]
+	} else {
+		pathlist = strings.Split(path, string(filepath.Separator))
+	}
+
+	for i := 0; i < len(pathlist)-1; i++ {
+		newip, _ := fs.advance(proc, rip, pathlist[i])
+		fs.icache.PutInode(rip)
+		if newip == nil {
+			return nil, "", ENOENT
+		}
+		rip = newip
+	}
+
+	if rip.GetType() != I_DIRECTORY {
+		// last file of path prefix is not a directory
+		fs.icache.PutInode(rip)
+		return nil, "", ENOTDIR
+	}
+
+	return rip, pathlist[len(pathlist)-1], nil
+}
+
+func (fs *FileSystem) advance(proc *Process, dirp *CacheInode, path string) (*CacheInode, os.Error) {
+	// if there is no path, just return this inode
+	if len(path) == 0 {
+		return fs.icache.GetInode(dirp.Devno, dirp.Inum)
+	}
+
+	// check for a nil inode
+	if dirp == nil {
+		return nil, nil // TODO: This should return something
+	}
+
+	// If 'path' is not present in the directory, signal error
+	dinode := dirp.Dinode()
+	ok, devnum, inum := dinode.Lookup(path)
+	if !ok {
+		return nil, ENOENT
+	}
+
+	// don't go beyond the current root directory, ever
+	if dirp == proc.rootdir && path == ".." {
+		return fs.icache.GetInode(dirp.Devno, dirp.Inum)
+	}
+
+	// the component has been found in the directory, get the inode
+	rip, _ := fs.icache.GetInode(devnum, inum)
+	if rip == nil {
+		return nil, nil // TODO: What error should we return here?
+	}
+
+	if rip.Inum == ROOT_INODE {
+		if dirp.Inum == ROOT_INODE {
+			// TODO: What does this do?
+			if path[1] == '.' {
+				if fs.devices[rip.Devno] != nil {
+					// we can skip the superblock search here since we know
+					// that 'i' is the device that we're looking at.
+					mountinfo := fs.mountinfo[rip.Devno]
+					fs.icache.PutInode(rip)
+					mnt_dev := mountinfo.imount.Devno
+					inumb := mountinfo.imount.Inum
+					rip2, _ := fs.icache.GetInode(mnt_dev, inumb) // TODO: ignore error
+					rip, _ = fs.advance(proc, rip2, path)
+					fs.icache.PutInode(rip2)
+				}
+			}
+		}
+	}
+
+	if rip == nil {
+		return nil, nil // TODO: Error here?
+	}
+
+	// See if the inode is mounted on. If so, switch to the root directory of
+	// the mounted file system. The super_block provides the linkage between
+	// the inode mounted on and the root directory of the mounted file system.
+	for rip != nil && rip.Mount {
+		// The inode is indeed mounted on
+		for i := 0; i < NR_DEVICES; i++ {
+			if fs.mountinfo[i].imount == rip {
+				// Release the inode mounted on. Replace by the inode of the
+				// root inode of the mounted device.
+				fs.icache.PutInode(rip)
+				rip, _ = fs.icache.GetInode(i, ROOT_INODE) // TODO: ignore error
+				break
+			}
+		}
+	}
+	return rip, nil
 }
