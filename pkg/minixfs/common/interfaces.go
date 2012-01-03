@@ -84,6 +84,9 @@ type Dinode interface {
 	Link(name string, inum int) os.Error
 	// Remove the entry named 'name' from the directory listing.
 	Unlink(name string) os.Error
+	// Returns whether or not the directory is empty (i.e. only contains . and
+	// .. entries).
+	IsEmpty() bool
 	// close the dinode
 	Close() os.Error
 }

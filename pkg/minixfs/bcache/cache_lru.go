@@ -40,6 +40,10 @@ type LRUCache struct {
 
 	in  chan m_cache_req // an incoming channel for requests
 	out chan m_cache_res // an outgoing channel for response
+
+	// TODO: Remove these flags
+	showdebug     bool // on flush, show the blocks that have changed.
+	actuallywrite bool // commit dirty blocks back to the device
 }
 
 var LRU_ALLINUSE *CacheBlock = new(CacheBlock)
@@ -47,12 +51,14 @@ var LRU_ALLINUSE *CacheBlock = new(CacheBlock)
 // NewLRUCache creates a new LRUCache with the given size
 func NewLRUCache(numdevices int, numslots int, numhash int) BlockCache {
 	cache := &LRUCache{
-		devs:     make([]RandDevice, numdevices),
-		devinfo:  make([]DeviceInfo, numdevices),
-		buf:      make([]*lru_buf, numslots),
-		buf_hash: make([]*lru_buf, numhash),
-		in:       make(chan m_cache_req),
-		out:      make(chan m_cache_res),
+		devs:          make([]RandDevice, numdevices),
+		devinfo:       make([]DeviceInfo, numdevices),
+		buf:           make([]*lru_buf, numslots),
+		buf_hash:      make([]*lru_buf, numhash),
+		in:            make(chan m_cache_req),
+		out:           make(chan m_cache_res),
+		showdebug:     false,
+		actuallywrite: false,
 	}
 
 	// Create all of the entries in buf ahead of time
@@ -412,15 +418,12 @@ func (c *LRUCache) flush(dev int) {
 	var dirty = make([]*lru_buf, NR_BUFS) // a slice of dirty blocks
 	ndirty := 0
 
-	// TODO: Remove these control variables
-	var _showdebug = false
-	var _actuallywrite = true
-
+	// TODO: Remove this debug code
 	var bp *lru_buf
 	for i := 0; i < NR_BUFS; i++ {
 		bp = c.buf[i]
 		if bp.Dirty && bp.Devno == dev {
-			if _showdebug {
+			if c.showdebug {
 				log.Printf("Found a dirty block: %d", bp.Blockno)
 				log.Printf("Block type: %T", bp.Block)
 				debug.PrintBlock(bp.CacheBlock, c.devinfo[bp.Devno])
@@ -437,7 +440,7 @@ func (c *LRUCache) flush(dev int) {
 		for i := 0; i < ndirty; i++ {
 			bp = dirty[i]
 			pos := blocksize * int64(bp.Blockno)
-			if _actuallywrite {
+			if c.actuallywrite {
 				err := dev.Write(bp.Block, pos)
 				if err != nil {
 					panic("something went wrong during flushall")
