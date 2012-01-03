@@ -57,3 +57,14 @@ func (entry Disk_dirent) HasName(s string) bool {
 	}
 	return false
 }
+
+func (entry Disk_dirent) String() string {
+	str := ""
+	for _, ch := range entry.Name {
+		if ch == 0 {
+			return str
+		}
+		str = str + string(ch)
+	}
+	return str
+}
