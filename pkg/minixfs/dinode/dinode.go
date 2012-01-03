@@ -46,8 +46,8 @@ func (d *dinode) loop() {
 		switch req := req.(type) {
 		case m_dinode_req_lookup:
 			d.waitGroup.Add(1)
-			callback := make(chan m_dinode_res_lookup)
-			out <- m_dinode_res_asynclookup{callback}
+			callback := make(chan m_dinode_res)
+			out <- m_dinode_res_async{callback}
 
 			go func() {
 				defer close(callback)
@@ -59,6 +59,23 @@ func (d *dinode) loop() {
 					callback <- m_dinode_res_lookup{false, 0, 0}
 				} else {
 					callback <- m_dinode_res_lookup{true, d.inode.Devno, inum}
+				}
+			}()
+		case m_dinode_req_isempty:
+			// Perform this lookup asynchronously, as well
+			d.waitGroup.Add(1)
+			callback := make(chan m_dinode_res)
+			out <- m_dinode_res_async{callback}
+
+			go func() {
+				defer close(callback)
+				defer d.waitGroup.Done()
+
+				zeroinode := 0
+				if err := d.search_dir("", &zeroinode, IS_EMPTY); err != nil {
+					callback <- m_dinode_res_isempty{false}
+				} else {
+					callback <- m_dinode_res_isempty{true}
 				}
 			}()
 		case m_dinode_req_link:
@@ -88,9 +105,8 @@ func (d *dinode) loop() {
 
 func (d *dinode) Lookup(name string) (bool, int, int) {
 	d.in <- m_dinode_req_lookup{name}
-	ares := (<-d.out).(m_dinode_res_asynclookup)
-	res := <-ares.callback
-
+	ares := (<-d.out).(m_dinode_res_async)
+	res := (<-ares.callback).(m_dinode_res_lookup)
 	return res.ok, res.devno, res.inum
 }
 
@@ -104,6 +120,13 @@ func (d *dinode) Unlink(name string) os.Error {
 	d.in <- m_dinode_req_unlink{name}
 	res := (<-d.out).(m_dinode_res_err)
 	return res.err
+}
+
+func (d *dinode) IsEmpty() bool {
+	d.in <- m_dinode_req_isempty{}
+	ares := (<-d.out).(m_dinode_res_async)
+	res := (<-ares.callback).(m_dinode_res_isempty)
+	return res.empty
 }
 
 func (d *dinode) Close() os.Error {
