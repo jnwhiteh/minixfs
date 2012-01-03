@@ -261,3 +261,36 @@ func (fs *FileSystem) advance(proc *Process, dirp *CacheInode, path string) (*Ca
 	}
 	return rip, nil
 }
+
+// Given a path, fetch the inode for the parent directory of final entry and
+// the inode of the final entry itself. In addition, return the portion of the
+// path that is the filename of the final entry, so it can be removed from the
+// parent directory, and any error that may have occurred.
+func (fs *FileSystem) unlinkPrep(proc *Process, path string) (*CacheInode, *CacheInode, string, os.Error) {
+	// Get the last directory in the path
+	rldirp, rest, err := fs.lastDir(proc, path)
+	if rldirp == nil {
+		return nil, nil, "", err
+	}
+
+	// The last directory exists. Does the file also exist?
+	rip, err := fs.advance(proc, rldirp, rest)
+	if rip == nil {
+		return nil, nil, "", err
+	}
+
+	// If error, return inode
+	if err != nil {
+		fs.icache.PutInode(rldirp)
+		return nil, nil, "", nil
+	}
+
+	// Do not remove a mount point
+	if rip.Inum == ROOT_INODE {
+		fs.icache.PutInode(rldirp)
+		fs.icache.PutInode(rip)
+		return nil, nil, "", EBUSY
+	}
+
+	return rldirp, rip, rest, nil
+}

@@ -391,3 +391,34 @@ func (fs *FileSystem) Close(proc *Process, file *File) os.Error {
 
 	return nil
 }
+
+// Remove (unlink) a file from its parent directory. In a system that allows
+// for hard links, this would be slightly more complicated.
+func (fs *FileSystem) Unlink(proc *Process, path string) os.Error {
+	// Get the inodes we need to perform the unlink
+	dirp, rip, filename, err := fs.unlinkPrep(proc, path)
+	if err != nil || dirp == nil || rip == nil {
+		return err
+	}
+
+	// Now test if the call is allowed (altered from Minix)
+	if rip.Inum == ROOT_INODE {
+		err = EBUSY
+	}
+
+	if err == nil {
+		// Fetch the dinode and unlink the entry from the directory
+		dinode := dirp.Dinode()
+		err = dinode.Unlink(filename)
+	}
+
+	if err == nil {
+		rip.Inode.Nlinks--
+		// TODO: Update times
+		rip.Dirty = true
+	}
+
+	fs.icache.PutInode(rip)
+	fs.icache.PutInode(dirp)
+	return err
+}
