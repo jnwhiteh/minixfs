@@ -70,8 +70,6 @@ func (fs *FileSystem) close(proc *Process, file *File) os.Error {
 // initialise it. If successful, the inode is returned along with a nil error,
 // otherwise nil is returned along with the error.
 func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) (*CacheInode, os.Error) {
-	var err os.Error
-
 	// See if the path can be opened down to the last directory
 	dirp, rlast, err := fs.lastDir(proc, path)
 	if err != nil {
@@ -89,19 +87,23 @@ func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) 
 		if rip == nil {
 			// Can't create new inode, out of inodes
 			fs.icache.PutInode(dirp)
-			return nil, nil
+			return nil, ENFILE
 		}
 
 		// Force the inode to disk before making a directory entry to make the
 		// system more robust in the face of a crash: an inode with no
 		// directory entry is much better than the opposite.
-		rip.Inode.Nlinks++
+		rip.Inode.Mode = bits
+		rip.Inode.Nlinks = 1
+		rip.Inode.Uid = 0 // TODO: Get the current uid
+		rip.Inode.Gid = 0 // TODO: Get the current gid
 		rip.Inode.Zone[0] = uint32(z0)
 		fs.icache.FlushInode(rip)
 
 		// New inode acquired. Try to make directory entry.
 		dinode := dirp.Dinode()
 		err = dinode.Link(rlast, inum)
+
 		if err != nil {
 			fs.icache.PutInode(dirp)
 			rip.Inode.Nlinks--      // pity, have to free disk inode
