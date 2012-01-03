@@ -5,6 +5,7 @@ import (
 	"../../minixfs/utils/_obj/minixfs/utils"
 	"../bitmap/_obj/minixfs/bitmap"
 	"fmt"
+	"math"
 	"os"
 	"sync"
 )
@@ -415,12 +416,110 @@ func (fs *FileSystem) Unlink(proc *Process, path string) os.Error {
 	fs.icache.PutInode(dirp)
 	return err
 }
-		rip.Inode.Nlinks--
-		// TODO: Update times
-		rip.Dirty = true
+
+// Create a new directory on the file system
+func (fs *FileSystem) Mkdir(proc *Process, path string, mode uint16) os.Error {
+	// Check to see if it is possible to make another link in the parent
+	// directory.
+	dirp, rest, err := fs.lastDir(proc, path) // pointer to the new dirs parent
+	if err != nil {
+		return err
+	}
+	if dirp.Inode.Nlinks >= math.MaxUint16 {
+		fs.icache.PutInode(dirp)
+		return EMLINK
 	}
 
+	// Next, make the inode. If that fails, return err
+	bits := I_DIRECTORY | (mode & RWX_MODES & proc.umask)
+	rip, err := fs.newNode(proc, path, bits, 0)
+	if rip == nil || err == EEXIST {
+		fs.icache.PutInode(rip)  // can't make dir: it already exists
+		fs.icache.PutInode(dirp) // return parent too
+		return err
+	}
+
+	// Get the inode numbers for . and .. to enter into the directory
+	dotdot := dirp.Inum // parent's inode number
+	dot := rip.Inum     // inode number of the new dir itself
+
+	// Now make dir entries for . and .. unless the disk is completely full.
+	dinode := rip.Dinode()
+	rip.Inode.Mode = bits             // set mode
+	err1 := dinode.Link(".", dot)     // enter . in the new dir
+	err2 := dinode.Link("..", dotdot) // enter .. in the new dir
+
+	// If both . and .. were entered, increment the link counts
+
+	if err1 == nil && err2 == nil {
+		// Normal case
+		rip.Inode.Nlinks++  // this accounts for .
+		dirp.Inode.Nlinks++ // this accounts for ..
+		dirp.Dirty = true
+	} else {
+		// It did not work, so remove the new directory
+		pdinode := dirp.Dinode()
+		pdinode.Unlink(rest)
+		rip.Inode.Nlinks--
+	}
+
+	// Either way nlinks has been updated
+	rip.Dirty = true
+	fs.icache.PutInode(dirp)
+	fs.icache.PutInode(rip)
+
+	if err1 != nil {
+		return err1
+	} else if err2 != nil {
+		return err2
+	}
+	return err
+}
+
+// Remove a directory from the file system.
+func (fs *FileSystem) Rmdir(proc *Process, path string) os.Error {
+	// Get parent/inode and filename
+	dirp, rip, filename, err := fs.unlinkPrep(proc, path)
+	if err != nil {
+		return err
+	}
+
+	// Check to see if the directory is empty
+	dinode := rip.Dinode()
+	if !dinode.IsEmpty() {
+		return ENOTEMPTY
+	}
+
+	if path == "." || path == ".." {
+		return EINVAL
+	}
+	if rip.Inum == ROOT_INODE { // can't remove root
+		return EBUSY
+	}
+	// Make sure no one else is using this directory. This is a stronger
+	// condition than given in Minix initially, where it just cannot be the
+	// root or working directory of a process. Could be relaxed, this is just
+	// for sanity.
+	if rip.Count > 1 {
+		return EBUSY
+	}
+
+	// Actually try to unlink from the parent
+	if err = fs.unlinkFile(dirp, rip, filename); err != nil {
+		return err
+	}
+
+	// Unlink . and .. from the directory.
+	if err = fs.unlinkFile(rip, nil, "."); err != nil {
+		return err
+	}
+	if err = fs.unlinkFile(rip, nil, ".."); err != nil {
+		return err
+	}
+
+	// If unlink was possible, it has been done. Otherwise it has not
 	fs.icache.PutInode(rip)
 	fs.icache.PutInode(dirp)
+
 	return err
 }
