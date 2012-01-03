@@ -265,9 +265,11 @@ func (c *inodeCache) loadInode(xp *CacheInode) {
 
 func (c *inodeCache) writeInode(xp *CacheInode) {
 	// Calculate the block number we need
-	block_offset := xp.Devinfo.MapOffset
-	inodes_per_block := xp.Devinfo.Blocksize / V2_INODE_SIZE
-	block_num := ((xp.Inum - 1) / inodes_per_block) + block_offset
+	inum := xp.Inum - 1
+	info := c.devinfo[xp.Devno]
+	inodes_per_block := info.Blocksize / V2_INODE_SIZE
+	ioffset := inum % inodes_per_block
+	block_num := info.MapOffset + (inum / inodes_per_block)
 
 	// Load the inode from the disk
 	bp := c.bcache.GetBlock(xp.Devno, block_num, INODE_BLOCK, NORMAL)
@@ -277,7 +279,7 @@ func (c *inodeCache) writeInode(xp *CacheInode) {
 	bp.Dirty = true
 
 	// Copy the disk_inode from rip into the inode block
-	inodeb[xp.Inum%inodes_per_block] = *xp.Inode
+	inodeb[ioffset] = *xp.Inode
 	xp.Dirty = false
 	c.bcache.PutBlock(bp, INODE_BLOCK)
 }
