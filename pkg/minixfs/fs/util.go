@@ -81,9 +81,9 @@ func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) 
 	// The final directory is accessible. Get the final component of the path
 	rip, err := fs.advance(proc, dirp, rlast)
 	if rip == nil && err == ENOENT {
-
 		// Last component does not exist. Make new directory entry
-		inum, err := dirp.Bitmap.AllocInode(bits)
+		var inum int // this is here to fix shadowing of err
+		inum, err = dirp.Bitmap.AllocInode()
 		rip, err = fs.icache.GetInode(dirp.Devno, inum)
 
 		if rip == nil {

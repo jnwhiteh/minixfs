@@ -49,7 +49,7 @@ func (bmap *bitmap) loop() {
 	for req := range in {
 		switch req := req.(type) {
 		case m_bitmap_req_alloc_inode:
-			inum, err := bmap.alloc_inode(req.mode)
+			inum, err := bmap.alloc_inode()
 			out <- m_bitmap_res_alloc_inode{inum, err}
 		case m_bitmap_req_alloc_zone:
 			znum, err := bmap.alloc_zone(req.zstart)
@@ -72,8 +72,8 @@ func (bmap *bitmap) loop() {
 // Interface implementations (re-entrant)
 //////////////////////////////////////////////////////////////////////////////
 
-func (bmap *bitmap) AllocInode(mode uint16) (int, os.Error) {
-	bmap.in <- m_bitmap_req_alloc_inode{mode}
+func (bmap *bitmap) AllocInode() (int, os.Error) {
+	bmap.in <- m_bitmap_req_alloc_inode{}
 	res := (<-bmap.out).(m_bitmap_res_alloc_inode)
 	return res.inum, res.err
 }
@@ -105,7 +105,7 @@ func (bmap *bitmap) Close() os.Error {
 //////////////////////////////////////////////////////////////////////////////
 
 // Allocate a free inode on the given device and return its inum
-func (bmap *bitmap) alloc_inode(mode uint16) (int, os.Error) {
+func (bmap *bitmap) alloc_inode() (int, os.Error) {
 	b := bmap.alloc_bit(IMAP, bmap.i_search)
 
 	if b == NO_BIT {

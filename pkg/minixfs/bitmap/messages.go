@@ -18,7 +18,7 @@ type m_bitmap_res interface {
 
 // Request types
 type m_bitmap_req_alloc_inode struct {
-	mode uint16
+
 }
 type m_bitmap_req_alloc_zone struct {
 	zstart int

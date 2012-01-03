@@ -32,7 +32,7 @@ type BlockCache interface {
 
 type Bitmap interface {
 	// Allocate a free inode, returning the number of the allocated inode
-	AllocInode(mode uint16) (int, os.Error)
+	AllocInode() (int, os.Error)
 	// Allocate a free zone, returning the number of the allocated zone. Start
 	// looking at zone number 'zstart' in an attempt to provide contiguous
 	// allocation of zones.
