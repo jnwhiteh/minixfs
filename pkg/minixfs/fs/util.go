@@ -299,3 +299,32 @@ func (fs *FileSystem) unlinkPrep(proc *Process, path string) (*CacheInode, *Cach
 
 	return rldirp, rip, rest, nil
 }
+
+func (fs *FileSystem) unlinkFile(dirp, rip *CacheInode, filename string) os.Error {
+	var err os.Error
+
+	// if rip is not nil, it is used to get access to the inode
+	if rip == nil {
+		// Search for file in directory and try to get its inode
+		pdinode := dirp.Dinode()
+		ok, dev, inum := pdinode.Lookup(filename)
+		if ok {
+			rip, err = fs.icache.GetInode(dev, inum)
+		} else {
+			return ENOENT
+		}
+	} else {
+		fs.dupInode(rip) // inode will be returned with put_inode
+	}
+
+	pdinode := dirp.Dinode()
+	err = pdinode.Unlink(filename)
+	if err == nil {
+		rip.Inode.Nlinks--
+		// TODO: Update times
+		rip.Dirty = true
+	}
+
+	fs.icache.PutInode(rip)
+	return err
+}

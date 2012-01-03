@@ -407,12 +407,14 @@ func (fs *FileSystem) Unlink(proc *Process, path string) os.Error {
 	}
 
 	if err == nil {
-		// Fetch the dinode and unlink the entry from the directory
-		dinode := dirp.Dinode()
-		err = dinode.Unlink(filename)
+		// Remove the file
+		err = fs.unlinkFile(dirp, rip, filename)
 	}
 
-	if err == nil {
+	fs.icache.PutInode(rip)
+	fs.icache.PutInode(dirp)
+	return err
+}
 		rip.Inode.Nlinks--
 		// TODO: Update times
 		rip.Dirty = true
