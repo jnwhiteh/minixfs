@@ -33,9 +33,10 @@ type BlockCache interface {
 type Bitmap interface {
 	// Allocate a free inode, returning the number of the allocated inode
 	AllocInode() (int, os.Error)
-	// Allocate a free zone, returning the number of the allocated zone. Start
-	// looking at zone number 'zstart' in an attempt to provide contiguous
-	// allocation of zones.
+	// Allocate a free zone, returning the number of the allocated zone. Zones
+	// are numbered starting at 0, which corresponds to Firstdatazone stored
+	// in the superblock. The search begins at the 'zstart' parameter, which
+	// is specified absolutely (and thus is adjusted by Firstdatazone).
 	AllocZone(zstart int) (int, os.Error)
 	// Free an allocated inode
 	FreeInode(inum int)

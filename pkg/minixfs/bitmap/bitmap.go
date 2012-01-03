@@ -149,11 +149,10 @@ func (bmap *bitmap) alloc_zone(zstart int) (int, os.Error) {
 		return NO_ZONE, ENOSPC
 	}
 
-	if zstart == bmap.devinfo.Firstdatazone {
+	if bit < bmap.z_search || bmap.z_search == NO_BIT {
 		bmap.z_search = bit
 	}
-
-	return int(bmap.devinfo.Firstdatazone - 1 + bit), nil
+	return (bmap.devinfo.Firstdatazone - 1) + bit, nil
 }
 
 // Free an allocated zone so it can be re-used
@@ -161,10 +160,12 @@ func (bmap *bitmap) free_zone(znum int) {
 	if znum < bmap.devinfo.Firstdatazone || znum >= bmap.devinfo.Zones {
 		return
 	}
-	bit := znum - bmap.devinfo.Firstdatazone - 1
+
+	// Turn this from an absolute zone into a bit number
+	bit := znum - (bmap.devinfo.Firstdatazone - 1)
 	bmap.free_bit(ZMAP, bit)
 
-	if bit < bmap.z_search {
+	if bit < bmap.z_search || bmap.z_search == NO_BIT {
 		bmap.z_search = bit
 	}
 }
@@ -283,8 +284,8 @@ func (bmap *bitmap) free_bit(which int, bit_returned int) {
 	bmap.cache.PutBlock(bp, MAP_BLOCK)
 }
 
-// Deallocate an inode/zone in the bitmap, freeing it up for re-use
-func (bmap *bitmap) check_bit(which int, bit_check int) bool {
+// Check whether or not a given bit in the bitmap is set
+func (bmap *bitmap) checkBit(which int, bit_check int) bool {
 	var start_block int // first bit block
 
 	if which == IMAP {
