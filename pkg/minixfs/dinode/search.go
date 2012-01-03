@@ -40,13 +40,12 @@ func (d *dinode) search_dir(path string, inum *int, op dirop) os.Error {
 		dirarr := bp.Block.(DirectoryBlock)
 		for i := 0; i < len(dirarr); i++ {
 			dp = &dirarr[i]
-
 			new_slots++
 			if new_slots > old_slots { // not found, but room left
 				if op == ENTER {
 					e_hit = true
-					break
 				}
+				break
 			}
 
 			// Match occurs if string found
@@ -134,6 +133,7 @@ func (d *dinode) search_dir(path string, inum *int, op dirop) os.Error {
 	}
 	dp.Inum = uint32(*inum)
 	bp.Dirty = true
+
 	d.cache.PutBlock(bp, DIRECTORY_BLOCK)
 	// TODO: update times
 	dirp.Dirty = true
