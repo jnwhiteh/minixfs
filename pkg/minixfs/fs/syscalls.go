@@ -523,3 +523,31 @@ func (fs *FileSystem) Rmdir(proc *Process, path string) os.Error {
 
 	return err
 }
+
+func (fs *FileSystem) Chdir(proc *Process, path string) os.Error {
+	proc.m.Lock()
+	defer proc.m.Unlock()
+
+	rip, err := fs.eatPath(proc, path)
+	if err != nil {
+		return err
+	}
+
+	var r os.Error
+
+	if !rip.IsDirectory() {
+		r = ENOTDIR
+	}
+	// TODO: Check permissions
+
+	// If error then return inode
+	if r != nil {
+		fs.icache.PutInode(rip)
+		return r
+	}
+
+	// Everything is okay, make the change
+	fs.icache.PutInode(proc.workdir)
+	proc.workdir = rip
+	return nil
+}
