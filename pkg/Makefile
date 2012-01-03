@@ -9,6 +9,7 @@ bitmap: common
 
 common:
 	make -C minixfs/common
+	make -C minixfs/debug
 
 device: common
 	make -C minixfs/device
@@ -32,6 +33,7 @@ clean:
 	make clean -C minixfs/bcache
 	make clean -C minixfs/bitmap
 	make clean -C minixfs/common
+	make clean -C minixfs/debug
 	make clean -C minixfs/device
 	make clean -C minixfs/dinode
 	make clean -C minixfs/finode
