@@ -22,7 +22,7 @@ func TestEatPath(test *testing.T) {
 	//  inode permission link   size name
 	//      1 drwxr-xr-x  14    1088 /
 	//      2 drwxr-xr-x   2     128 /usr
-	//    541 drwxr-xr-x   2     256 /sample
+	//    541 drwxr-xr-x   2     192 /sample
 	//    542 -rw-r--r--   1 4489799 /sample/europarl-en.txt
 	//     35 -rw-------   2 2705920 /boot/image/3.1.8
 	//    540 -rw-r--r--   1     395 /root/.ssh/known_hosts
@@ -39,7 +39,7 @@ func TestEatPath(test *testing.T) {
 	inodeTests := []inodeTest{
 		{"/", 1, 14, 1088, nil},
 		{"/usr", 2, 2, 128, nil},
-		{"/sample", 541, 2, 256, nil},
+		{"/sample", 541, 2, 192, nil},
 		{"/sample/europarl-en.txt", 542, 1, 4489799, nil},
 		{"/boot/image/3.1.8", 35, 2, 2705920, nil},
 		{"/root/.ssh/known_hosts", 540, 1, 395, nil},
