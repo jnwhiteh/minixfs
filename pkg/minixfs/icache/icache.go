@@ -201,6 +201,8 @@ func (c *inodeCache) loop() {
 	}
 }
 
+// TODO: Split GetInode up into GetInode and GetNewInode, so we can properly
+// start the dinode/finode as required.
 func (c *inodeCache) GetInode(devno, inum int) (*CacheInode, os.Error) {
 	c.in <- m_icache_req_getinode{devno, inum}
 	ares := (<-c.out).(m_icache_res_async)

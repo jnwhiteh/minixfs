@@ -98,7 +98,12 @@ func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) 
 		rip.Inode.Uid = 0 // TODO: Get the current uid
 		rip.Inode.Gid = 0 // TODO: Get the current gid
 		rip.Inode.Zone[0] = uint32(z0)
+
+		// TODO: HACK: Fix this hack, we flush/get/put to make sure the dinode or
+		// finode is started.
 		fs.icache.FlushInode(rip)
+		fs.icache.PutInode(rip)
+		fs.icache.GetInode(dirp.Devno, inum)
 
 		// New inode acquired. Try to make directory entry.
 		dinode := dirp.Dinode()
