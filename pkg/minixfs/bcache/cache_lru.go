@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	. "../../minixfs/common/_obj/minixfs/common"
+	debug "../../minixfs/debug/_obj/minixfs/debug"
 	"os"
 	"sync"
 )
@@ -422,7 +423,7 @@ func (c *LRUCache) flush(dev int) {
 			if _showdebug {
 				log.Printf("Found a dirty block: %d", bp.Blockno)
 				log.Printf("Block type: %T", bp.Block)
-				//_debugPrintBlock(bp.CacheBlock, c.bsizes[bp.Devno])
+				debug.PrintBlock(bp.CacheBlock, c.devinfo[bp.Devno])
 			}
 			dirty[ndirty] = bp
 			ndirty++
