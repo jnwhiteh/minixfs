@@ -107,11 +107,15 @@ func (fi *finode) read(b []byte, pos int) (int, os.Error) {
 	// will almost certainly be split up amongst multiple blocks.
 	curpos := pos
 
-	// Determine what the ending position to be read is
-	endpos := curpos + len(b)
-	fsize := int(fi.inode.Inode.Size)
-	if endpos >= int(fsize) {
-		endpos = int(fsize) - 1
+	// Rather than getting fancy, just slice b to contain only enough space
+	// for the data that is available
+	// TODO: Should this rely on the inode size?
+	if curpos+len(b) > int(fi.inode.Inode.Size) {
+		b = b[:int(fi.inode.Inode.Size)-curpos]
+	}
+
+	if curpos >= int(fi.inode.Inode.Size) {
+		return 0, os.EOF
 	}
 
 	blocksize := fi.devinfo.Blocksize
