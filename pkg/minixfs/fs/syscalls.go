@@ -584,3 +584,16 @@ func (fs *FileSystem) Read(proc *Process, file *File, b []byte) (int, os.Error) 
 	file.pos += n
 	return n, err
 }
+
+func (fs *FileSystem) Write(proc *Process, file *File, b []byte) (int, os.Error) {
+	if file.fd == NO_FILE {
+		return 0, EBADF
+	}
+
+	curpos := file.pos
+	finode := file.inode.Finode()
+	n, err := finode.Write(b, curpos)
+
+	file.pos += n
+	return n, err
+}
