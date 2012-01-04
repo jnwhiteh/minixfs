@@ -128,12 +128,13 @@ func (bmap *bitmap) free_inode(inum int) {
 	}
 }
 
-// Allocate a new zone
+// Allocate a new zone. The parameter given is absolute and will be over
+// Firstdatazone, or be NO_ZONE, which indicates that there was no idea where
+// the search should start.
 func (bmap *bitmap) alloc_zone(zstart int) (int, os.Error) {
 	var bstart int
 
-	// If z is 0, skip initial part of the map known to be fully in use
-	if zstart == bmap.devinfo.Firstdatazone {
+	if zstart <= bmap.devinfo.Firstdatazone {
 		bstart = bmap.z_search
 	} else {
 		bstart = zstart - (bmap.devinfo.Firstdatazone - 1)

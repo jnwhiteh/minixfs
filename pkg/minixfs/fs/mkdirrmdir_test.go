@@ -1,7 +1,7 @@
 package fs
 
 import (
-	//	. "../../minixfs/common/_obj/minixfs/common"
+	. "../../minixfs/common/_obj/minixfs/common"
 	. "../../minixfs/testutils/_obj/minixfs/testutils"
 	"testing"
 )
@@ -28,7 +28,7 @@ func TestMkdir(test *testing.T) {
 	}
 	bitmap.FreeInode(inum)
 
-	znum, err := bitmap.AllocZone(0)
+	znum, err := bitmap.AllocZone(NO_ZONE)
 	if err != nil {
 		FatalHere(test, "Error pre-allocating a zone: %s", err)
 	}
