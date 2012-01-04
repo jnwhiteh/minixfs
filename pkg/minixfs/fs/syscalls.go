@@ -551,3 +551,36 @@ func (fs *FileSystem) Chdir(proc *Process, path string) os.Error {
 	proc.workdir = rip
 	return nil
 }
+
+func (fs *FileSystem) Seek(proc *Process, file *File, pos, whence int) (int, os.Error) {
+	if file.fd == NO_FILE {
+		return 0, EBADF
+	}
+
+	filp := fs.filps[file.filpidx]
+	switch whence {
+	case 1:
+		filp.pos += pos
+	case 0:
+		filp.pos = pos
+	default:
+		panic("NYI: Seek with whence > 1")
+	}
+
+	return filp.pos, nil
+}
+
+func (fs *FileSystem) Read(proc *Process, file *File, b []byte) (int, os.Error) {
+	if file.fd == NO_FILE {
+		return 0, EBADF
+	}
+
+	// We want to read at most len(b) bytes from the given file. This data
+	// will almost certainly be split up amongst multiple blocks.
+	curpos := file.pos
+	finode := file.inode.Finode()
+	n, err := finode.Read(b, curpos)
+
+	file.pos += n
+	return n, err
+}
