@@ -8,7 +8,7 @@ import (
 
 func TestClose(test *testing.T) {
 	var bcache BlockCache = nil
-	icache := NewInodeCache(bcache, NR_SUPERS, NR_INODES).(*inodeCache)
+	icache := NewInodeCache(bcache, NR_DEVICES, NR_INODES).(*inodeCache)
 
 	if err := icache.Close(); err != nil {
 		ErrorHere(test, "Failed when closing icache: %s", err)

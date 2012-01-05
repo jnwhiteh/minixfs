@@ -7,10 +7,17 @@ import (
 	"testing"
 )
 
+func getDevInfo(bsize int) DeviceInfo {
+	info := DeviceInfo{}
+	info.Blocksize = 64
+	return info
+}
+
 func openTestCache(test *testing.T) (RandDevice, *LRUCache) {
 	dev := NewTestDevice(test, 64, 100)
 	cache := NewLRUCache(4, 10, 16)
-	err := cache.MountDevice(0, dev, DeviceInfo{0, 64})
+
+	err := cache.MountDevice(0, dev, getDevInfo(64))
 	if err != nil {
 		ErrorHere(test, "Failed when mounting ramdisk device into cache: %s", err)
 	}
@@ -34,7 +41,7 @@ func closeTestCache(test *testing.T, dev RandDevice, cache *LRUCache) {
 
 // Check for proper resource cleanup when the cache is closed
 func TestClose(test *testing.T) {
-	cache := NewLRUCache(NR_SUPERS, NR_BUFS, NR_BUF_HASH).(*LRUCache)
+	cache := NewLRUCache(NR_DEVICES, NR_BUFS, NR_BUF_HASH).(*LRUCache)
 	cache.Close()
 
 	if _, ok := <-cache.in; ok {
@@ -98,7 +105,7 @@ func TestCacheFullPanic(test *testing.T) {
 func TestGetConcurrency(test *testing.T) {
 	dev, cache := openTestCache(test)
 	bdev := NewBlockingDevice(NewTestDevice(test, 64, 100))
-	cache.MountDevice(1, bdev, DeviceInfo{0, 64})
+	cache.MountDevice(1, bdev, getDevInfo(64))
 
 	// Test that reads from a normal device are not blocked by reads from a
 	// broken device.
@@ -138,7 +145,7 @@ func TestDoesCache(test *testing.T) {
 	// Open an always-broken device
 	dev := NewBlockingDevice(NewTestDevice(test, 64, 100))
 	cache := NewLRUCache(4, 10, 16)
-	err := cache.MountDevice(0, dev, DeviceInfo{0, 64})
+	err := cache.MountDevice(0, dev, getDevInfo(64))
 	if err != nil {
 		ErrorHere(test, "Failed when mounting ramdisk device into cache: %s", err)
 	}
