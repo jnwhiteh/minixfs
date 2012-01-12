@@ -1,26 +1,15 @@
+all: minixfs fsck
+
 minixfs:
-	make -C pkg/minixfs && make -C pkg/minixfs install
+	go build minixfs/fs
 
-mkfs: minixfs
-	make -C cmd/mkfs
-
-example: minixfs
-	make -C cmd/example
-
-example.run: minixfs example
-	cmd/example/example
-
-fsexplorer: minixfs
-	make -C cmd/fsexplorer
-
-all: minixfs mkfs example fsexplorer
-
-clean:
-	make -C pkg/minixfs clean
-	make -C cmd/mkfs clean
-	make -C cmd/example clean
+fsck:
+	go install fsck
 
 test:
-	make -C pkg/minixfs test
+	go test -v minixfs/bcache minixfs/icache minixfs/fs
 
-.PHONY: all clean mkfs example minixfs
+clean:
+	rm -fr bin pkg
+
+.PHONY: all minixfs fsck test clean
