@@ -2,7 +2,6 @@ package dinode
 
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
-	"os"
 	"sync"
 )
 
@@ -110,13 +109,13 @@ func (d *dinode) Lookup(name string) (bool, int, int) {
 	return res.ok, res.devno, res.inum
 }
 
-func (d *dinode) Link(name string, inum int) os.Error {
+func (d *dinode) Link(name string, inum int) error {
 	d.in <- m_dinode_req_link{name, inum}
 	res := (<-d.out).(m_dinode_res_err)
 	return res.err
 }
 
-func (d *dinode) Unlink(name string) os.Error {
+func (d *dinode) Unlink(name string) error {
 	d.in <- m_dinode_req_unlink{name}
 	res := (<-d.out).(m_dinode_res_err)
 	return res.err
@@ -129,7 +128,7 @@ func (d *dinode) IsEmpty() bool {
 	return res.empty
 }
 
-func (d *dinode) Close() os.Error {
+func (d *dinode) Close() error {
 	d.in <- m_dinode_req_close{}
 	res := (<-d.out).(m_dinode_res_err)
 	return res.err

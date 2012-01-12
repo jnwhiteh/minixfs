@@ -3,7 +3,6 @@ package dinode
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
 	"../../minixfs/utils/_obj/minixfs/utils"
-	"os"
 )
 
 type dirop int
@@ -15,7 +14,7 @@ const (
 	IS_EMPTY              // return OK if only . and .. are in the dir, else ENOTEMPTY
 )
 
-func (d *dinode) search_dir(path string, inum *int, op dirop) os.Error {
+func (d *dinode) search_dir(path string, inum *int, op dirop) error {
 	// TODO: Check permissions (see minix source)
 	dirp := d.inode
 	blocksize := d.devinfo.Blocksize
@@ -63,7 +62,7 @@ func (d *dinode) search_dir(path string, inum *int, op dirop) os.Error {
 			}
 
 			if match {
-				var r os.Error = nil
+				var r error = nil
 				// LOOK_UP or DELETE found what it wanted
 				if op == IS_EMPTY {
 					r = ENOTEMPTY
@@ -110,7 +109,7 @@ func (d *dinode) search_dir(path string, inum *int, op dirop) os.Error {
 		if new_slots == 0 { // dir size limited by slot count (overflow?)
 			return EFBIG
 		}
-		var err os.Error
+		var err error
 		bp, err = utils.NewBlock(dirp, int(dirp.Inode.Size), DIRECTORY_BLOCK, d.cache)
 		if err != nil {
 			return err

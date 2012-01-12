@@ -8,7 +8,6 @@ import (
 	"../icache/_obj/minixfs/icache"
 	"encoding/binary"
 	"log"
-	"os"
 	"sync"
 )
 
@@ -34,7 +33,7 @@ type FileSystem struct {
 }
 
 // Create a new FileSystem from a given file on the filesystem
-func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
+func OpenFileSystemFile(filename string) (*FileSystem, error) {
 	dev, err := device.NewFileDevice(filename, binary.LittleEndian)
 
 	if err != nil {
@@ -45,7 +44,7 @@ func OpenFileSystemFile(filename string) (*FileSystem, os.Error) {
 }
 
 // Create a new FileSystem from a given file on the filesystem
-func NewFileSystem(dev RandDevice) (*FileSystem, os.Error) {
+func NewFileSystem(dev RandDevice) (*FileSystem, error) {
 	fs := new(FileSystem)
 
 	fs.devices = make([]RandDevice, NR_DEVICES)

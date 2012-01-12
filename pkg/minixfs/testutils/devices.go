@@ -3,7 +3,6 @@ package testutils
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
 	. "../../minixfs/device/_obj/minixfs/device"
-	"os"
 	"testing"
 )
 
@@ -48,12 +47,12 @@ func NewBlockingDevice(rdev RandDevice) *BlockingDevice {
 	return dev
 }
 
-func (dev *BlockingDevice) Read(buf interface{}, pos int64) os.Error {
+func (dev *BlockingDevice) Read(buf interface{}, pos int64) error {
 	dev.HasBlocked <- true
 	<-dev.Unblock
 	return dev.RandDevice.Read(buf, pos)
 }
 
-func (dev *BlockingDevice) Close() os.Error {
+func (dev *BlockingDevice) Close() error {
 	return dev.RandDevice.Close()
 }

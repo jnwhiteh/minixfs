@@ -3,13 +3,12 @@ package fs
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
 	"log"
-	"os"
 	"path/filepath"
 	"strings"
 )
 
 // Unmount a device (must be called under the fs.m.device mutex)
-func (fs *FileSystem) unmount(devno int) os.Error {
+func (fs *FileSystem) unmount(devno int) error {
 	if fs.devices[devno] == nil {
 		return EINVAL
 	}
@@ -49,7 +48,7 @@ func (fs *FileSystem) unmount(devno int) os.Error {
 	return nil
 }
 
-func (fs *FileSystem) close(proc *Process, file *File) os.Error {
+func (fs *FileSystem) close(proc *Process, file *File) error {
 	if file.fd == NO_FILE {
 		return EBADF
 	}
@@ -69,7 +68,7 @@ func (fs *FileSystem) close(proc *Process, file *File) os.Error {
 // Allocate a new inode, make a directory entry for it on the path 'path' and
 // initialise it. If successful, the inode is returned along with a nil error,
 // otherwise nil is returned along with the error.
-func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) (*CacheInode, os.Error) {
+func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) (*CacheInode, error) {
 	// See if the path can be opened down to the last directory
 	dirp, rlast, err := fs.lastDir(proc, path)
 	if err != nil {
@@ -128,7 +127,7 @@ func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) 
 	return rip, err
 }
 
-func (fs *FileSystem) eatPath(proc *Process, path string) (*CacheInode, os.Error) {
+func (fs *FileSystem) eatPath(proc *Process, path string) (*CacheInode, error) {
 	ldip, rest, err := fs.lastDir(proc, path)
 	if err != nil {
 		return nil, err // could not open final directory
@@ -154,7 +153,7 @@ func (fs *FileSystem) dupInode(rip *CacheInode) {
 	rip.Count++
 }
 
-func (fs *FileSystem) lastDir(proc *Process, path string) (*CacheInode, string, os.Error) {
+func (fs *FileSystem) lastDir(proc *Process, path string) (*CacheInode, string, error) {
 	path = filepath.Clean(path)
 
 	var rip *CacheInode
@@ -197,7 +196,7 @@ func (fs *FileSystem) lastDir(proc *Process, path string) (*CacheInode, string, 
 	return rip, pathlist[len(pathlist)-1], nil
 }
 
-func (fs *FileSystem) advance(proc *Process, dirp *CacheInode, path string) (*CacheInode, os.Error) {
+func (fs *FileSystem) advance(proc *Process, dirp *CacheInode, path string) (*CacheInode, error) {
 	// if there is no path, just return this inode
 	if len(path) == 0 {
 		return fs.icache.GetInode(dirp.Devno, dirp.Inum)
@@ -271,7 +270,7 @@ func (fs *FileSystem) advance(proc *Process, dirp *CacheInode, path string) (*Ca
 // the inode of the final entry itself. In addition, return the portion of the
 // path that is the filename of the final entry, so it can be removed from the
 // parent directory, and any error that may have occurred.
-func (fs *FileSystem) unlinkPrep(proc *Process, path string) (*CacheInode, *CacheInode, string, os.Error) {
+func (fs *FileSystem) unlinkPrep(proc *Process, path string) (*CacheInode, *CacheInode, string, error) {
 	// Get the last directory in the path
 	rldirp, rest, err := fs.lastDir(proc, path)
 	if rldirp == nil {
@@ -300,8 +299,8 @@ func (fs *FileSystem) unlinkPrep(proc *Process, path string) (*CacheInode, *Cach
 	return rldirp, rip, rest, nil
 }
 
-func (fs *FileSystem) unlinkFile(dirp, rip *CacheInode, filename string) os.Error {
-	var err os.Error
+func (fs *FileSystem) unlinkFile(dirp, rip *CacheInode, filename string) error {
+	var err error
 
 	// if rip is not nil, it is used to get access to the inode
 	if rip == nil {

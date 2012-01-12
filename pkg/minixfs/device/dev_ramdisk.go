@@ -15,7 +15,7 @@ type bytestore []byte
 var _ io.Reader = bytestore(nil)
 var _ io.Writer = bytestore(nil)
 
-func (b bytestore) Read(p []byte) (n int, err os.Error) {
+func (b bytestore) Read(p []byte) (n int, err error) {
 	if len(p) > len(b) {
 		err = ENOENT
 	}
@@ -24,7 +24,7 @@ func (b bytestore) Read(p []byte) (n int, err os.Error) {
 	return
 }
 
-func (b bytestore) Write(p []byte) (n int, err os.Error) {
+func (b bytestore) Write(p []byte) (n int, err error) {
 	if len(p) > len(b) {
 		err = ENOENT
 		n = len(b)
@@ -43,7 +43,7 @@ type ramdiskDevice struct {
 	rwait *sync.WaitGroup     // a waitgroup used to
 }
 
-func NewRamdiskDevice(data []byte) (RandDevice, os.Error) {
+func NewRamdiskDevice(data []byte) (RandDevice, error) {
 	dev := &ramdiskDevice{
 		data,
 		make(chan m_dev_req),
@@ -55,7 +55,7 @@ func NewRamdiskDevice(data []byte) (RandDevice, os.Error) {
 	return dev, nil
 }
 
-func NewRamdiskDeviceFile(filename string) (RandDevice, os.Error) {
+func NewRamdiskDeviceFile(filename string) (RandDevice, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -126,21 +126,21 @@ func (dev *ramdiskDevice) loop() {
 	}
 }
 
-func (dev *ramdiskDevice) Read(buf interface{}, pos int64) os.Error {
+func (dev *ramdiskDevice) Read(buf interface{}, pos int64) error {
 	dev.in <- m_dev_req{DEV_READ, buf, pos}
 	cback := <-dev.out
 	res := <-cback
 	return res.err
 }
 
-func (dev *ramdiskDevice) Write(buf interface{}, pos int64) os.Error {
+func (dev *ramdiskDevice) Write(buf interface{}, pos int64) error {
 	dev.in <- m_dev_req{DEV_WRITE, buf, pos}
 	cback := <-dev.out
 	res := <-cback
 	return res.err
 }
 
-func (dev *ramdiskDevice) Close() os.Error {
+func (dev *ramdiskDevice) Close() error {
 	dev.in <- m_dev_req{DEV_CLOSE, nil, 0}
 	cback := <-dev.out
 	res := <-cback

@@ -52,7 +52,7 @@ const (
 )
 
 func devopen(filename string) {
-	var err os.Error
+	var err error
 
 	if *repair {
 		dev, err = os.OpenFile(filename, os.O_RDWR, 0666)

@@ -1,9 +1,5 @@
 package bitmap
 
-import (
-	"os"
-)
-
 //////////////////////////////////////////////////////////////////////////////
 // Messages for Superblock
 //////////////////////////////////////////////////////////////////////////////
@@ -18,7 +14,6 @@ type m_bitmap_res interface {
 
 // Request types
 type m_bitmap_req_alloc_inode struct {
-
 }
 type m_bitmap_req_alloc_zone struct {
 	zstart int
@@ -34,15 +29,15 @@ type m_bitmap_req_close struct{}
 // Response types
 type m_bitmap_res_alloc_inode struct {
 	inum int
-	err  os.Error
+	err  error
 }
 type m_bitmap_res_alloc_zone struct {
 	znum int
-	err  os.Error
+	err  error
 }
 type m_bitmap_res_empty struct{}
 type m_bitmap_res_err struct {
-	err os.Error
+	err error
 }
 
 // For type-checking

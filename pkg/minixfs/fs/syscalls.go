@@ -4,14 +4,15 @@ import (
 	. "../../minixfs/common/_obj/minixfs/common"
 	"../../minixfs/utils/_obj/minixfs/utils"
 	"../bitmap/_obj/minixfs/bitmap"
+	"errors"
 	"fmt"
 	"math"
-	"os"
+
 	"sync"
 )
 
 // Shutdown the file system by umounting all of the mounted devices.
-func (fs *FileSystem) Shutdown() (err os.Error) {
+func (fs *FileSystem) Shutdown() (err error) {
 	// Acquire the device lock
 	fs.m.device.Lock()
 	defer fs.m.device.Unlock()
@@ -60,7 +61,7 @@ func (fs *FileSystem) Shutdown() (err os.Error) {
 }
 
 // Mount the filesystem on 'dev' at 'path' in the root filesystem
-func (fs *FileSystem) Mount(dev RandDevice, path string) os.Error {
+func (fs *FileSystem) Mount(dev RandDevice, path string) error {
 	// argument check
 	if dev == nil {
 		return EINVAL
@@ -124,7 +125,7 @@ func (fs *FileSystem) Mount(dev RandDevice, path string) os.Error {
 		return err
 	}
 
-	var r os.Error = nil
+	var r error = nil
 
 	// It may not be busy
 	if rip.Count > 1 {
@@ -185,7 +186,7 @@ func (fs *FileSystem) Mount(dev RandDevice, path string) os.Error {
 
 // Unmount the mount device 'dev' from the filesystem. Each device may be
 // mount at most once.
-func (fs *FileSystem) Unmount(dev RandDevice) os.Error {
+func (fs *FileSystem) Unmount(dev RandDevice) error {
 	fs.m.device.Lock()
 	defer fs.m.device.Unlock()
 
@@ -206,11 +207,11 @@ func (fs *FileSystem) Unmount(dev RandDevice) os.Error {
 	return fs.unmount(devIndex)
 }
 
-var ERR_PID_EXISTS = os.NewError("Process already exists")
-var ERR_PATH_LOOKUP = os.NewError("Could not lookup path")
+var ERR_PID_EXISTS = errors.New("Process already exists")
+var ERR_PATH_LOOKUP = errors.New("Could not lookup path")
 
 // Spawn a new process with a given pid, umask and root directory
-func (fs *FileSystem) Spawn(pid int, umask uint16, rootpath string) (*Process, os.Error) {
+func (fs *FileSystem) Spawn(pid int, umask uint16, rootpath string) (*Process, error) {
 	fs.m.device.RLock()
 	defer fs.m.device.RUnlock()
 	fs.m.proc.Lock()
@@ -268,11 +269,11 @@ func (fs *FileSystem) Exit(proc *Process) {
 var mode_map = []uint16{R_BIT, W_BIT, R_BIT | W_BIT, 0}
 
 // Open the file at 'path' in 'proc' with the given flags and mode
-func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16) (*File, os.Error) {
+func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16) (*File, error) {
 	// Remap the bottom two bits of oflags
 	bits := mode_map[oflags&O_ACCMODE]
 
-	var err os.Error = nil
+	var err error = nil
 	var rip *CacheInode = nil
 	var exist bool = false
 
@@ -371,7 +372,7 @@ func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16)
 }
 
 // Close an open file in the given process
-func (fs *FileSystem) Close(proc *Process, file *File) os.Error {
+func (fs *FileSystem) Close(proc *Process, file *File) error {
 	// Acquire the filp table and process mutexes
 	fs.m.filp.Lock()
 	defer fs.m.filp.Unlock()
@@ -395,7 +396,7 @@ func (fs *FileSystem) Close(proc *Process, file *File) os.Error {
 
 // Remove (unlink) a file from its parent directory. In a system that allows
 // for hard links, this would be slightly more complicated.
-func (fs *FileSystem) Unlink(proc *Process, path string) os.Error {
+func (fs *FileSystem) Unlink(proc *Process, path string) error {
 	// Get the inodes we need to perform the unlink
 	dirp, rip, filename, err := fs.unlinkPrep(proc, path)
 	if err != nil || dirp == nil || rip == nil {
@@ -418,7 +419,7 @@ func (fs *FileSystem) Unlink(proc *Process, path string) os.Error {
 }
 
 // Create a new directory on the file system
-func (fs *FileSystem) Mkdir(proc *Process, path string, mode uint16) os.Error {
+func (fs *FileSystem) Mkdir(proc *Process, path string, mode uint16) error {
 	// Check to see if it is possible to make another link in the parent
 	// directory.
 	dirp, rest, err := fs.lastDir(proc, path) // pointer to the new dirs parent
@@ -477,7 +478,7 @@ func (fs *FileSystem) Mkdir(proc *Process, path string, mode uint16) os.Error {
 }
 
 // Remove a directory from the file system.
-func (fs *FileSystem) Rmdir(proc *Process, path string) os.Error {
+func (fs *FileSystem) Rmdir(proc *Process, path string) error {
 	// Get parent/inode and filename
 	dirp, rip, filename, err := fs.unlinkPrep(proc, path)
 	if err != nil {
@@ -524,7 +525,7 @@ func (fs *FileSystem) Rmdir(proc *Process, path string) os.Error {
 	return err
 }
 
-func (fs *FileSystem) Chdir(proc *Process, path string) os.Error {
+func (fs *FileSystem) Chdir(proc *Process, path string) error {
 	proc.m.Lock()
 	defer proc.m.Unlock()
 
@@ -533,7 +534,7 @@ func (fs *FileSystem) Chdir(proc *Process, path string) os.Error {
 		return err
 	}
 
-	var r os.Error
+	var r error
 
 	if !rip.IsDirectory() {
 		r = ENOTDIR
@@ -552,7 +553,7 @@ func (fs *FileSystem) Chdir(proc *Process, path string) os.Error {
 	return nil
 }
 
-func (fs *FileSystem) Seek(proc *Process, file *File, pos, whence int) (int, os.Error) {
+func (fs *FileSystem) Seek(proc *Process, file *File, pos, whence int) (int, error) {
 	if file.fd == NO_FILE {
 		return 0, EBADF
 	}
@@ -570,7 +571,7 @@ func (fs *FileSystem) Seek(proc *Process, file *File, pos, whence int) (int, os.
 	return filp.pos, nil
 }
 
-func (fs *FileSystem) Read(proc *Process, file *File, b []byte) (int, os.Error) {
+func (fs *FileSystem) Read(proc *Process, file *File, b []byte) (int, error) {
 	if file.fd == NO_FILE {
 		return 0, EBADF
 	}
@@ -585,7 +586,7 @@ func (fs *FileSystem) Read(proc *Process, file *File, b []byte) (int, os.Error) 
 	return n, err
 }
 
-func (fs *FileSystem) Write(proc *Process, file *File, b []byte) (int, os.Error) {
+func (fs *FileSystem) Write(proc *Process, file *File, b []byte) (int, error) {
 	if file.fd == NO_FILE {
 		return 0, EBADF
 	}

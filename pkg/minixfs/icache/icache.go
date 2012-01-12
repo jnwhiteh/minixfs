@@ -7,10 +7,10 @@ package icache
 
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
-	finode "../finode/_obj/minixfs/finode"
-	dinode "../dinode/_obj/minixfs/dinode"
 	"../../minixfs/utils/_obj/minixfs/utils"
-	"os"
+	dinode "../dinode/_obj/minixfs/dinode"
+	finode "../finode/_obj/minixfs/finode"
+
 	"sync"
 )
 
@@ -194,8 +194,8 @@ func (c *inodeCache) loop() {
 				out <- m_icache_res_err{EBUSY}
 			} else {
 				out <- m_icache_res_err{nil}
-				close(out)
-				close(in)
+				close(c.out)
+				close(c.in)
 			}
 		}
 	}
@@ -203,7 +203,7 @@ func (c *inodeCache) loop() {
 
 // TODO: Split GetInode up into GetInode and GetNewInode, so we can properly
 // start the dinode/finode as required.
-func (c *inodeCache) GetInode(devno, inum int) (*CacheInode, os.Error) {
+func (c *inodeCache) GetInode(devno, inum int) (*CacheInode, error) {
 	c.in <- m_icache_req_getinode{devno, inum}
 	ares := (<-c.out).(m_icache_res_async)
 	res := (<-ares.ch).(m_icache_res_getinode)
@@ -234,7 +234,7 @@ func (c *inodeCache) MountDevice(devno int, bmap Bitmap, info DeviceInfo) {
 	return
 }
 
-func (c *inodeCache) Close() os.Error {
+func (c *inodeCache) Close() error {
 	c.in <- m_icache_req_close{}
 	res := (<-c.out).(m_icache_res_err)
 	return res.err

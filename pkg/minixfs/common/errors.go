@@ -1,24 +1,22 @@
 package common
 
-import (
-	"os"
-)
+import "errors"
 
 // The following string constants are taken from the Minix 3.1.0 source,
 // specifically from lib/ansi/errlist.c.
 
 var (
-	EBADF     = os.NewError("Bad file number")
-	EBUSY     = os.NewError("Resource busy")
-	EEXIST    = os.NewError("File exists")
-	EFBIG     = os.NewError("File too large")
-	EINVAL    = os.NewError("Invalid argument")
-	EISDIR    = os.NewError("Is a directory")
-	EMFILE    = os.NewError("Too many open files")
-	EMLINK    = os.NewError("Too many links")
-	ENFILE    = os.NewError("File table overflow")
-	ENOENT    = os.NewError("No such file or directory")
-	ENOSPC    = os.NewError("No space left on device")
-	ENOTDIR   = os.NewError("Not a directory")
-	ENOTEMPTY = os.NewError("Directory not empty")
+	EBADF     = errors.New("Bad file number")
+	EBUSY     = errors.New("Resource busy")
+	EEXIST    = errors.New("File exists")
+	EFBIG     = errors.New("File too large")
+	EINVAL    = errors.New("Invalid argument")
+	EISDIR    = errors.New("Is a directory")
+	EMFILE    = errors.New("Too many open files")
+	EMLINK    = errors.New("Too many links")
+	ENFILE    = errors.New("File table overflow")
+	ENOENT    = errors.New("No such file or directory")
+	ENOSPC    = errors.New("No space left on device")
+	ENOTDIR   = errors.New("Not a directory")
+	ENOTEMPTY = errors.New("Directory not empty")
 )

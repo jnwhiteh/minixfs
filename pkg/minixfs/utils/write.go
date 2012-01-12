@@ -1,9 +1,6 @@
 package utils
 
-import (
-	. "../../minixfs/common/_obj/minixfs/common"
-	"os"
-)
+import . "../../minixfs/common/_obj/minixfs/common"
 
 // Zero a zone, possibly starting in the middle. The parameter 'pos' gives a
 // byte in the first block to be zeroed. clear_zone is called from
@@ -64,9 +61,9 @@ func ZeroBlock(bp *CacheBlock, btype BlockType, blocksize int) {
 
 // Write 'chunk' bytes from 'buff' into 'rip' at position 'pos' in the file.
 // This is at offset 'off' within the current block.
-func WriteChunk(rip *CacheInode, pos, off, chunk int, buff []byte, cache BlockCache) os.Error {
+func WriteChunk(rip *CacheInode, pos, off, chunk int, buff []byte, cache BlockCache) error {
 	var bp *CacheBlock
-	var err os.Error
+	var err error
 
 	bsize := rip.Devinfo.Blocksize
 	fsize := int(rip.Inode.Size)
@@ -122,10 +119,10 @@ func WriteChunk(rip *CacheInode, pos, off, chunk int, buff []byte, cache BlockCa
 // Acquire a new block and return a pointer to it. Doing so may require
 // allocating a complete zone, and then returning the initial block. On the
 // other hand, the current zone may still have some unused blocks.
-func NewBlock(rip *CacheInode, position int, btype BlockType, cache BlockCache) (*CacheBlock, os.Error) {
+func NewBlock(rip *CacheInode, position int, btype BlockType, cache BlockCache) (*CacheBlock, error) {
 	var b int
 	var z int
-	var err os.Error
+	var err error
 
 	if b = ReadMap(rip, position, cache); b == NO_BLOCK {
 		// Choose first zone if possible.
@@ -157,13 +154,13 @@ func NewBlock(rip *CacheInode, position int, btype BlockType, cache BlockCache) 
 }
 
 // Write a new zone into an inode
-func WriteMap(rip *CacheInode, position int, new_zone int, cache BlockCache) os.Error {
+func WriteMap(rip *CacheInode, position int, new_zone int, cache BlockCache) error {
 	rip.Dirty = true // inode will be changed
 	var bp *CacheBlock = nil
 	var z int
 	var z1 int
 	var zindex int
-	var err os.Error
+	var err error
 
 	// relative zone # to insert
 	blocksize := rip.Devinfo.Blocksize

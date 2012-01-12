@@ -1,9 +1,5 @@
 package minixfs
 
-import (
-	"os"
-)
-
 //////////////////////////////////////////////////////////////////////////////
 // Messages for Finode
 //////////////////////////////////////////////////////////////////////////////
@@ -32,7 +28,7 @@ type m_finode_req_close struct{}
 // Response types
 type m_finode_res_io struct {
 	n   int
-	err os.Error
+	err error
 }
 
 type m_finode_res_asyncio struct {
@@ -40,7 +36,7 @@ type m_finode_res_asyncio struct {
 }
 
 type m_finode_res_err struct {
-	err os.Error
+	err error
 }
 
 // For type-checking

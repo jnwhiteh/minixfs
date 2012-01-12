@@ -1,9 +1,6 @@
 package bcache
 
-import (
-	. "../../minixfs/common/_obj/minixfs/common"
-	"os"
-)
+import . "../../minixfs/common/_obj/minixfs/common"
 
 //////////////////////////////////////////////////////////////////////////////
 // Messages for BlockCache interface
@@ -48,7 +45,7 @@ type m_cache_req_flush struct{ dev int }
 type m_cache_req_close struct{}
 
 type m_cache_res_err struct {
-	err os.Error
+	err error
 }
 type m_cache_res_block struct {
 	cb *CacheBlock

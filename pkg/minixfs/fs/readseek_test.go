@@ -4,6 +4,7 @@ import (
 	. "../../minixfs/common/_obj/minixfs/common"
 	. "../../minixfs/testutils/_obj/minixfs/testutils"
 	"bytes"
+	"io"
 	"os"
 	"testing"
 )
@@ -53,7 +54,7 @@ func TestRead(test *testing.T) {
 			FatalHere(test, "Data mismatch at offset %d\n==Expected\n%s\n==Got\n%s", offset, odata, data)
 		}
 
-		if err == os.EOF && oerr == os.EOF {
+		if err == io.EOF && oerr == io.EOF {
 			break
 		}
 

@@ -1,9 +1,6 @@
 package icache
 
-import (
-	. "../../minixfs/common/_obj/minixfs/common"
-	"os"
-)
+import . "../../minixfs/common/_obj/minixfs/common"
 
 //////////////////////////////////////////////////////////////////////////////
 // InodeCache Messages
@@ -45,13 +42,13 @@ type m_icache_res_async struct {
 }
 type m_icache_res_getinode struct {
 	rip *CacheInode
-	err os.Error
+	err error
 }
 type m_icache_res_isbusy struct {
 	busy bool
 }
 type m_icache_res_err struct {
-	err os.Error
+	err error
 }
 
 // For interface implementations

@@ -1,11 +1,9 @@
 package device
 
-import (
-	"os"
-)
+import "errors"
 
-var ERR_SEEK = os.NewError("could not seek to given position")
-var ERR_BADCALL = os.NewError("bad call")
+var ERR_SEEK = errors.New("could not seek to given position")
+var ERR_BADCALL = errors.New("bad call")
 
 type CallNumber int
 

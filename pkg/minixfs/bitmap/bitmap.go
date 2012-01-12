@@ -3,7 +3,6 @@ package bitmap
 import "log"
 import "math"
 import . "../../minixfs/common/_obj/minixfs/common"
-import "os"
 
 const FS_BITCHUNK_BITS = 16 // the number of bits in a bitchunk_t
 
@@ -72,13 +71,13 @@ func (bmap *bitmap) loop() {
 // Interface implementations (re-entrant)
 //////////////////////////////////////////////////////////////////////////////
 
-func (bmap *bitmap) AllocInode() (int, os.Error) {
+func (bmap *bitmap) AllocInode() (int, error) {
 	bmap.in <- m_bitmap_req_alloc_inode{}
 	res := (<-bmap.out).(m_bitmap_res_alloc_inode)
 	return res.inum, res.err
 }
 
-func (bmap *bitmap) AllocZone(zone int) (int, os.Error) {
+func (bmap *bitmap) AllocZone(zone int) (int, error) {
 	bmap.in <- m_bitmap_req_alloc_zone{zone}
 	res := (<-bmap.out).(m_bitmap_res_alloc_zone)
 	return res.znum, res.err
@@ -94,7 +93,7 @@ func (bmap *bitmap) FreeZone(znum int) {
 	<-bmap.out // empty response
 }
 
-func (bmap *bitmap) Close() os.Error {
+func (bmap *bitmap) Close() error {
 	bmap.in <- m_bitmap_req_close{}
 	res := (<-bmap.out).(m_bitmap_res_err)
 	return res.err
@@ -105,7 +104,7 @@ func (bmap *bitmap) Close() os.Error {
 //////////////////////////////////////////////////////////////////////////////
 
 // Allocate a free inode on the given device and return its inum
-func (bmap *bitmap) alloc_inode() (int, os.Error) {
+func (bmap *bitmap) alloc_inode() (int, error) {
 	b := bmap.alloc_bit(IMAP, bmap.i_search)
 
 	if b == NO_BIT {
@@ -131,7 +130,7 @@ func (bmap *bitmap) free_inode(inum int) {
 // Allocate a new zone. The parameter given is absolute and will be over
 // Firstdatazone, or be NO_ZONE, which indicates that there was no idea where
 // the search should start.
-func (bmap *bitmap) alloc_zone(zstart int) (int, os.Error) {
+func (bmap *bitmap) alloc_zone(zstart int) (int, error) {
 	var bstart int
 
 	if zstart <= bmap.devinfo.Firstdatazone {

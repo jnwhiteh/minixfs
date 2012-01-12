@@ -3,8 +3,9 @@ package minixfs
 import (
 	. "../../minixfs/common/_obj/minixfs/common"
 	"../../minixfs/utils/_obj/minixfs/utils"
+	"io"
 	"log"
-	"os"
+
 	"sync"
 )
 
@@ -81,7 +82,7 @@ func (fi *finode) loop() {
 }
 
 // Read up to len(b) bytes from the file from position 'pos'
-func (fi *finode) Read(b []byte, pos int) (int, os.Error) {
+func (fi *finode) Read(b []byte, pos int) (int, error) {
 	fi.in <- m_finode_req_read{b, pos}
 	ares := (<-fi.out).(m_finode_res_asyncio)
 	res := (<-ares.callback)
@@ -89,20 +90,20 @@ func (fi *finode) Read(b []byte, pos int) (int, os.Error) {
 }
 
 // Write len(b) bytes to the file at position 'pos'
-func (fi *finode) Write(data []byte, pos int) (n int, err os.Error) {
+func (fi *finode) Write(data []byte, pos int) (n int, err error) {
 	fi.in <- m_finode_req_write{data, pos}
 	res := (<-fi.out).(m_finode_res_io)
 	return res.n, res.err
 }
 
 // Close an instance of this finode.
-func (fi *finode) Close() os.Error {
+func (fi *finode) Close() error {
 	fi.in <- m_finode_req_close{}
 	res := (<-fi.out).(m_finode_res_err)
 	return res.err
 }
 
-func (fi *finode) read(b []byte, pos int) (int, os.Error) {
+func (fi *finode) read(b []byte, pos int) (int, error) {
 	// We want to read at most len(b) bytes from the given file. This data
 	// will almost certainly be split up amongst multiple blocks.
 	curpos := pos
@@ -115,7 +116,7 @@ func (fi *finode) read(b []byte, pos int) (int, os.Error) {
 	}
 
 	if curpos >= int(fi.inode.Inode.Size) {
-		return 0, os.EOF
+		return 0, io.EOF
 	}
 
 	blocksize := fi.devinfo.Blocksize
@@ -193,7 +194,7 @@ func (fi *finode) read(b []byte, pos int) (int, os.Error) {
 	return numBytes, nil
 }
 
-func (fi *finode) write(data []byte, pos int) (n int, err os.Error) {
+func (fi *finode) write(data []byte, pos int) (n int, err error) {
 	// TODO: This implementation is direct and doesn't match the abstractions
 	// in the original source. At some point it should be reviewed.
 	cum_io := 0

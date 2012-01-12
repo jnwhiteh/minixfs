@@ -1,11 +1,11 @@
 package bcache
 
 import (
-	"fmt"
-	"log"
 	. "../../minixfs/common/_obj/minixfs/common"
 	debug "../../minixfs/debug/_obj/minixfs/debug"
-	"os"
+	"fmt"
+	"log"
+
 	"sync"
 )
 
@@ -182,13 +182,13 @@ func (c *LRUCache) loop() {
 	}
 }
 
-func (c *LRUCache) MountDevice(devno int, dev RandDevice, info DeviceInfo) os.Error {
+func (c *LRUCache) MountDevice(devno int, dev RandDevice, info DeviceInfo) error {
 	c.in <- m_cache_req_mount{devno, dev, info}
 	res := (<-c.out).(m_cache_res_err)
 	return res.err
 }
 
-func (c *LRUCache) UnmountDevice(devno int) os.Error {
+func (c *LRUCache) UnmountDevice(devno int) error {
 	c.in <- m_cache_req_unmount{devno}
 	res := (<-c.out).(m_cache_res_err)
 	return res.err
@@ -204,7 +204,7 @@ func (c *LRUCache) GetBlock(dev, bnum int, btype BlockType, only_search int) *Ca
 	return res.cb
 }
 
-func (c *LRUCache) PutBlock(cb *CacheBlock, btype BlockType) os.Error {
+func (c *LRUCache) PutBlock(cb *CacheBlock, btype BlockType) error {
 	c.in <- m_cache_req_put{cb, btype}
 	res := (<-c.out).(m_cache_res_err)
 	return res.err
@@ -220,7 +220,7 @@ func (c *LRUCache) Flush(dev int) {
 	<-c.out
 }
 
-func (c *LRUCache) Close() os.Error {
+func (c *LRUCache) Close() error {
 	c.in <- m_cache_req_close{}
 	res := (<-c.out).(m_cache_res_err)
 	return res.err
@@ -232,7 +232,7 @@ func (c *LRUCache) Close() os.Error {
 
 // Associate a BlockDevice and a blocksize with a device number so it can be
 // used internally.
-func (c *LRUCache) mountDevice(devno int, dev RandDevice, info DeviceInfo) os.Error {
+func (c *LRUCache) mountDevice(devno int, dev RandDevice, info DeviceInfo) error {
 	if c.devs[devno] != nil {
 		return EBUSY
 	}
@@ -243,7 +243,7 @@ func (c *LRUCache) mountDevice(devno int, dev RandDevice, info DeviceInfo) os.Er
 
 // Clear an association between a BlockDevice/*Superblock pair and a device
 // number.
-func (c *LRUCache) unmountDevice(devno int) os.Error {
+func (c *LRUCache) unmountDevice(devno int) error {
 	c.devs[devno] = nil
 	return nil
 }
@@ -290,7 +290,7 @@ func (c *LRUCache) evictBlock() *lru_buf {
 // loadBlock loads a specified block from a given device into the buffer slot
 // 'bp'. This function requires that the specified device is a valid device,
 // as no further error checking is performed here.
-func (c *LRUCache) loadBlock(bp *lru_buf, dev, bnum int, btype BlockType, only_search int) os.Error {
+func (c *LRUCache) loadBlock(bp *lru_buf, dev, bnum int, btype BlockType, only_search int) error {
 	// We use the garbage collector for the actual block data, so invalidate
 	// what we have here and create a new block of data. This allows us to
 	// avoid lots of runtime checking to see if we already have a useable
@@ -352,7 +352,7 @@ func (c *LRUCache) loadBlock(bp *lru_buf, dev, bnum int, btype BlockType, only_s
 // blocks) go on the front. Blocks whose loss can hurt the integrity of the
 // file system (e.g., inode blocks) are written to the disk immediately if
 // they are dirty.
-func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) os.Error {
+func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) error {
 	if cb == nil {
 		return nil
 	}
@@ -451,7 +451,7 @@ func (c *LRUCache) flush(dev int) {
 	}
 }
 
-func (c *LRUCache) WriteBlock(bp *lru_buf) os.Error {
+func (c *LRUCache) WriteBlock(bp *lru_buf) error {
 	blocksize := c.devinfo[bp.Devno].Blocksize
 	pos := int64(blocksize) * int64(bp.Blockno)
 	err := c.devs[bp.Devno].Write(bp.Block, pos)

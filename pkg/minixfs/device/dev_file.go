@@ -1,8 +1,8 @@
 package device
 
 import (
-	"encoding/binary"
 	. "../../minixfs/common/_obj/minixfs/common"
+	"encoding/binary"
 	"os"
 )
 
@@ -16,7 +16,7 @@ type fileDevice struct {
 
 // NewFileDevice creates a new file-backed block device, given a filename
 // and specified byte order.
-func NewFileDevice(filename string, byteOrder binary.ByteOrder) (RandDevice, os.Error) {
+func NewFileDevice(filename string, byteOrder binary.ByteOrder) (RandDevice, error) {
 	file, err := os.OpenFile(filename, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -76,19 +76,19 @@ func (dev *fileDevice) loop() {
 	}
 }
 
-func (dev *fileDevice) Read(buf interface{}, pos int64) os.Error {
+func (dev *fileDevice) Read(buf interface{}, pos int64) error {
 	dev.in <- m_dev_req{DEV_READ, buf, pos}
 	res := <-dev.out
 	return res.err
 }
 
-func (dev *fileDevice) Write(buf interface{}, pos int64) os.Error {
+func (dev *fileDevice) Write(buf interface{}, pos int64) error {
 	dev.in <- m_dev_req{DEV_WRITE, buf, pos}
 	res := <-dev.out
 	return res.err
 }
 
-func (dev *fileDevice) Close() os.Error {
+func (dev *fileDevice) Close() error {
 	dev.in <- m_dev_req{DEV_CLOSE, nil, 0}
 	res := <-dev.out
 	return res.err
