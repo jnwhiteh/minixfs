@@ -76,6 +76,9 @@ type Dinode interface {
 	// Search the directory for an entry named 'name' and return the
 	// devno/inum of the inode, if found.
 	Lookup(name string) (bool, int, int)
+	// Search the directory for an entry named 'name' and fetch the
+	// inode from the given InodeCache.
+	LookupGet(name string, icache InodeCache) (*CacheInode, error)
 	// Add an entry 'name' to the directory listing, pointing to the 'inum'
 	// inode.
 	Link(name string, inum int) error

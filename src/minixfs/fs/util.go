@@ -207,22 +207,18 @@ func (fs *FileSystem) advance(proc *Process, dirp *CacheInode, path string) (*Ca
 		return nil, nil // TODO: This should return something
 	}
 
-	// If 'path' is not present in the directory, signal error
-	dinode := dirp.Dinode()
-	ok, devnum, inum := dinode.Lookup(path)
-	if !ok {
-		return nil, ENOENT
-	}
-
 	// don't go beyond the current root directory, ever
 	if dirp == proc.rootdir && path == ".." {
 		return fs.icache.GetInode(dirp.Devno, dirp.Inum)
 	}
 
-	// the component has been found in the directory, get the inode
-	rip, _ := fs.icache.GetInode(devnum, inum)
-	if rip == nil {
-		return nil, nil // TODO: What error should we return here?
+	// If 'path' is not present in the directory, signal error
+	dinode := dirp.Dinode()
+
+	// Find and retrieve the component in the directory, if present.
+	rip, err := dinode.LookupGet(path, fs.icache)
+	if err != nil {
+		return nil, ENOENT
 	}
 
 	if rip.Inum == ROOT_INODE {
@@ -306,10 +302,8 @@ func (fs *FileSystem) unlinkFile(dirp, rip *CacheInode, filename string) error {
 	if rip == nil {
 		// Search for file in directory and try to get its inode
 		pdinode := dirp.Dinode()
-		ok, dev, inum := pdinode.Lookup(filename)
-		if ok {
-			rip, err = fs.icache.GetInode(dev, inum)
-		} else {
+		rip, err = pdinode.LookupGet(filename, fs.icache)
+		if err != nil {
 			return ENOENT
 		}
 	} else {

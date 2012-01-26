@@ -60,6 +60,24 @@ func (d *dinode) loop() {
 					callback <- m_dinode_res_lookup{true, d.inode.Devno, inum}
 				}
 			}()
+		case m_dinode_req_lookupget:
+			d.waitGroup.Add(1)
+			callback := make(chan m_dinode_res)
+			out <- m_dinode_res_async{callback}
+
+			go func() {
+				defer close(callback)
+				defer d.waitGroup.Done()
+
+				inum := 0
+				err := d.search_dir(req.name, &inum, LOOKUP)
+				if err != nil {
+					callback <- m_dinode_res_lookupget{nil, err}
+				} else {
+					inode, err := req.icache.GetInode(d.inode.Devno, inum)
+					callback <- m_dinode_res_lookupget{inode, err}
+				}
+			}()
 		case m_dinode_req_isempty:
 			// Perform this lookup asynchronously, as well
 			d.waitGroup.Add(1)
@@ -107,6 +125,13 @@ func (d *dinode) Lookup(name string) (bool, int, int) {
 	ares := (<-d.out).(m_dinode_res_async)
 	res := (<-ares.callback).(m_dinode_res_lookup)
 	return res.ok, res.devno, res.inum
+}
+
+func (d *dinode) LookupGet(name string, icache InodeCache) (*CacheInode, error) {
+	d.in <- m_dinode_req_lookupget{name, icache}
+	ares := (<-d.out).(m_dinode_res_async)
+	res := (<-ares.callback).(m_dinode_res_lookupget)
+	return res.inode, res.err
 }
 
 func (d *dinode) Link(name string, inum int) error {
