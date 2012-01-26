@@ -2,15 +2,21 @@ datatype Func = GetB | Alloc | Free | GetI | Read | Write | Lookup | Link
 datatype AFunc = PutB | PutI
 datatype Syscalls = Fopen | Fclose | Fread | Fwrite
 
-channel scall: Syscalls
-channel sret: Syscalls
+Pid = {0..5}
+
+channel scall: Syscalls.Pid
+channel sret: Syscalls.Pid
 
 channel call,ecall : Func
 channel ret,eret : Func
 channel callret,ecallret : AFunc
 channel recurse
 
-CONC_LEVEL = 2
+CONC_LEVEL = 3
+
+transparent sbisim, diamond, normal
+
+compress(P) = normal(P) -- sbisim(diamond(P))
 
 ------------------------------------------------------------------------------
 -- BlockCache
@@ -21,24 +27,24 @@ DeviceEvents = {dev_read, dev_write}
 Device = dev_read -> Device
       [] dev_write -> Device
 
-BlockCacheSlotEmpty = call.GetB -> BlockCacheSlotGet
-BlockCacheSlotFull = callret.PutB -> BlockCacheSlotPut
+BlockCacheSlotEmpty = call.GetB -> dev_read -> ret.GetB -> BlockCacheSlotFull
+BlockCacheSlotFull = callret.PutB -> dev_write -> BlockCacheSlotEmpty
 
-BlockCacheSlotGet = dev_read -> ret.GetB -> BlockCacheSlotFull
-BlockCacheSlotPut = dev_write -> BlockCacheSlotEmpty
-
-BlockCache = (||| i : {1..CONC_LEVEL} @ BlockCacheSlotEmpty) [|DeviceEvents|] Device \ DeviceEvents
+BlockCacheSlots(n) = (||| i : {1..n} @ BlockCacheSlotEmpty)
+BlockCache = compress(
+	(BlockCacheSlots(CONC_LEVEL) [|DeviceEvents|] Device) \ DeviceEvents
+	)
 
 ------------------------------------------------------------------------------
 -- InodeCache
 ------------------------------------------------------------------------------
-InodeCacheSlotEmpty = ecall.GetI -> InodeCacheSlotGet
+InodeCacheSlotEmpty = call.GetI -> InodeCacheSlotGet
 InodeCacheSlotFull = ecallret.PutI -> InodeCacheSlotPut
 
-InodeCacheSlotGet = call.GetB -> ret.GetB -> callret.PutB -> eret.GetI -> InodeCacheSlotFull
+InodeCacheSlotGet = call.GetB -> ret.GetB -> callret.PutB -> ret.GetI -> InodeCacheSlotFull
 InodeCacheSlotPut = call.GetB -> ret.GetB -> callret.PutB -> InodeCacheSlotEmpty
 
-InodeCache = ||| i : {1 .. CONC_LEVEL} @ InodeCacheSlotEmpty
+InodeCache = compress(||| i : {1 .. CONC_LEVEL} @ InodeCacheSlotEmpty)
 
 ------------------------------------------------------------------------------
 -- Superblock
@@ -67,7 +73,8 @@ FileOpWrite = call.GetB -> ret.GetB -> callret.PutB -> (recurse -> FileOpWrite
 
 FileRegulator = ecall.Write -> f_lock -> FileRegulator
 
-OpenFile = (([|{f_lock,f_unlock}|] i : {1..CONC_LEVEL} @ FileOp) [|{ecall.Write, f_lock}|] FileRegulator) \ {f_lock,f_unlock}
+FileOps = [|{f_lock,f_unlock}|] i : {1..CONC_LEVEL} @ FileOp
+OpenFile = compress( (FileOps [|{ecall.Write, f_lock}|] FileRegulator) \ {f_lock,f_unlock} )
 
 ------------------------------------------------------------------------------
 -- OpenDir
@@ -79,45 +86,114 @@ DirOp = ecall.Lookup -> DirOpLookup
      [] d_lock -> d_unlock -> DirOp
 
 DirOpLookup = call.GetB -> ret.GetB -> callret.PutB -> recurse -> DirOpLookup
-           [] call.GetB -> ret.GetB -> callret.PutB -> eret.Lookup -> DirOp
+           [] call.GetB -> ret.GetB -> callret.PutB -> call.GetI -> ret.GetI -> eret.Lookup -> DirOp
 
-DirOpLink = call.GetB -> ret.GetB -> callret.PutB -> call.Alloc -> ret.Alloc -> call.Free -> ret.Free -> call.GetB -> ret.GetB -> callret.PutB -> eret.Link -> d_unlock -> DirOp
+DirOpLink = call.GetB -> ret.GetB -> callret.PutB -> recurse -> DirOpLink
+         [] call.Alloc -> ret.Alloc -> call.Free -> ret.Free -> call.GetB -> ret.GetB -> callret.PutB -> eret.Link -> d_unlock -> DirOp
 
 DirRegulator = ecall.Link -> d_lock -> DirRegulator
 
-OpenDir = (([|{d_lock,d_unlock}|] i : {1..CONC_LEVEL} @ DirOp) [|{ecall.Link, d_lock}|] DirRegulator) \ {d_lock,d_unlock}
+DirOps = [|{d_lock,d_unlock}|] i : {1..CONC_LEVEL} @ DirOp
+OpenDir = compress( (DirOps [|{ecall.Link, d_lock}|] DirRegulator) \ {d_lock,d_unlock} )
 
 ------------------------------------------------------------------------------
 -- Process
 ------------------------------------------------------------------------------
-Process = scall.Fopen -> ProcessOpen
-       [] scall.Fclose -> ecall.Write -> eret.Write -> sret.Fclose -> Process
-       [] scall.Fread -> ecall.Read -> eret.Read -> sret.Fread -> Process
-       [] scall.Fwrite -> ecall.Write -> eret.Write -> sret.Fwrite -> Process
+Process(id) = scall.Fopen.id -> ProcessOpen(id)
+          [] scall.Fclose.id -> ecall.Write -> eret.Write -> sret.Fclose.id -> Process(id)
+          [] scall.Fread.id -> ecall.Read -> eret.Read -> sret.Fread.id -> Process(id)
+          [] scall.Fwrite.id -> ecall.Write -> eret.Write -> sret.Fwrite.id -> Process(id)
 
-ProcessOpen = ecall.Lookup -> eret.Lookup -> ecall.GetI -> eret.GetI -> ecallret.PutI -> recurse -> ProcessOpen
-           [] ecall.Alloc -> eret.Alloc -> ecall.Free -> eret.Free -> ecall.Link -> eret.Link -> sret.Fopen -> Process
+ProcessOpen(id) = ecall.Lookup -> eret.Lookup -> ecallret.PutI -> recurse -> ProcessOpen(id)
+           [] ecall.Alloc -> eret.Alloc -> ecall.Free -> eret.Free -> ecall.Link -> eret.Link -> sret.Fopen.id -> Process(id)
 
-Processes(n) = (||| x:{0..n-1} @ Process)
+BadProcess(id) = Process(id) [|{eret.GetI}|] STOP
+
+Processes(n) = (||| id:{0..n-1} @ Process(id))
+OneBadProcesses(n) = Processes(n-1) ||| BadProcess(n-1)
+
 ------------------------------------------------------------------------------
 -- System construction
 ------------------------------------------------------------------------------
 
 FSSuper = (OpenDir ||| OpenFile) [|{call.Alloc, ret.Alloc, call.Free, ret.Free}|] (Superblock ||| InodeCache)
 FileSystem = BlockCache [|{call.GetB, ret.GetB, callret.PutB}|] FSSuper \ {|call, ret, callret|}
-FSClients(n) = FileSystem [|{|ecall, eret, ecallret|}|] Processes(n) \ {|ecall, eret, ecallret|}
+FSClients(n) = FileSystem [|{|ecall, eret, ecallret|}|] Processes(n)
+OneBadFSClients(n) = FileSystem [|{|ecall, eret, ecallret|}|] OneBadProcesses(n)
+
+FSClientsH(n) = FSClients(n) \ {|ecall, eret, ecallret|}
 
 -- Specifications
-ClientSpec = scall?x -> ClientSpecWait(x)
+ClientSpec(id) = scall?x!id -> ClientSpecWait(x,id)
+ClientSpecWait(x,id) = sret!x!id -> ClientSpec(id)
+                |~| recurse -> ClientSpecWait(x,id)
 
-ClientSpecWait(x) = sret!x -> ClientSpec
-                |~| recurse -> ClientSpecWait(x)
+ClientSpecs(n) = ||| id:{0..n-1} @ ClientSpec(id)
 
-ClientSpecs(n) = ||| x:{0..n-1} @ ClientSpec
+assert ClientSpecs(1) [T= FSClientsH(1)
+assert ClientSpecs(2) [T= FSClientsH(2)
+assert ClientSpecs(3) [T= FSClientsH(3)
+assert ClientSpecs(4) [T= FSClientsH(4)
 
-assert ClientSpecs(1) [T= FSClients(1)
-assert ClientSpecs(2) [T= FSClients(2)
-assert ClientSpecs(3) [T= FSClients(3)
-assert ClientSpecs(4) [T= FSClients(4)
+assert ClientSpecs(1) [FD= FSClientsH(1)
+assert ClientSpecs(2) [FD= FSClientsH(2)
+assert ClientSpecs(3) [FD= FSClientsH(2)
+assert ClientSpecs(4) [FD= FSClientsH(2)
 
-assert ClientSpecs(1) [FD= FSClients(1)
+------------------------------------------------------------------------------
+-- Sequential file write
+--
+-- In a system with two clients that have arbitrary behaviours, multiple write
+-- calls to an open file are sequentialised.
+--
+-- TODO: Use a signal event for filewrite_start filewrite_end to test for this
+------------------------------------------------------------------------------
+FileWriteSeqSpec = ecall.Write -> eret.Write -> FileWriteSeqSpec
+
+assert FileWriteSeqSpec [T= FSClients(2) \ diff({|ecall, eret, ecallret, scall, sret, recurse|}, {ecall.Write, eret.Write})
+
+------------------------------------------------------------------------------
+-- Directory sequential writes (link)
+--
+-- We use the same technique here as we use for sequential file write
+------------------------------------------------------------------------------
+DirWriteSeqSpec = ecall.Link -> eret.Link -> DirWriteSeqSpec
+
+assert DirWriteSeqSpec [T= FSClients(2) \ diff({|ecall, eret, ecallret, scall, sret, recurse|}, {ecall.Link, eret.Link})
+
+------------------------------------------------------------------------------
+-- Concurrency benefits
+--
+-- In a sequential file system with two processes, if one of those processes
+-- is unable to progress in the block/inode cache, then the second process
+-- will also be unable to progress if attempting to access the same resource
+--
+-- Why is a CSP model of this relevant or useful:
+--
+-- Ease of testing. If I was uto use the Go model of the filesystem I would
+-- haev to remove the concurrency form the implementaiton in order to test the
+-- property of a sequential file system. In the CSP model we can trivially remove
+-- the concuurency and the internal communication behaviour directly reflects the
+-- sequential implementation.
+--
+-- When CONC_LEVEL is 1, each components only allows a single operation, making
+-- a system call 'script' fully sequential.
+--
+-- This models a bad system process.
+------------------------------------------------------------------------------
+-- This test should fail with CONC_LEVEL = 1, and pass with CONC_LEVEL > 1
+
+
+BadClientSpec(id) = scall?x!id -> BadClientSpecWait(x,id)
+BadClientSpecWait(Fopen, id) = recurse -> BadClientSpecWait(Fopen, id)
+                           |~| STOP
+                           |~| sret!Fopen!id -> BadClientSpec(id)
+BadClientSpecWait(n, id) = sret!n!id -> BadClientSpec(id)
+                       |~| recurse -> BadClientSpecWait(n, id)
+
+BadSpecs(n) = ClientSpecs(n-1) ||| BadClientSpec(n-1)
+
+
+assert BadSpecs(2) [FD= OneBadFSClients(2) \ {|ecall, eret ,ecallret|}
+
+-- TODO: Add Chdir
