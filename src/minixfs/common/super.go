@@ -5,7 +5,7 @@ var NO_DEVINFO = DeviceInfo{}
 // Read the superblock from the seconds 1024k block of the file and perform
 // some calculations to provide the basic device information needed throughout
 // the file system.
-func GetDeviceInfo(dev RandDevice) (DeviceInfo, error) {
+func GetDeviceInfo(dev BlockDevice) (DeviceInfo, error) {
 	sup := new(Disk_Superblock)
 	err := dev.Read(sup, 1024)
 	if err != nil {

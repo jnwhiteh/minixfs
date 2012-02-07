@@ -7,8 +7,8 @@ import (
 
 type fileSystem interface {
 	Shutdown() error
-	Mount(dev RandDevice, path string) error
-	Unmount(dev RandDevice) error
+	Mount(dev BlockDevice, path string) error
+	Unmount(dev BlockDevice) error
 	Spawn(pid int, umask uint16, rootpath string) (*Process, error)
 	Exit(proc *Process)
 	Open(proc *Process, path string, flags int, mode uint16) (*File, error)

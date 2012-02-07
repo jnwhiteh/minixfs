@@ -28,8 +28,8 @@ type LRUCache struct {
 	// These struct elements are duplicates of those that can be found in
 	// the FileSystem struct. By duplicating them, we make LRUCache a
 	// self-contained data structure that has a well-defined interface.
-	devs    []RandDevice // the block devices that comprise the file system
-	devinfo []DeviceInfo // the information/parameters for the device
+	devs    []BlockDevice // the block devices that comprise the file system
+	devinfo []DeviceInfo  // the information/parameters for the device
 
 	buf       []*lru_buf // static list of cache blocks
 	buf_hash  []*lru_buf // the buffer hash table
@@ -51,7 +51,7 @@ var LRU_ALLINUSE *CacheBlock = new(CacheBlock)
 // NewLRUCache creates a new LRUCache with the given size
 func NewLRUCache(numdevices int, numslots int, numhash int) BlockCache {
 	cache := &LRUCache{
-		devs:          make([]RandDevice, numdevices),
+		devs:          make([]BlockDevice, numdevices),
 		devinfo:       make([]DeviceInfo, numdevices),
 		buf:           make([]*lru_buf, numslots),
 		buf_hash:      make([]*lru_buf, numhash),
@@ -182,7 +182,7 @@ func (c *LRUCache) loop() {
 	}
 }
 
-func (c *LRUCache) MountDevice(devno int, dev RandDevice, info DeviceInfo) error {
+func (c *LRUCache) MountDevice(devno int, dev BlockDevice, info DeviceInfo) error {
 	c.in <- m_cache_req_mount{devno, dev, info}
 	res := (<-c.out).(m_cache_res_err)
 	return res.err
@@ -232,7 +232,7 @@ func (c *LRUCache) Close() error {
 
 // Associate a BlockDevice and a blocksize with a device number so it can be
 // used internally.
-func (c *LRUCache) mountDevice(devno int, dev RandDevice, info DeviceInfo) error {
+func (c *LRUCache) mountDevice(devno int, dev BlockDevice, info DeviceInfo) error {
 	if c.devs[devno] != nil {
 		return EBUSY
 	}

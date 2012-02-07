@@ -1,7 +1,7 @@
 package common
 
 // A random access device
-type RandDevice interface {
+type BlockDevice interface {
 	Read(buf interface{}, pos int64) error
 	Write(buf interface{}, pos int64) error
 	Close() error
@@ -11,7 +11,7 @@ type RandDevice interface {
 // more block devices.
 type BlockCache interface {
 	// Attach a new device to the cache
-	MountDevice(devno int, dev RandDevice, info DeviceInfo) error
+	MountDevice(devno int, dev BlockDevice, info DeviceInfo) error
 	// Remove a device from the cache
 	UnmountDevice(devno int) error
 	// Get a block from the cache

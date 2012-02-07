@@ -43,7 +43,7 @@ type ramdiskDevice struct {
 	rwait *sync.WaitGroup     // a waitgroup used to
 }
 
-func NewRamdiskDevice(data []byte) (RandDevice, error) {
+func NewRamdiskDevice(data []byte) (BlockDevice, error) {
 	dev := &ramdiskDevice{
 		data,
 		make(chan m_dev_req),
@@ -55,7 +55,7 @@ func NewRamdiskDevice(data []byte) (RandDevice, error) {
 	return dev, nil
 }
 
-func NewRamdiskDeviceFile(filename string) (RandDevice, error) {
+func NewRamdiskDeviceFile(filename string) (BlockDevice, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -147,4 +147,4 @@ func (dev *ramdiskDevice) Close() error {
 	return res.err
 }
 
-var _ RandDevice = &ramdiskDevice{}
+var _ BlockDevice = &ramdiskDevice{}

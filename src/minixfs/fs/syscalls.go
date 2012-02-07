@@ -61,7 +61,7 @@ func (fs *FileSystem) Shutdown() (err error) {
 }
 
 // Mount the filesystem on 'dev' at 'path' in the root filesystem
-func (fs *FileSystem) Mount(dev RandDevice, path string) error {
+func (fs *FileSystem) Mount(dev BlockDevice, path string) error {
 	// argument check
 	if dev == nil {
 		return EINVAL
@@ -186,7 +186,7 @@ func (fs *FileSystem) Mount(dev RandDevice, path string) error {
 
 // Unmount the mount device 'dev' from the filesystem. Each device may be
 // mount at most once.
-func (fs *FileSystem) Unmount(dev RandDevice) error {
+func (fs *FileSystem) Unmount(dev BlockDevice) error {
 	fs.m.device.Lock()
 	defer fs.m.device.Unlock()
 

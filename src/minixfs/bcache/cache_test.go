@@ -13,7 +13,7 @@ func getDevInfo(bsize int) DeviceInfo {
 	return info
 }
 
-func openTestCache(test *testing.T) (RandDevice, *LRUCache) {
+func openTestCache(test *testing.T) (BlockDevice, *LRUCache) {
 	dev := NewTestDevice(test, 64, 100)
 	cache := NewLRUCache(4, 10, 16)
 
@@ -24,7 +24,7 @@ func openTestCache(test *testing.T) (RandDevice, *LRUCache) {
 	return dev, cache.(*LRUCache)
 }
 
-func closeTestCache(test *testing.T, dev RandDevice, cache *LRUCache) {
+func closeTestCache(test *testing.T, dev BlockDevice, cache *LRUCache) {
 	err := cache.UnmountDevice(0)
 	if err != nil {
 		ErrorHere(test, "Failed when unmounting ramdisk device: %s", err)

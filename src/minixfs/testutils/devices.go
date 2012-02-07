@@ -12,7 +12,7 @@ import (
 // the first block contains a 0, the next block contains all 1, etc.
 //////////////////////////////////////////////////////////////////////////////
 
-func NewTestDevice(test *testing.T, bsize, blocks int) RandDevice {
+func NewTestDevice(test *testing.T, bsize, blocks int) BlockDevice {
 	data := make([]byte, bsize*blocks)
 	for i := 0; i < blocks; i++ {
 		for j := 0; j < bsize; j++ {
@@ -33,12 +33,12 @@ func NewTestDevice(test *testing.T, bsize, blocks int) RandDevice {
 //////////////////////////////////////////////////////////////////////////////
 
 type BlockingDevice struct {
-	RandDevice
+	BlockDevice
 	HasBlocked chan bool
 	Unblock    chan bool
 }
 
-func NewBlockingDevice(rdev RandDevice) *BlockingDevice {
+func NewBlockingDevice(rdev BlockDevice) *BlockingDevice {
 	dev := &BlockingDevice{
 		rdev,
 		make(chan bool),
@@ -50,9 +50,9 @@ func NewBlockingDevice(rdev RandDevice) *BlockingDevice {
 func (dev *BlockingDevice) Read(buf interface{}, pos int64) error {
 	dev.HasBlocked <- true
 	<-dev.Unblock
-	return dev.RandDevice.Read(buf, pos)
+	return dev.BlockDevice.Read(buf, pos)
 }
 
 func (dev *BlockingDevice) Close() error {
-	return dev.RandDevice.Close()
+	return dev.BlockDevice.Close()
 }

@@ -16,7 +16,7 @@ type fileDevice struct {
 
 // NewFileDevice creates a new file-backed block device, given a filename
 // and specified byte order.
-func NewFileDevice(filename string, byteOrder binary.ByteOrder) (RandDevice, error) {
+func NewFileDevice(filename string, byteOrder binary.ByteOrder) (BlockDevice, error) {
 	file, err := os.OpenFile(filename, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -94,4 +94,4 @@ func (dev *fileDevice) Close() error {
 	return res.err
 }
 
-var _ RandDevice = &fileDevice{}
+var _ BlockDevice = &fileDevice{}
