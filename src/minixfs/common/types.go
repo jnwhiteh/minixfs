@@ -9,7 +9,6 @@ type CacheBlock struct {
 	Blockno int   // the number of this block
 	Devno   int   // the device number of this block
 	Dirty   bool  // whether or not the block is dirty (needs to be written)
-	Count   int   // the number of users of this block
 
 	// This is a single pointer to a higher-level buf structure, so the cache
 	// policy can correlate a given CacheBlock easily with the correct cache

@@ -160,7 +160,7 @@ func (fi *finode) read(b []byte, pos int) (int, error) {
 		bnum = ReadMap(fi.inode, curpos, fi.cache)
 		bp := fi.cache.GetBlock(fi.inode.Devno, bnum, FULL_DATA_BLOCK, NORMAL)
 		if _, sok := bp.Block.(FullDataBlock); !sok {
-			log.Printf("block num: %d, count: %d", bp.Blockno, bp.Count)
+			log.Printf("block num: %d", bp.Blockno)
 			log.Panicf("When reading block %d for position %d, got IndirectBlock", bnum, curpos)
 		}
 

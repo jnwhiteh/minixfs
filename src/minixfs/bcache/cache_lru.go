@@ -13,8 +13,10 @@ import (
 // to handle the LRU cache policy.
 type lru_buf struct {
 	*CacheBlock
-	next *lru_buf // used to link all free bufs in a chain
-	prev *lru_buf // used to link all free bufs the other way
+
+	count int      // the number of clients of this block
+	next  *lru_buf // used to link all free bufs in a chain
+	prev  *lru_buf // used to link all free bufs the other way
 
 	b_hash *lru_buf // used to link all bufs for a hash mask together
 
@@ -319,7 +321,7 @@ func (c *LRUCache) loadBlock(bp *lru_buf, dev, bnum int, btype BlockType, only_s
 	// the dirty flag (since the previous flushall would have done that)
 	bp.Devno = dev
 	bp.Blockno = bnum
-	bp.Count++
+	bp.count++
 	b := bp.Blockno & c.hash_mask
 	bp.b_hash = c.buf_hash[b]
 	c.buf_hash[b] = bp
@@ -357,14 +359,14 @@ func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) error {
 		return nil
 	}
 
-	cb.Count--
-	if cb.Count > 0 { // block is still in use
-		return nil
-	}
-
 	// We can find the lru_buf that corresponds to the given CacheBlock by
 	// checking the 'buf' field and coercing it.
 	bp := cb.Buf.(*lru_buf)
+
+	bp.count--
+	if bp.count > 0 { // block is still in use
+		return nil
+	}
 
 	// Put this block back on the LRU chain. If the ONE_SHOT bit is set in
 	// block_type, the block is not likely to be needed again shortly, so put
