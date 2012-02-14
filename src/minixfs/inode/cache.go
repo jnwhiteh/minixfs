@@ -63,6 +63,81 @@ func (c *inodeCache) loop() {
 			c.devinfo[req.devno] = req.info
 			c.bitmaps[req.devno] = req.bmap
 			out <- m_icache_res_empty{}
+		case m_icache_req_newinode:
+			// TODO: Refactor this so there's no duplication
+			callback := make(chan m_icache_res)
+
+			var slot int = NO_INODE
+			for i := 0; i < len(c.inodes); i++ {
+				rip := c.inodes[i]
+				if rip.Count > 0 {
+					if rip.Devno == req.devno && rip.Inum == req.inum {
+						// this is the inode we're looking for
+						slot = i
+						break
+					}
+				} else {
+					slot = i // unused slot, will use if not found
+				}
+			}
+
+			// Get the actual cache from the slot index
+			var xp *CacheInode
+			if slot > 0 && slot < len(c.inodes) {
+				xp = c.inodes[slot]
+			}
+
+			if xp == nil {
+				// Inode table is completely full
+				out <- m_icache_res_async{callback}
+				callback <- m_icache_res_newinode{nil, ENFILE}
+			} else if xp.Count > 0 {
+				// We found the inode, just need to return it
+				xp.Count++
+				out <- m_icache_res_async{callback}
+				callback <- m_icache_res_newinode{xp, nil}
+			} else {
+				// Need to load the inode asynchronously, so make sure the
+				// cache slot isn't claimed by someone else in the meantime
+				xp.Devinfo = c.devinfo[req.devno]
+				xp.Bitmap = c.bitmaps[req.devno]
+				xp.Devno = req.devno
+				xp.Inum = req.inum
+				xp.Count++
+
+				c.waiting_m.Lock()
+				c.waiting[slot] = append(c.waiting[slot], callback)
+				c.waiting_m.Unlock()
+
+				go func() {
+					// Load the inode into the CacheInode
+					c.loadInode(xp)
+					// TODO: THIS IS THE CHANGE HERE
+					// Fill in the specified parameters
+					xp.Inode.Mode = req.mode
+					xp.Inode.Nlinks = req.links
+					xp.Inode.Uid = req.uid
+					xp.Inode.Gid = req.gid
+					xp.Inode.Zone[0] = req.zone
+
+					// Spawn the Finode or Dinode as appropriate
+					mode := xp.Inode.Mode & I_TYPE
+					if mode == I_REGULAR {
+						xp.Server = finode.New(xp, xp.Devinfo, c.bcache)
+					} else if mode == I_DIRECTORY {
+						xp.Server = dinode.New(xp, xp.Devinfo, c.bcache)
+					}
+
+					c.waiting_m.Lock()
+					for _, callback := range c.waiting[slot] {
+						callback <- m_icache_res_newinode{xp, nil}
+					}
+					c.waiting[slot] = nil
+					c.waiting_m.Unlock()
+				}()
+
+				out <- m_icache_res_async{callback}
+			}
 		case m_icache_req_getinode:
 			callback := make(chan m_icache_res)
 
@@ -200,8 +275,13 @@ func (c *inodeCache) loop() {
 	}
 }
 
-// TODO: Split GetInode up into GetInode and GetNewInode, so we can properly
-// start the dinode/finode as required.
+func (c *inodeCache) NewInode(devno, inum int, mode, links uint16, uid int16, gid uint16, zone uint32) (*CacheInode, error) {
+	c.in <- m_icache_req_newinode{devno, inum, mode, links, uid, gid, zone}
+	ares := (<-c.out).(m_icache_res_async)
+	res := (<-ares.ch).(m_icache_res_newinode)
+	return res.rip, res.err
+}
+
 func (c *inodeCache) GetInode(devno, inum int) (*CacheInode, error) {
 	c.in <- m_icache_req_getinode{devno, inum}
 	ares := (<-c.out).(m_icache_res_async)

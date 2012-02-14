@@ -3,7 +3,6 @@ package fs
 import (
 	"errors"
 	"fmt"
-	"math"
 	"minixfs/bitmap"
 	. "minixfs/common"
 	"minixfs/utils"
@@ -273,8 +272,9 @@ func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16)
 	// Remap the bottom two bits of oflags
 	bits := mode_map[oflags&O_ACCMODE]
 
-	var err error = nil
-	var rip *CacheInode = nil
+	var err error
+	var rip *CacheInode
+	var dirp *CacheInode
 	var exist bool = false
 
 	// If O_CREATE is set, try to make the file
@@ -283,7 +283,7 @@ func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16)
 		omode := I_REGULAR | (omode & ALL_MODES & proc.umask)
 		// the use of proc here is simply for path lookup, the structure isn't
 		// altered in any way.
-		rip, err = fs.newNode(proc, path, omode, NO_ZONE)
+		dirp, rip, _, err = fs.newNode(proc, path, omode, NO_ZONE)
 		if err == nil {
 			exist = false
 		} else if err != EEXIST {
@@ -291,6 +291,7 @@ func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16)
 		} else {
 			exist = (oflags&O_EXCL == 0)
 		}
+		fs.icache.PutInode(dirp)
 	} else {
 		// scan path name
 		rip, err = fs.eatPath(proc, path)
@@ -420,20 +421,9 @@ func (fs *FileSystem) Unlink(proc *Process, path string) error {
 
 // Create a new directory on the file system
 func (fs *FileSystem) Mkdir(proc *Process, path string, mode uint16) error {
-	// Check to see if it is possible to make another link in the parent
-	// directory.
-	dirp, rest, err := fs.lastDir(proc, path) // pointer to the new dirs parent
-	if err != nil {
-		return err
-	}
-	if dirp.Inode.Nlinks >= math.MaxUint16 {
-		fs.icache.PutInode(dirp)
-		return EMLINK
-	}
-
-	// Next, make the inode. If that fails, return err
+	// Create the new inode. If that fails, return err
 	bits := I_DIRECTORY | (mode & RWX_MODES & proc.umask)
-	rip, err := fs.newNode(proc, path, bits, 0)
+	dirp, rip, rest, err := fs.newNode(proc, path, bits, 0)
 	if rip == nil || err == EEXIST {
 		fs.icache.PutInode(rip)  // can't make dir: it already exists
 		fs.icache.PutInode(dirp) // return parent too

@@ -2,6 +2,7 @@ package fs
 
 import (
 	"log"
+	"math"
 	. "minixfs/common"
 	"path/filepath"
 	"strings"
@@ -65,14 +66,19 @@ func (fs *FileSystem) close(proc *Process, file *File) error {
 	return nil
 }
 
-// Allocate a new inode, make a directory entry for it on the path 'path' and
-// initialise it. If successful, the inode is returned along with a nil error,
-// otherwise nil is returned along with the error.
-func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) (*CacheInode, error) {
+// Allocate a new inode, making a directory entry for it on the path 'path. If
+// successful, the parent directory is returned, along with the new node
+// itself, and an nil error.
+func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) (*CacheInode, *CacheInode, string, error) {
 	// See if the path can be opened down to the last directory
 	dirp, rlast, err := fs.lastDir(proc, path)
 	if err != nil {
-		return nil, err
+		return nil, nil, "", err
+	}
+
+	if dirp.Inode.Nlinks >= math.MaxUint16 {
+		fs.icache.PutInode(dirp)
+		return nil, nil, "", EMLINK
 	}
 
 	// The final directory is accessible. Get the final component of the path
@@ -81,28 +87,19 @@ func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) 
 		// Last component does not exist. Make new directory entry
 		var inum int // this is here to fix shadowing of err
 		inum, err = dirp.Bitmap.AllocInode()
-		rip, err = fs.icache.GetInode(dirp.Devno, inum)
+		// TODO: Get the current uid/gid
+		rip, err = fs.icache.NewInode(dirp.Devno, inum, bits, 1, 0, 0, uint32(z0))
 
 		if rip == nil {
 			// Can't create new inode, out of inodes
 			fs.icache.PutInode(dirp)
-			return nil, ENFILE
+			return nil, nil, "", ENFILE
 		}
 
 		// Force the inode to disk before making a directory entry to make the
 		// system more robust in the face of a crash: an inode with no
 		// directory entry is much better than the opposite.
-		rip.Inode.Mode = bits
-		rip.Inode.Nlinks = 1
-		rip.Inode.Uid = 0 // TODO: Get the current uid
-		rip.Inode.Gid = 0 // TODO: Get the current gid
-		rip.Inode.Zone[0] = uint32(z0)
-
-		// TODO: HACK: Fix this hack, we flush/get/put to make sure the dinode or
-		// finode is started.
 		fs.icache.FlushInode(rip)
-		fs.icache.PutInode(rip)
-		fs.icache.GetInode(dirp.Devno, inum)
 
 		// New inode acquired. Try to make directory entry.
 		dinode := dirp.Dinode()
@@ -113,7 +110,7 @@ func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) 
 			rip.Inode.Nlinks--      // pity, have to free disk inode
 			rip.Dirty = true        // dirty inodes are written out
 			fs.icache.PutInode(rip) // this call frees the inode
-			return nil, err
+			return nil, nil, "", err
 		}
 	} else {
 		// Either last component exists or there is some problem
@@ -122,9 +119,8 @@ func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) 
 		}
 	}
 
-	// Return the last directory inode and exit
-	fs.icache.PutInode(dirp)
-	return rip, err
+	// We now return the parent directory inode, so don't put it here
+	return dirp, rip, rlast, err
 }
 
 func (fs *FileSystem) eatPath(proc *Process, path string) (*CacheInode, error) {

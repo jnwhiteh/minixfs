@@ -45,6 +45,8 @@ type Bitmap interface {
 type InodeCache interface {
 	// Update the information about a given device
 	MountDevice(devno int, bitmap Bitmap, info DeviceInfo)
+	// Create a new inode with the given parameters
+	NewInode(devno, inum int, mode, links uint16, uid int16, gid uint16, zone uint32) (*CacheInode, error)
 	// Get an inode from the given device
 	GetInode(devno, inum int) (*CacheInode, error)
 	// Return the given inode to the cache. If the inode has been altered and
