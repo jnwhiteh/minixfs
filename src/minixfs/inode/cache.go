@@ -1,4 +1,4 @@
-package icache
+package inode
 
 // TODO: There is a dependency here between icache and finode/dinode because
 // the icache is responsible for spawning/killing the open file/directory
@@ -32,8 +32,8 @@ type inodeCache struct {
 	waiting_m *sync.Mutex           // a lock for the waiting list
 }
 
-func NewInodeCache(bcache BlockCache, numdevs int, size int) InodeCache {
-	icache := &inodeCache{
+func NewCache(bcache BlockCache, numdevs int, size int) InodeCache {
+	cache := &inodeCache{
 		bcache,
 		make([]DeviceInfo, numdevs),
 		make([]Bitmap, numdevs),
@@ -44,13 +44,13 @@ func NewInodeCache(bcache BlockCache, numdevs int, size int) InodeCache {
 		new(sync.Mutex),
 	}
 
-	for i := 0; i < len(icache.inodes); i++ {
-		icache.inodes[i] = new(CacheInode)
+	for i := 0; i < len(cache.inodes); i++ {
+		cache.inodes[i] = new(CacheInode)
 	}
 
-	go icache.loop()
+	go cache.loop()
 
-	return icache
+	return cache
 }
 
 func (c *inodeCache) loop() {

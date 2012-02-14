@@ -1,4 +1,4 @@
-package icache
+package inode
 
 import (
 	. "minixfs/common"
@@ -8,15 +8,15 @@ import (
 
 func TestClose(test *testing.T) {
 	var bcache BlockCache = nil
-	icache := NewInodeCache(bcache, NR_DEVICES, NR_INODES).(*inodeCache)
+	cache := NewCache(bcache, NR_DEVICES, NR_INODES).(*inodeCache)
 
-	if err := icache.Close(); err != nil {
+	if err := cache.Close(); err != nil {
 		ErrorHere(test, "Failed when closing icache: %s", err)
 	}
-	if _, ok := <-icache.in; ok {
+	if _, ok := <-cache.in; ok {
 		FatalHere(test, "icache did not close properly")
 	}
-	if _, ok := <-icache.out; ok {
+	if _, ok := <-cache.out; ok {
 		FatalHere(test, "icache did not close properly")
 	}
 }

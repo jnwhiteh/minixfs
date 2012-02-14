@@ -7,7 +7,7 @@ fsck:
 	go install fsck
 
 test:
-	go test -v minixfs/bcache minixfs/icache minixfs/fs
+	go test -v minixfs/bcache minixfs/inode minixfs/fs
 
 clean:
 	rm -fr bin pkg

@@ -7,7 +7,7 @@ import (
 	"minixfs/bitmap"
 	. "minixfs/common"
 	"minixfs/device"
-	"minixfs/icache"
+	"minixfs/inode"
 	"sync"
 )
 
@@ -58,7 +58,7 @@ func NewFileSystem(dev BlockDevice) (*FileSystem, error) {
 	}
 
 	fs.bcache = bcache.NewLRUCache(NR_DEVICES, NR_BUFS, NR_BUF_HASH)
-	fs.icache = icache.NewInodeCache(fs.bcache, NR_DEVICES, NR_INODES)
+	fs.icache = inode.NewCache(fs.bcache, NR_DEVICES, NR_INODES)
 
 	fs.devices[ROOT_DEVICE] = dev
 	fs.devinfo[ROOT_DEVICE] = devinfo

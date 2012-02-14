@@ -1,4 +1,4 @@
-package icache
+package inode
 
 import . "minixfs/common"
 
