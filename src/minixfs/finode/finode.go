@@ -9,6 +9,13 @@ import (
 	"sync"
 )
 
+// The interface to the dinode is returned as a channel, with methods wrapping
+// the channel operations.
+type requestChan struct {
+	in  chan m_finode_req
+	out chan m_finode_res
+}
+
 // A Finode is a process-oriented file inode, shared amongst all open
 // instances of the file represented by this inode. File system operations
 // that do not affect this file must not block a read() call to this file.
@@ -20,8 +27,9 @@ type finode struct {
 	devinfo DeviceInfo
 	cache   BlockCache
 
-	in  chan m_finode_req
-	out chan m_finode_res
+	in     chan m_finode_req
+	out    chan m_finode_res
+	locked chan m_finode_req
 
 	waitGroup *sync.WaitGroup // used for mutual exclusion for writes
 	closed    chan bool
@@ -34,13 +42,17 @@ func New(inode *CacheInode, devinfo DeviceInfo, cache BlockCache) Finode {
 		cache,
 		make(chan m_finode_req),
 		make(chan m_finode_res),
+		nil,
 		new(sync.WaitGroup),
 		nil,
 	}
 
 	go finode.loop()
 
-	return finode
+	return &requestChan{
+		finode.in,
+		finode.out,
+	}
 }
 
 func (fi *finode) loop() {
@@ -48,6 +60,29 @@ func (fi *finode) loop() {
 	var out chan<- m_finode_res = fi.out
 	for req := range in {
 		switch req := req.(type) {
+		case m_finode_req_lock:
+			// Someone is asking for exclusive access to the device, so move
+			// the channels around to arrange that, and return the new channel
+			// interface.
+			if fi.locked != nil {
+				// We are already locked, return nil
+				out <- m_finode_res_lock{nil}
+				continue
+			}
+			fi.locked = fi.in
+			finodeLocked := &requestChan{
+				make(chan m_finode_req),
+				fi.out,
+			}
+			in = finodeLocked.in
+			out <- m_finode_res_lock{finodeLocked}
+		case m_finode_req_unlock:
+			if fi.locked == nil {
+				// We are not locked, panic
+				out <- m_finode_res_unlock{false}
+			}
+			in = fi.locked
+			out <- m_finode_res_unlock{true}
 		case m_finode_req_read:
 			fi.waitGroup.Add(1)
 
@@ -81,8 +116,12 @@ func (fi *finode) loop() {
 	}
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// Public interface
+//////////////////////////////////////////////////////////////////////////////
+
 // Read up to len(b) bytes from the file from position 'pos'
-func (fi *finode) Read(b []byte, pos int) (int, error) {
+func (fi *requestChan) Read(b []byte, pos int) (int, error) {
 	fi.in <- m_finode_req_read{b, pos}
 	ares := (<-fi.out).(m_finode_res_asyncio)
 	res := (<-ares.callback)
@@ -90,17 +129,31 @@ func (fi *finode) Read(b []byte, pos int) (int, error) {
 }
 
 // Write len(b) bytes to the file at position 'pos'
-func (fi *finode) Write(data []byte, pos int) (n int, err error) {
+func (fi *requestChan) Write(data []byte, pos int) (n int, err error) {
 	fi.in <- m_finode_req_write{data, pos}
 	res := (<-fi.out).(m_finode_res_io)
 	return res.n, res.err
 }
 
 // Close an instance of this finode.
-func (fi *finode) Close() error {
+func (fi *requestChan) Close() error {
 	fi.in <- m_finode_req_close{}
 	res := (<-fi.out).(m_finode_res_err)
 	return res.err
+}
+
+func (fi *requestChan) Lock() Finode {
+	fi.in <- m_finode_req_lock{}
+	res := (<-fi.out).(m_finode_res_lock)
+	return res.finode
+}
+
+func (fi *requestChan) Unlock() {
+	fi.in <- m_finode_req_unlock{}
+	res := (<-fi.out).(m_finode_res_unlock)
+	if !res.ok {
+		panic("Attempt to unlock a non-locked Finode")
+	}
 }
 
 func (fi *finode) read(b []byte, pos int) (int, error) {
@@ -257,4 +310,4 @@ func (fi *finode) write(data []byte, pos int) (n int, err error) {
 	return cum_io, err
 }
 
-var _ Finode = &finode{}
+var _ Finode = &requestChan{}

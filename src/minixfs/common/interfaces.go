@@ -70,6 +70,11 @@ type Finode interface {
 	// the number of bytes actually written and any error that may have
 	// occurred.
 	Write(buf []byte, pos int) (int, error)
+	// Lock the inode, obtaining exclusive access via the returned interface,
+	// until the inode has been unlocked.
+	Lock() Finode
+	// Unlock the finode, only has effect on an already locked inode.
+	Unlock()
 	// Close the finode
 	Close() error
 }
@@ -89,6 +94,11 @@ type Dinode interface {
 	// Returns whether or not the directory is empty (i.e. only contains . and
 	// .. entries).
 	IsEmpty() bool
+	// Lock the inode, obtaining exclusive access via the returned interface,
+	// until the inode has been unlocked.
+	Lock() Dinode
+	// Unlock the finode, only has effect on an already locked inode.
+	Unlock()
 	// close the dinode
 	Close() error
 }
