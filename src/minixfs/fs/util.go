@@ -4,6 +4,7 @@ import (
 	"log"
 	"math"
 	. "minixfs/common"
+	"minixfs/inode"
 	"path/filepath"
 	"strings"
 )
@@ -69,14 +70,14 @@ func (fs *FileSystem) close(proc *Process, file *File) error {
 // Allocate a new inode, making a directory entry for it on the path 'path. If
 // successful, the parent directory is returned, along with the new node
 // itself, and an nil error.
-func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) (*CacheInode, *CacheInode, string, error) {
+func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) (*Inode, *Inode, string, error) {
 	// See if the path can be opened down to the last directory
 	dirp, rlast, err := fs.lastDir(proc, path)
 	if err != nil {
 		return nil, nil, "", err
 	}
 
-	if dirp.Inode.Nlinks >= math.MaxUint16 {
+	if dirp.Nlinks >= math.MaxUint16 {
 		fs.icache.PutInode(dirp)
 		return nil, nil, "", EMLINK
 	}
@@ -88,7 +89,7 @@ func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) 
 		var inum int // this is here to fix shadowing of err
 		inum, err = dirp.Bitmap.AllocInode()
 		// TODO: Get the current uid/gid
-		rip, err = fs.icache.NewInode(dirp.Devno, inum, bits, 1, 0, 0, uint32(z0))
+		rip, err = fs.icache.NewInode(dirp.Devnum, inum, bits, 1, 0, 0, uint32(z0))
 
 		if rip == nil {
 			// Can't create new inode, out of inodes
@@ -102,12 +103,11 @@ func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) 
 		fs.icache.FlushInode(rip)
 
 		// New inode acquired. Try to make directory entry.
-		dinode := dirp.Dinode()
-		err = dinode.Link(rlast, inum)
+		err = inode.Link(dirp, rlast, inum)
 
 		if err != nil {
 			fs.icache.PutInode(dirp)
-			rip.Inode.Nlinks--      // pity, have to free disk inode
+			rip.Nlinks--            // pity, have to free disk inode
 			rip.Dirty = true        // dirty inodes are written out
 			fs.icache.PutInode(rip) // this call frees the inode
 			return nil, nil, "", err
@@ -123,7 +123,7 @@ func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) 
 	return dirp, rip, rlast, err
 }
 
-func (fs *FileSystem) eatPath(proc *Process, path string) (*CacheInode, error) {
+func (fs *FileSystem) eatPath(proc *Process, path string) (*Inode, error) {
 	ldip, rest, err := fs.lastDir(proc, path)
 	if err != nil {
 		return nil, err // could not open final directory
@@ -140,19 +140,14 @@ func (fs *FileSystem) eatPath(proc *Process, path string) (*CacheInode, error) {
 	return rip, err
 }
 
-func (fs *FileSystem) wipeInode(rip *CacheInode) {
+func (fs *FileSystem) wipeInode(rip *Inode) {
 	// NYI
 }
 
-// TODO: Remove this function?
-func (fs *FileSystem) dupInode(rip *CacheInode) {
-	rip.Count++
-}
-
-func (fs *FileSystem) lastDir(proc *Process, path string) (*CacheInode, string, error) {
+func (fs *FileSystem) lastDir(proc *Process, path string) (*Inode, string, error) {
 	path = filepath.Clean(path)
 
-	var rip *CacheInode
+	var rip *Inode
 	if filepath.IsAbs(path) {
 		rip = proc.rootdir
 	} else {
@@ -160,11 +155,11 @@ func (fs *FileSystem) lastDir(proc *Process, path string) (*CacheInode, string, 
 	}
 
 	// If directory has been removed or path is empty, return ENOENT
-	if rip.Inode.Nlinks == 0 || len(path) == 0 {
+	if rip.Nlinks == 0 || len(path) == 0 {
 		return nil, "", ENOENT
 	}
 
-	fs.dupInode(rip) // inode will be returned with put_inode
+	rip.Count++ // inode will be returned with put_inode
 
 	var pathlist []string
 	if filepath.IsAbs(path) {
@@ -192,10 +187,10 @@ func (fs *FileSystem) lastDir(proc *Process, path string) (*CacheInode, string, 
 	return rip, pathlist[len(pathlist)-1], nil
 }
 
-func (fs *FileSystem) advance(proc *Process, dirp *CacheInode, path string) (*CacheInode, error) {
+func (fs *FileSystem) advance(proc *Process, dirp *Inode, path string) (*Inode, error) {
 	// if there is no path, just return this inode
 	if len(path) == 0 {
-		return fs.icache.GetInode(dirp.Devno, dirp.Inum)
+		return fs.icache.GetInode(dirp.Devnum, dirp.Inum)
 	}
 
 	// check for a nil inode
@@ -205,14 +200,19 @@ func (fs *FileSystem) advance(proc *Process, dirp *CacheInode, path string) (*Ca
 
 	// don't go beyond the current root directory, ever
 	if dirp == proc.rootdir && path == ".." {
-		return fs.icache.GetInode(dirp.Devno, dirp.Inum)
+		return fs.icache.GetInode(dirp.Devnum, dirp.Inum)
 	}
 
 	// If 'path' is not present in the directory, signal error
-	dinode := dirp.Dinode()
+	var rip *Inode
+	var err error
 
-	// Find and retrieve the component in the directory, if present.
-	rip, err := dinode.LookupGet(path, fs.icache)
+	if ok, dnum, inum := inode.Lookup(dirp, path); ok {
+		rip, err = fs.icache.GetInode(dnum, inum)
+	} else {
+		err = ENOENT
+	}
+
 	if err != nil {
 		return nil, ENOENT
 	}
@@ -221,12 +221,12 @@ func (fs *FileSystem) advance(proc *Process, dirp *CacheInode, path string) (*Ca
 		if dirp.Inum == ROOT_INODE {
 			// TODO: What does this do?
 			if path[1] == '.' {
-				if fs.devices[rip.Devno] != nil {
+				if fs.devices[rip.Devnum] != nil {
 					// we can skip the superblock search here since we know
 					// that 'i' is the device that we're looking at.
-					mountinfo := fs.mountinfo[rip.Devno]
+					mountinfo := fs.mountinfo[rip.Devnum]
 					fs.icache.PutInode(rip)
-					mnt_dev := mountinfo.imount.Devno
+					mnt_dev := mountinfo.imount.Devnum
 					inumb := mountinfo.imount.Inum
 					rip2, _ := fs.icache.GetInode(mnt_dev, inumb) // TODO: ignore error
 					rip, _ = fs.advance(proc, rip2, path)
@@ -262,7 +262,7 @@ func (fs *FileSystem) advance(proc *Process, dirp *CacheInode, path string) (*Ca
 // the inode of the final entry itself. In addition, return the portion of the
 // path that is the filename of the final entry, so it can be removed from the
 // parent directory, and any error that may have occurred.
-func (fs *FileSystem) unlinkPrep(proc *Process, path string) (*CacheInode, *CacheInode, string, error) {
+func (fs *FileSystem) unlinkPrep(proc *Process, path string) (*Inode, *Inode, string, error) {
 	// Get the last directory in the path
 	rldirp, rest, err := fs.lastDir(proc, path)
 	if rldirp == nil {
@@ -291,25 +291,28 @@ func (fs *FileSystem) unlinkPrep(proc *Process, path string) (*CacheInode, *Cach
 	return rldirp, rip, rest, nil
 }
 
-func (fs *FileSystem) unlinkFile(dirp, rip *CacheInode, filename string) error {
+func (fs *FileSystem) unlinkFile(dirp, rip *Inode, filename string) error {
 	var err error
 
 	// if rip is not nil, it is used to get access to the inode
 	if rip == nil {
 		// Search for file in directory and try to get its inode
-		pdinode := dirp.Dinode()
-		rip, err = pdinode.LookupGet(filename, fs.icache)
+		if ok, dnum, inum := inode.Lookup(dirp, filename); ok {
+			rip, err = fs.icache.GetInode(dnum, inum)
+		} else {
+			err = ENOENT
+		}
+
 		if err != nil {
 			return ENOENT
 		}
 	} else {
-		fs.dupInode(rip) // inode will be returned with put_inode
+		rip.Count++ // inode will be returned with put_inode
 	}
 
-	pdinode := dirp.Dinode()
-	err = pdinode.Unlink(filename)
+	err = inode.Unlink(dirp, filename)
 	if err == nil {
-		rip.Inode.Nlinks--
+		rip.Nlinks--
 		// TODO: Update times
 		rip.Dirty = true
 	}

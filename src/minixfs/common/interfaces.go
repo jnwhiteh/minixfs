@@ -46,59 +46,18 @@ type InodeCache interface {
 	// Update the information about a given device
 	MountDevice(devno int, bitmap Bitmap, info DeviceInfo)
 	// Create a new inode with the given parameters
-	NewInode(devno, inum int, mode, links uint16, uid int16, gid uint16, zone uint32) (*CacheInode, error)
+	NewInode(devno, inum int, mode, links uint16, uid int16, gid uint16, zone uint32) (*Inode, error)
 	// Get an inode from the given device
-	GetInode(devno, inum int) (*CacheInode, error)
+	GetInode(devno, inum int) (*Inode, error)
 	// Return the given inode to the cache. If the inode has been altered and
 	// it has no other clients, it should be written to the block cache.
-	PutInode(rip *CacheInode)
+	PutInode(rip *Inode)
 	// Flush the inode to the block cache, ensuring that it will be written
 	// the next time the block cache is flushed.
-	FlushInode(rip *CacheInode)
+	FlushInode(rip *Inode)
 	// Returns whether or not the given device is busy. As non-busy device has
 	// exactly one client of the root inode.
 	IsDeviceBusy(devno int) bool
 	// Close the inode cache
-	Close() error
-}
-
-type Finode interface {
-	// Read up to len(buf) bytes from pos within the file. Return the number
-	// of bytes actually read and any error that may have occurred.
-	Read(buf []byte, pos int) (int, error)
-	// Write len(buf) bytes from buf to the given position in the file. Return
-	// the number of bytes actually written and any error that may have
-	// occurred.
-	Write(buf []byte, pos int) (int, error)
-	// Lock the inode, obtaining exclusive access via the returned interface,
-	// until the inode has been unlocked.
-	Lock() Finode
-	// Unlock the finode, only has effect on an already locked inode.
-	Unlock()
-	// Close the finode
-	Close() error
-}
-
-type Dinode interface {
-	// Search the directory for an entry named 'name' and return the
-	// devno/inum of the inode, if found.
-	Lookup(name string) (bool, int, int)
-	// Search the directory for an entry named 'name' and fetch the
-	// inode from the given InodeCache.
-	LookupGet(name string, icache InodeCache) (*CacheInode, error)
-	// Add an entry 'name' to the directory listing, pointing to the 'inum'
-	// inode.
-	Link(name string, inum int) error
-	// Remove the entry named 'name' from the directory listing.
-	Unlink(name string) error
-	// Returns whether or not the directory is empty (i.e. only contains . and
-	// .. entries).
-	IsEmpty() bool
-	// Lock the inode, obtaining exclusive access via the returned interface,
-	// until the inode has been unlocked.
-	Lock() Dinode
-	// Unlock the finode, only has effect on an already locked inode.
-	Unlock()
-	// close the dinode
 	Close() error
 }

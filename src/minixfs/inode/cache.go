@@ -1,14 +1,7 @@
 package inode
 
-// TODO: There is a dependency here between icache and finode/dinode because
-// the icache is responsible for spawning/killing the open file/directory
-// servers. I'm not sure if this causes any issues, so it probably needs to be
-// reviewed.
-
 import (
 	. "minixfs/common"
-	dinode "minixfs/dinode"
-	finode "minixfs/finode"
 	"minixfs/utils"
 	"sync"
 )
@@ -18,15 +11,15 @@ import (
 // is spawned to receive requests. When the inode is closed with no more
 // clients, then the finode/dinode is shut down.
 type inodeCache struct {
-	bcache  BlockCache    // the backing store for this cache
-	devinfo []DeviceInfo  // information about the devices attached to the block cache
-	bitmaps []Bitmap      // a way to allocate new inodes/zones on the given device
-	inodes  []*CacheInode // all cache slots
+	bcache  BlockCache   // the backing store for this cache
+	devinfo []DeviceInfo // information about the devices attached to the block cache
+	bitmaps []Bitmap     // a way to allocate new inodes/zones on the given device
+	inodes  []*Inode     // all cache slots
 
 	in  chan m_icache_req
 	out chan m_icache_res
 
-	// These entries could be made by wrapping *CacheInode, but we keep them
+	// These entries could be made by wrapping *Inode, but we keep them
 	// here just as an illustration of different ways of doing things
 	waiting   [][]chan m_icache_res // wait lists for any outstanding inode load
 	waiting_m *sync.Mutex           // a lock for the waiting list
@@ -37,7 +30,7 @@ func NewCache(bcache BlockCache, numdevs int, size int) InodeCache {
 		bcache,
 		make([]DeviceInfo, numdevs),
 		make([]Bitmap, numdevs),
-		make([]*CacheInode, size),
+		make([]*Inode, size),
 		make(chan m_icache_req),
 		make(chan m_icache_res),
 		make([][]chan m_icache_res, size),
@@ -45,7 +38,11 @@ func NewCache(bcache BlockCache, numdevs int, size int) InodeCache {
 	}
 
 	for i := 0; i < len(cache.inodes); i++ {
-		cache.inodes[i] = new(CacheInode)
+		inode := new(Inode)
+		inode.Bcache = bcache
+		inode.Icache = cache
+		inode.RWMutex = new(sync.RWMutex)
+		cache.inodes[i] = inode
 	}
 
 	go cache.loop()
@@ -71,7 +68,7 @@ func (c *inodeCache) loop() {
 			for i := 0; i < len(c.inodes); i++ {
 				rip := c.inodes[i]
 				if rip.Count > 0 {
-					if rip.Devno == req.devno && rip.Inum == req.inum {
+					if rip.Devnum == req.devno && rip.Inum == req.inum {
 						// this is the inode we're looking for
 						slot = i
 						break
@@ -82,7 +79,7 @@ func (c *inodeCache) loop() {
 			}
 
 			// Get the actual cache from the slot index
-			var xp *CacheInode
+			var xp *Inode
 			if slot > 0 && slot < len(c.inodes) {
 				xp = c.inodes[slot]
 			}
@@ -101,7 +98,7 @@ func (c *inodeCache) loop() {
 				// cache slot isn't claimed by someone else in the meantime
 				xp.Devinfo = c.devinfo[req.devno]
 				xp.Bitmap = c.bitmaps[req.devno]
-				xp.Devno = req.devno
+				xp.Devnum = req.devno
 				xp.Inum = req.inum
 				xp.Count++
 
@@ -110,23 +107,15 @@ func (c *inodeCache) loop() {
 				c.waiting_m.Unlock()
 
 				go func() {
-					// Load the inode into the CacheInode
+					// Load the inode into the Inode
 					c.loadInode(xp)
 					// TODO: THIS IS THE CHANGE HERE
 					// Fill in the specified parameters
-					xp.Inode.Mode = req.mode
-					xp.Inode.Nlinks = req.links
-					xp.Inode.Uid = req.uid
-					xp.Inode.Gid = req.gid
-					xp.Inode.Zone[0] = req.zone
-
-					// Spawn the Finode or Dinode as appropriate
-					mode := xp.Inode.Mode & I_TYPE
-					if mode == I_REGULAR {
-						xp.Server = finode.New(xp, xp.Devinfo, c.bcache)
-					} else if mode == I_DIRECTORY {
-						xp.Server = dinode.New(xp, xp.Devinfo, c.bcache)
-					}
+					xp.Mode = req.mode
+					xp.Nlinks = req.links
+					xp.Uid = req.uid
+					xp.Gid = req.gid
+					xp.Zone[0] = req.zone
 
 					c.waiting_m.Lock()
 					for _, callback := range c.waiting[slot] {
@@ -145,7 +134,7 @@ func (c *inodeCache) loop() {
 			for i := 0; i < len(c.inodes); i++ {
 				rip := c.inodes[i]
 				if rip.Count > 0 {
-					if rip.Devno == req.devno && rip.Inum == req.inum {
+					if rip.Devnum == req.devno && rip.Inum == req.inum {
 						// this is the inode we're looking for
 						slot = i
 						break
@@ -156,7 +145,7 @@ func (c *inodeCache) loop() {
 			}
 
 			// Get the actual cache from the slot index
-			var xp *CacheInode
+			var xp *Inode
 			if slot > 0 && slot < len(c.inodes) {
 				xp = c.inodes[slot]
 			}
@@ -175,7 +164,7 @@ func (c *inodeCache) loop() {
 				// cache slot isn't claimed by someone else in the meantime
 				xp.Devinfo = c.devinfo[req.devno]
 				xp.Bitmap = c.bitmaps[req.devno]
-				xp.Devno = req.devno
+				xp.Devnum = req.devno
 				xp.Inum = req.inum
 				xp.Count++
 
@@ -184,16 +173,8 @@ func (c *inodeCache) loop() {
 				c.waiting_m.Unlock()
 
 				go func() {
-					// Load the inode into the CacheInode
+					// Load the inode into the Inode
 					c.loadInode(xp)
-					// Spawn the Finode or Dinode as appropriate
-					mode := xp.Inode.Mode & I_TYPE
-					if mode == I_REGULAR {
-						xp.Server = finode.New(xp, xp.Devinfo, c.bcache)
-					} else if mode == I_DIRECTORY {
-						xp.Server = dinode.New(xp, xp.Devinfo, c.bcache)
-					}
-
 					c.waiting_m.Lock()
 					for _, callback := range c.waiting[slot] {
 						callback <- m_icache_res_getinode{xp, nil}
@@ -213,19 +194,9 @@ func (c *inodeCache) loop() {
 
 			rip.Count--
 			if rip.Count == 0 { // means no one is using it now
-
-				// Shut down the finode/dinode server
-				if finode := rip.Finode(); finode != nil {
-					// TODO: Don't ignore this
-					_ = finode.Close()
-				} else if dinode := rip.Dinode(); dinode != nil {
-					// TODO: Don't ignore this
-					_ = dinode.Close()
-				}
-
-				if rip.Inode.Nlinks == 0 { // free the inode
+				if rip.Nlinks == 0 { // free the inode
 					utils.Truncate(rip, rip.Bitmap, c.bcache) // return all the disk blocks
-					rip.Inode.Mode = I_NOT_ALLOC
+					rip.Mode = I_NOT_ALLOC
 					rip.Dirty = true
 					rip.Bitmap.FreeInode(rip.Inum)
 				} else {
@@ -251,7 +222,7 @@ func (c *inodeCache) loop() {
 			count := 0
 			for i := 0; i < len(c.inodes); i++ {
 				rip := c.inodes[i]
-				if rip.Count > 0 && rip.Devno == req.devno {
+				if rip.Count > 0 && rip.Devnum == req.devno {
 					count += rip.Count
 				}
 			}
@@ -275,14 +246,14 @@ func (c *inodeCache) loop() {
 	}
 }
 
-func (c *inodeCache) NewInode(devno, inum int, mode, links uint16, uid int16, gid uint16, zone uint32) (*CacheInode, error) {
+func (c *inodeCache) NewInode(devno, inum int, mode, links uint16, uid int16, gid uint16, zone uint32) (*Inode, error) {
 	c.in <- m_icache_req_newinode{devno, inum, mode, links, uid, gid, zone}
 	ares := (<-c.out).(m_icache_res_async)
 	res := (<-ares.ch).(m_icache_res_newinode)
 	return res.rip, res.err
 }
 
-func (c *inodeCache) GetInode(devno, inum int) (*CacheInode, error) {
+func (c *inodeCache) GetInode(devno, inum int) (*Inode, error) {
 	c.in <- m_icache_req_getinode{devno, inum}
 	ares := (<-c.out).(m_icache_res_async)
 	res := (<-ares.ch).(m_icache_res_getinode)
@@ -295,13 +266,13 @@ func (c *inodeCache) IsDeviceBusy(devno int) bool {
 	return res.busy
 }
 
-func (c *inodeCache) PutInode(cb *CacheInode) {
+func (c *inodeCache) PutInode(cb *Inode) {
 	c.in <- m_icache_req_putinode{cb}
 	<-c.out
 	return
 }
 
-func (c *inodeCache) FlushInode(cb *CacheInode) {
+func (c *inodeCache) FlushInode(cb *Inode) {
 	c.in <- m_icache_req_flushinode{cb}
 	<-c.out
 	return
@@ -323,44 +294,44 @@ func (c *inodeCache) Close() error {
 // Private implementations
 //////////////////////////////////////////////////////////////////////////////
 
-func (c *inodeCache) loadInode(xp *CacheInode) {
+func (c *inodeCache) loadInode(xp *Inode) {
 	// The count at this point is guaranteed to be > 0, so the device cannot
 	// be unmounted until the load has completed and the inode has been 'put'
 
 	inum := xp.Inum - 1
-	info := c.devinfo[xp.Devno]
+	info := c.devinfo[xp.Devnum]
 	inodes_per_block := info.Blocksize / V2_INODE_SIZE
 	ioffset := inum % inodes_per_block
 	blocknum := info.MapOffset + (inum / inodes_per_block)
 
 	// Load the inode from the disk and create an in-memory version of it
-	bp := c.bcache.GetBlock(xp.Devno, blocknum, INODE_BLOCK, NORMAL)
+	bp := c.bcache.GetBlock(xp.Devnum, blocknum, INODE_BLOCK, NORMAL)
 	inodeb := bp.Block.(InodeBlock)
 
 	// We have the full block, now get the correct inode entry
 	inode_d := &inodeb[ioffset]
-	xp.Inode = inode_d
+	xp.Disk_Inode = inode_d
 	xp.Dirty = false
 	xp.Mount = false
 }
 
-func (c *inodeCache) writeInode(xp *CacheInode) {
+func (c *inodeCache) writeInode(xp *Inode) {
 	// Calculate the block number we need
 	inum := xp.Inum - 1
-	info := c.devinfo[xp.Devno]
+	info := c.devinfo[xp.Devnum]
 	inodes_per_block := info.Blocksize / V2_INODE_SIZE
 	ioffset := inum % inodes_per_block
 	block_num := info.MapOffset + (inum / inodes_per_block)
 
 	// Load the inode from the disk
-	bp := c.bcache.GetBlock(xp.Devno, block_num, INODE_BLOCK, NORMAL)
+	bp := c.bcache.GetBlock(xp.Devnum, block_num, INODE_BLOCK, NORMAL)
 	inodeb := bp.Block.(InodeBlock)
 
 	// TODO: Update times, handle read-only filesystems
 	bp.Dirty = true
 
 	// Copy the disk_inode from rip into the inode block
-	inodeb[ioffset] = *xp.Inode
+	inodeb[ioffset] = *xp.Disk_Inode
 	xp.Dirty = false
 	c.bcache.PutBlock(bp, INODE_BLOCK)
 }

@@ -24,26 +24,26 @@ type fileSystem interface {
 }
 
 type mountInfo struct {
-	imount *CacheInode
-	isup   *CacheInode
+	imount *Inode
+	isup   *Inode
 }
 
 type Filp struct {
 	filpidx int // the numeric index of the entry in the global filp table
 	mode    uint16
 	flags   int
-	inode   *CacheInode
+	inode   *Inode
 	count   int
 	pos     int
 }
 
 type Process struct {
-	pid     int         // the numeric id of this process
-	umask   uint16      // file creation mask
-	rootdir *CacheInode // root directory of the process
-	workdir *CacheInode // working directory of the process
-	filp    []*Filp     // the list of file descriptors
-	files   []*File     // the list of open files
+	pid     int     // the numeric id of this process
+	umask   uint16  // file creation mask
+	rootdir *Inode  // root directory of the process
+	workdir *Inode  // working directory of the process
+	filp    []*Filp // the list of file descriptors
+	files   []*File // the list of open files
 	m       *sync.Mutex
 }
 

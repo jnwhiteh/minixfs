@@ -1,5 +1,9 @@
 package common
 
+import (
+	"sync"
+)
+
 // CacheBlock is a generic 'buffer cache struct that is used throughout the
 // file server. We need some metadata in order to make things nicer, so we
 // include the block, the block number and the other metadata we need. These
@@ -28,59 +32,34 @@ type DeviceInfo struct {
 	ZmapBlocks    int  // the number of zone bitmap blocks
 }
 
-// CacheInode is a self-aware wrapper around an inode stored on disk.
-type CacheInode struct {
-	Inode   *Disk_Inode // the inode as stored on disk
-	Bitmap  Bitmap
-	Devinfo DeviceInfo
-	Devno   int
-	Inum    int
-	Count   int
-	Dirty   bool
-	Mount   bool
-	Server  interface{}
+type Inode struct {
+	*Disk_Inode   // the inode as stored on disk
+	*sync.RWMutex // this lock must be acquired for any inode operation
+
+	Bcache  BlockCache // the block cache
+	Icache  InodeCache // the inode cache
+	Bitmap  Bitmap     // the bitmap for the inode's device (for allocation)
+	Devinfo DeviceInfo // the device information for the inode's device
+
+	Devnum int // the device number
+	Inum   int // the inode number
+
+	Count int  // the number of clients of this inode
+	Dirty bool // whether or not the inode has been changed
+	Mount bool // whether or not this inode is used as a mount point
 }
 
-func (ci *CacheInode) GetType() int {
-	return int(ci.Inode.Mode & I_TYPE)
+// The following functions operate on the portions of an inode that cannot
+// change except at creation time. They do not need to acquire the mutex in
+// order to perform their work, so they are safe.
+func (rip *Inode) GetType() int {
+	return int(rip.Mode & I_TYPE)
 }
 
-func (ci *CacheInode) IsRegular() bool {
-	if ci.Inode == nil {
-		return false
-	}
-	return ci.Inode.Mode&I_TYPE == I_REGULAR
+func (rip *Inode) IsRegular() bool {
+	return rip.Mode&I_TYPE == I_REGULAR
 }
 
-func (ci *CacheInode) IsDirectory() bool {
-	if ci.Inode == nil {
-		return false
-	}
-	return ci.Inode.Mode&I_TYPE == I_DIRECTORY
-}
-
-func (ci *CacheInode) Dinode() Dinode {
-	if ci.Inode == nil {
-		return nil
-	} else if !ci.IsDirectory() {
-		return nil
-	}
-
-	if dinode, ok := ci.Server.(Dinode); ok {
-		return dinode
-	}
-	return nil
-}
-
-func (ci *CacheInode) Finode() Finode {
-	if ci.Inode == nil {
-		return nil
-	} else if !ci.IsRegular() {
-		return nil
-	}
-
-	if finode, ok := ci.Server.(Finode); ok {
-		return finode
-	}
-	return nil
+func (rip *Inode) IsDirectory() bool {
+	return rip.Mode&I_TYPE == I_DIRECTORY
 }

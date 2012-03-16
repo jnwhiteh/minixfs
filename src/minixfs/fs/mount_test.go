@@ -38,11 +38,11 @@ func TestMount(test *testing.T) {
 	if rip.Inum != 542 {
 		FatalHere(test, "Data mismatch for inum got %d, expected %d", rip.Inum, 542)
 	}
-	if rip.Inode.Nlinks != 1 {
-		FatalHere(test, "Data mismatch for links got %d, expected %d", rip.Inode.Nlinks, 1)
+	if rip.Nlinks != 1 {
+		FatalHere(test, "Data mismatch for links got %d, expected %d", rip.Nlinks, 1)
 	}
-	if rip.Inode.Size != 4489799 {
-		FatalHere(test, "Data mismatch for size got %d, expected %d", rip.Inode.Size, 4489799)
+	if rip.Size != 4489799 {
+		FatalHere(test, "Data mismatch for size got %d, expected %d", rip.Size, 4489799)
 	}
 
 	fs.icache.PutInode(rip)
@@ -85,11 +85,11 @@ func TestUnmount(test *testing.T) {
 	if rip.Inum != 518 {
 		FatalHere(test, "Data mismatch for inum got %d, expected %d", rip.Inum, 518)
 	}
-	if rip.Inode.Nlinks != 2 {
-		FatalHere(test, "Data mismatch for links got %d, expected %d", rip.Inode.Nlinks, 2)
+	if rip.Nlinks != 2 {
+		FatalHere(test, "Data mismatch for links got %d, expected %d", rip.Nlinks, 2)
 	}
-	if rip.Inode.Size != 128 {
-		FatalHere(test, "Data mismatch for size got %d, expected %d", rip.Inode.Size, 128)
+	if rip.Size != 128 {
+		FatalHere(test, "Data mismatch for size got %d, expected %d", rip.Size, 128)
 	}
 
 	fs.Exit(proc)

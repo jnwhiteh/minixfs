@@ -34,10 +34,10 @@ type m_icache_req_getinode struct {
 	inum  int
 }
 type m_icache_req_putinode struct {
-	rip *CacheInode
+	rip *Inode
 }
 type m_icache_req_flushinode struct {
-	rip *CacheInode
+	rip *Inode
 }
 type m_icache_req_isbusy struct {
 	devno int
@@ -50,11 +50,11 @@ type m_icache_res_async struct {
 	ch chan m_icache_res
 }
 type m_icache_res_newinode struct {
-	rip *CacheInode
+	rip *Inode
 	err error
 }
 type m_icache_res_getinode struct {
-	rip *CacheInode
+	rip *Inode
 	err error
 }
 type m_icache_res_isbusy struct {

@@ -54,15 +54,15 @@ func TestEatPath(test *testing.T) {
 		if itest.inum != -1 && rip.Inum != itest.inum {
 			ErrorHere(test, "[%s] mismatch for inum got %d, expected %d", itest.path, rip.Inum, itest.inum)
 		}
-		if itest.links != -1 && rip.Inode.Nlinks != uint16(itest.links) {
-			ErrorHere(test, "[%s] mismatch for links got %d, expected %d", itest.path, rip.Inode.Nlinks, itest.links)
+		if itest.links != -1 && rip.Nlinks != uint16(itest.links) {
+			ErrorHere(test, "[%s] mismatch for links got %d, expected %d", itest.path, rip.Nlinks, itest.links)
 		}
-		if itest.size != -1 && rip.Inode.Size != int32(itest.size) {
-			ErrorHere(test, "[%s] mismatch for size got %d, expected %d", itest.path, rip.Inode.Size, itest.size)
+		if itest.size != -1 && rip.Size != int32(itest.size) {
+			ErrorHere(test, "[%s] mismatch for size got %d, expected %d", itest.path, rip.Size, itest.size)
 		}
 		for i := 0; i < 10; i++ {
-			if i < len(itest.zones) && rip.Inode.Zone[i] != uint32(itest.zones[i]) {
-				ErrorHere(test, "[%s] mismatch for zone[%d] got %d, expected %d", i, itest.path, rip.Inode.Zone[i], itest.zones[i])
+			if i < len(itest.zones) && rip.Zone[i] != uint32(itest.zones[i]) {
+				ErrorHere(test, "[%s] mismatch for zone[%d] got %d, expected %d", i, itest.path, rip.Zone[i], itest.zones[i])
 			}
 		}
 		fs.icache.PutInode(rip)

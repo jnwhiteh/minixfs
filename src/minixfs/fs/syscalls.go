@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"minixfs/bitmap"
 	. "minixfs/common"
+	"minixfs/inode"
 	"minixfs/utils"
 
 	"sync"
@@ -132,13 +133,13 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) error {
 	}
 
 	// It may not be spacial
-	bits := rip.Inode.Mode & I_TYPE
+	bits := rip.Mode & I_TYPE
 	if bits == I_BLOCK_SPECIAL || bits == I_CHAR_SPECIAL {
 		r = ENOTDIR
 	}
 
 	// Get the root inode of the mounted file system
-	var root_ip *CacheInode
+	var root_ip *Inode
 	if r == nil {
 		root_ip, err = fs.icache.GetInode(freeIndex, ROOT_INODE)
 		if err != nil {
@@ -146,7 +147,7 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) error {
 		}
 	}
 
-	if root_ip != nil && root_ip.Inode.Mode == 0 {
+	if root_ip != nil && root_ip.Mode == 0 {
 		r = EINVAL
 	}
 
@@ -273,8 +274,8 @@ func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16)
 	bits := mode_map[oflags&O_ACCMODE]
 
 	var err error
-	var rip *CacheInode
-	var dirp *CacheInode
+	var rip *Inode
+	var dirp *Inode
 	var exist bool = false
 
 	// If O_CREATE is set, try to make the file
@@ -435,23 +436,21 @@ func (fs *FileSystem) Mkdir(proc *Process, path string, mode uint16) error {
 	dot := rip.Inum     // inode number of the new dir itself
 
 	// Now make dir entries for . and .. unless the disk is completely full.
-	dinode := rip.Dinode()
-	rip.Inode.Mode = bits             // set mode
-	err1 := dinode.Link(".", dot)     // enter . in the new dir
-	err2 := dinode.Link("..", dotdot) // enter .. in the new dir
+	rip.Mode = bits                   // set mode
+	err1 := inode.Link(rip, ".", dot)     // enter . in the new dir
+	err2 := inode.Link(rip, "..", dotdot) // enter .. in the new dir
 
 	// If both . and .. were entered, increment the link counts
 
 	if err1 == nil && err2 == nil {
 		// Normal case
-		rip.Inode.Nlinks++  // this accounts for .
-		dirp.Inode.Nlinks++ // this accounts for ..
+		rip.Nlinks++  // this accounts for .
+		dirp.Nlinks++ // this accounts for ..
 		dirp.Dirty = true
 	} else {
 		// It did not work, so remove the new directory
-		pdinode := dirp.Dinode()
-		pdinode.Unlink(rest)
-		rip.Inode.Nlinks--
+		inode.Unlink(dirp, rest)
+		rip.Nlinks--
 	}
 
 	// Either way nlinks has been updated
@@ -476,8 +475,7 @@ func (fs *FileSystem) Rmdir(proc *Process, path string) error {
 	}
 
 	// Check to see if the directory is empty
-	dinode := rip.Dinode()
-	if !dinode.IsEmpty() {
+	if !inode.IsEmpty(rip) {
 		return ENOTEMPTY
 	}
 
@@ -569,8 +567,7 @@ func (fs *FileSystem) Read(proc *Process, file *File, b []byte) (int, error) {
 	// We want to read at most len(b) bytes from the given file. This data
 	// will almost certainly be split up amongst multiple blocks.
 	curpos := file.pos
-	finode := file.inode.Finode()
-	n, err := finode.Read(b, curpos)
+	n, err := inode.Read(file.inode, b, curpos)
 
 	file.pos += n
 	return n, err
@@ -582,8 +579,7 @@ func (fs *FileSystem) Write(proc *Process, file *File, b []byte) (int, error) {
 	}
 
 	curpos := file.pos
-	finode := file.inode.Finode()
-	n, err := finode.Write(b, curpos)
+	n, err := inode.Write(file.inode, b, curpos)
 
 	file.pos += n
 	return n, err
