@@ -1,13 +1,14 @@
-package common
+package inode
 
 import (
 	"log"
+	. "minixfs/common"
 )
 
 // Given an inode and a position within the corresponding file, locate the
 // block (not zone) number in which that position is to be found and return
-func ReadMap(inode *Inode, position int, cache BlockCache) int {
-	devinfo := inode.Devinfo
+func ReadMap(inode *cacheInode, position int, cache BlockCache) int {
+	devinfo := inode.devinfo
 
 	scale := devinfo.Scale // for block-zone conversion
 	blocksize := devinfo.Blocksize
@@ -43,7 +44,7 @@ func ReadMap(inode *Inode, position int, cache BlockCache) int {
 		}
 		excess = excess - nr_indirects // single indirect doesn't count
 		b := z << scale
-		bp := cache.GetBlock(inode.Devnum, int(b), INDIRECT_BLOCK, NORMAL) // get double indirect block
+		bp := cache.GetBlock(inode.devnum, int(b), INDIRECT_BLOCK, NORMAL) // get double indirect block
 		index := excess / nr_indirects
 		z = RdIndir(bp, index, cache, devinfo.Firstdatazone, devinfo.Zones) // z= zone for single
 		cache.PutBlock(bp, INDIRECT_BLOCK)                                  // release double indirect block
@@ -56,7 +57,7 @@ func ReadMap(inode *Inode, position int, cache BlockCache) int {
 	}
 
 	b := z << scale // b is block number for single indirect
-	bp := cache.GetBlock(inode.Devnum, int(b), INDIRECT_BLOCK, NORMAL)
+	bp := cache.GetBlock(inode.devnum, int(b), INDIRECT_BLOCK, NORMAL)
 	z = RdIndir(bp, excess, cache, devinfo.Firstdatazone, devinfo.Zones)
 	cache.PutBlock(bp, INDIRECT_BLOCK)
 	if z == NO_ZONE {

@@ -6,7 +6,6 @@ import (
 	"minixfs/bitmap"
 	. "minixfs/common"
 	"minixfs/inode"
-	"minixfs/utils"
 
 	"sync"
 )
@@ -42,9 +41,9 @@ func (fs *FileSystem) Shutdown() (err error) {
 		// Release the inode for the root process
 		proc := fs.procs[ROOT_PROCESS]
 		if proc.rootdir != proc.workdir && proc.workdir != nil {
-			fs.icache.PutInode(proc.workdir)
+			fs.icache.PutInode(fs.icache.RLockInode(proc.workdir))
 		}
-		fs.icache.PutInode(proc.rootdir)
+		fs.icache.PutInode(fs.icache.RLockInode(proc.rootdir))
 
 		if err := fs.unmount(ROOT_DEVICE); err != nil {
 			return fmt.Errorf("Error unmounting root device: %s", err)
@@ -114,7 +113,7 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) error {
 	fs.icache.MountDevice(freeIndex, bmap, devinfo)
 
 	// Get the inode of the file to be mounted on
-	rip, err := fs.eatPath(fs.procs[ROOT_PROCESS], path)
+	rrip, err := fs.eatPath(fs.procs[ROOT_PROCESS], path)
 
 	if err != nil {
 		fs.devices[freeIndex] = nil
@@ -127,19 +126,22 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) error {
 
 	var r error = nil
 
+	// Lock the inode so we can change it
+	wrip := fs.icache.WLockInode(rrip)
+
 	// It may not be busy
-	if rip.Count > 1 {
+	if wrip.Count() > 1 {
 		r = EBUSY
 	}
 
 	// It may not be spacial
-	bits := rip.Mode & I_TYPE
+	bits := wrip.GetMode() & I_TYPE
 	if bits == I_BLOCK_SPECIAL || bits == I_CHAR_SPECIAL {
 		r = ENOTDIR
 	}
 
 	// Get the root inode of the mounted file system
-	var root_ip *Inode
+	var root_ip Inode
 	if r == nil {
 		root_ip, err = fs.icache.GetInode(freeIndex, ROOT_INODE)
 		if err != nil {
@@ -147,13 +149,13 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) error {
 		}
 	}
 
-	if root_ip != nil && root_ip.Mode == 0 {
+	if root_ip != nil && root_ip.GetMode() == 0 {
 		r = EINVAL
 	}
 
 	// File types of 'rip' and 'root_ip' may not conflict
 	if r == nil {
-		mdir := rip.IsDirectory()
+		mdir := wrip.IsDirectory()
 		rdir := root_ip.IsDirectory()
 		if !mdir && rdir {
 			r = EISDIR
@@ -162,7 +164,7 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) error {
 
 	// If error, return the bitmap and both inodes; release the maps
 	if r != nil {
-		fs.icache.PutInode(rip)
+		fs.icache.PutInode(wrip)
 		fs.icache.PutInode(root_ip)
 		fs.bcache.Invalidate(freeIndex)
 		fs.devices[freeIndex] = nil
@@ -178,8 +180,9 @@ func (fs *FileSystem) Mount(dev BlockDevice, path string) error {
 	}
 
 	// Nothing else can go wrong, so perform the mount
-	rip.Mount = true
-	fs.mountinfo[freeIndex] = mountInfo{rip, root_ip}
+	wrip.SetMountPoint(true)
+	rrip = fs.icache.WUnlockInode(wrip)
+	fs.mountinfo[freeIndex] = mountInfo{fs.icache.RUnlockInode(rrip), fs.icache.RUnlockInode(root_ip)}
 
 	return nil
 }
@@ -261,9 +264,9 @@ func (fs *FileSystem) Exit(proc *Process) {
 	fs.procs[proc.pid] = nil
 
 	if proc.workdir != proc.rootdir {
-		fs.icache.PutInode(proc.workdir)
+		fs.icache.PutInode(fs.icache.RLockInode(proc.workdir))
 	}
-	fs.icache.PutInode(proc.rootdir)
+	fs.icache.PutInode(fs.icache.RLockInode(proc.rootdir))
 }
 
 var mode_map = []uint16{R_BIT, W_BIT, R_BIT | W_BIT, 0}
@@ -274,8 +277,7 @@ func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16)
 	bits := mode_map[oflags&O_ACCMODE]
 
 	var err error
-	var rip *Inode
-	var dirp *Inode
+	var rip Inode
 	var exist bool = false
 
 	// If O_CREATE is set, try to make the file
@@ -284,7 +286,7 @@ func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16)
 		omode := I_REGULAR | (omode & ALL_MODES & proc.umask)
 		// the use of proc here is simply for path lookup, the structure isn't
 		// altered in any way.
-		dirp, rip, _, err = fs.newNode(proc, path, omode, NO_ZONE)
+		ldirp, lrip, _, err := fs.newNode(proc, path, omode, NO_ZONE)
 		if err == nil {
 			exist = false
 		} else if err != EEXIST {
@@ -292,7 +294,9 @@ func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16)
 		} else {
 			exist = (oflags&O_EXCL == 0)
 		}
-		fs.icache.PutInode(dirp)
+		fs.icache.PutInode(ldirp)
+		fs.icache.WUnlockInode(lrip)
+		rip = lrip
 	} else {
 		// scan path name
 		rip, err = fs.eatPath(proc, path)
@@ -338,14 +342,16 @@ func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16)
 	err = nil
 	if exist {
 		// TODO: Check permissions
-		switch rip.GetType() {
+		switch rip.Type() {
 		case I_REGULAR:
 			if oflags&O_TRUNC > 0 {
-				utils.Truncate(rip, rip.Bitmap, fs.bcache)
-				fs.wipeInode(rip)
+				lrip := fs.icache.WLockInode(rip)
+				inode.Truncate(lrip, fs.bitmaps[rip.Devnum()], fs.bcache)
+				fs.wipeInode(lrip)
 				// Send the inode from the inode cache to the block cache, so
 				// it gets written on the next cache flush
-				fs.icache.FlushInode(rip)
+				fs.icache.FlushInode(lrip)
+				fs.icache.WUnlockInode(lrip)
 			}
 		case I_DIRECTORY:
 			// Directories may be read, but not written
@@ -382,7 +388,7 @@ func (fs *FileSystem) Close(proc *Process, file *File) error {
 	defer proc.m.Unlock()
 
 	// Release the inode
-	fs.icache.PutInode(file.inode)
+	fs.icache.PutInode(fs.icache.RLockInode(file.inode))
 
 	proc.files[file.fd] = nil
 
@@ -406,7 +412,7 @@ func (fs *FileSystem) Unlink(proc *Process, path string) error {
 	}
 
 	// Now test if the call is allowed (altered from Minix)
-	if rip.Inum == ROOT_INODE {
+	if rip.Inum() == ROOT_INODE {
 		err = EBUSY
 	}
 
@@ -432,11 +438,11 @@ func (fs *FileSystem) Mkdir(proc *Process, path string, mode uint16) error {
 	}
 
 	// Get the inode numbers for . and .. to enter into the directory
-	dotdot := dirp.Inum // parent's inode number
-	dot := rip.Inum     // inode number of the new dir itself
+	dotdot := dirp.Inum() // parent's inode number
+	dot := rip.Inum()     // inode number of the new dir itself
 
 	// Now make dir entries for . and .. unless the disk is completely full.
-	rip.Mode = bits                   // set mode
+	rip.SetMode(bits)                     // set mode
 	err1 := inode.Link(rip, ".", dot)     // enter . in the new dir
 	err2 := inode.Link(rip, "..", dotdot) // enter .. in the new dir
 
@@ -444,17 +450,17 @@ func (fs *FileSystem) Mkdir(proc *Process, path string, mode uint16) error {
 
 	if err1 == nil && err2 == nil {
 		// Normal case
-		rip.Nlinks++  // this accounts for .
-		dirp.Nlinks++ // this accounts for ..
-		dirp.Dirty = true
+		rip.IncLinks()  // this accounts for .
+		dirp.IncLinks() // this accounts for ..
+		dirp.SetDirty(true)
 	} else {
 		// It did not work, so remove the new directory
 		inode.Unlink(dirp, rest)
-		rip.Nlinks--
+		rip.DecLinks()
 	}
 
 	// Either way nlinks has been updated
-	rip.Dirty = true
+	rip.SetDirty(true)
 	fs.icache.PutInode(dirp)
 	fs.icache.PutInode(rip)
 
@@ -482,14 +488,15 @@ func (fs *FileSystem) Rmdir(proc *Process, path string) error {
 	if path == "." || path == ".." {
 		return EINVAL
 	}
-	if rip.Inum == ROOT_INODE { // can't remove root
+	if rip.Inum() == ROOT_INODE { // can't remove root
 		return EBUSY
 	}
+
 	// Make sure no one else is using this directory. This is a stronger
 	// condition than given in Minix initially, where it just cannot be the
 	// root or working directory of a process. Could be relaxed, this is just
 	// for sanity.
-	if rip.Count > 1 {
+	if rip.Count() > 1 {
 		return EBUSY
 	}
 
@@ -536,8 +543,8 @@ func (fs *FileSystem) Chdir(proc *Process, path string) error {
 	}
 
 	// Everything is okay, make the change
-	fs.icache.PutInode(proc.workdir)
-	proc.workdir = rip
+	fs.icache.PutInode(fs.icache.RLockInode(proc.workdir))
+	proc.workdir = fs.icache.RUnlockInode(rip)
 	return nil
 }
 
@@ -567,7 +574,9 @@ func (fs *FileSystem) Read(proc *Process, file *File, b []byte) (int, error) {
 	// We want to read at most len(b) bytes from the given file. This data
 	// will almost certainly be split up amongst multiple blocks.
 	curpos := file.pos
-	n, err := inode.Read(file.inode, b, curpos)
+	rip := fs.icache.RLockInode(file.inode)
+	n, err := inode.Read(rip, b, curpos)
+	fs.icache.RUnlockInode(rip)
 
 	file.pos += n
 	return n, err
@@ -579,7 +588,11 @@ func (fs *FileSystem) Write(proc *Process, file *File, b []byte) (int, error) {
 	}
 
 	curpos := file.pos
-	n, err := inode.Write(file.inode, b, curpos)
+	rip := fs.icache.RLockInode(file.inode)
+	wrip := fs.icache.WLockInode(rip)
+	n, err := inode.Write(wrip, b, curpos)
+	fs.icache.WUnlockInode(wrip)
+	fs.icache.RUnlockInode(rip)
 
 	file.pos += n
 	return n, err

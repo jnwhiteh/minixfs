@@ -19,7 +19,7 @@ func TestCreate(test *testing.T) {
 		FatalHere(test, "Failed when spawning new process: %s", err)
 	}
 
-	bitmap := proc.rootdir.Bitmap
+	bitmap := fs.bitmaps[proc.rootdir.Devnum()]
 
 	// Check the state of the bitmap before creating this file
 	inum, err := bitmap.AllocInode()
@@ -37,8 +37,8 @@ func TestCreate(test *testing.T) {
 	if err != nil {
 		FatalHere(test, "Failed when creating new file: %s", err)
 	}
-	if file.inode.Inum != inum {
-		ErrorHere(test, "Inum mismatch expected %d, got %d", inum, file.inode.Inum)
+	if file.inode.Inum() != inum {
+		ErrorHere(test, "Inum mismatch expected %d, got %d", inum, file.inode.Inum())
 	}
 
 	// Close and unlink the new file

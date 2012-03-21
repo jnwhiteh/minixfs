@@ -22,8 +22,8 @@ func TestChdir(test *testing.T) {
 	if err = fs.Chdir(proc, "/var"); err != nil {
 		FatalHere(test, "Failed to change directory: %s", err)
 	}
-	if proc.workdir.Inum != 543 {
-		FatalHere(test, "Got wrong inode expected %d, got %d", 543, proc.workdir.Inum)
+	if proc.workdir.Inum() != 543 {
+		FatalHere(test, "Got wrong inode expected %d, got %d", 543, proc.workdir.Inum())
 	}
 	_, err = fs.Open(proc, "run/syslogd.pid", O_RDONLY, 0666)
 	if err != nil {

@@ -35,14 +35,14 @@ func TestMount(test *testing.T) {
 		FatalHere(test, "Failed fetching inode: %s", err)
 	}
 
-	if rip.Inum != 542 {
-		FatalHere(test, "Data mismatch for inum got %d, expected %d", rip.Inum, 542)
+	if rip.Inum() != 542 {
+		FatalHere(test, "Data mismatch for inum got %d, expected %d", rip.Inum(), 542)
 	}
-	if rip.Nlinks != 1 {
-		FatalHere(test, "Data mismatch for links got %d, expected %d", rip.Nlinks, 1)
+	if rip.Links() != 1 {
+		FatalHere(test, "Data mismatch for links got %d, expected %d", rip.Links(), 1)
 	}
-	if rip.Size != 4489799 {
-		FatalHere(test, "Data mismatch for size got %d, expected %d", rip.Size, 4489799)
+	if rip.GetSize() != 4489799 {
+		FatalHere(test, "Data mismatch for size got %d, expected %d", rip.GetSize(), 4489799)
 	}
 
 	fs.icache.PutInode(rip)
@@ -81,15 +81,15 @@ func TestUnmount(test *testing.T) {
 	if err != nil {
 		FatalHere(test, "Failed spawning new process: %s", err)
 	}
-	rip := proc.rootdir
-	if rip.Inum != 518 {
-		FatalHere(test, "Data mismatch for inum got %d, expected %d", rip.Inum, 518)
+	rip := fs.icache.RLockInode(proc.rootdir)
+	if rip.Inum() != 518 {
+		FatalHere(test, "Data mismatch for inum got %d, expected %d", rip.Inum(), 518)
 	}
-	if rip.Nlinks != 2 {
-		FatalHere(test, "Data mismatch for links got %d, expected %d", rip.Nlinks, 2)
+	if rip.Links() != 2 {
+		FatalHere(test, "Data mismatch for links got %d, expected %d", rip.Links(), 2)
 	}
-	if rip.Size != 128 {
-		FatalHere(test, "Data mismatch for size got %d, expected %d", rip.Size, 128)
+	if rip.GetSize() != 128 {
+		FatalHere(test, "Data mismatch for size got %d, expected %d", rip.GetSize(), 128)
 	}
 
 	fs.Exit(proc)

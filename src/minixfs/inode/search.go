@@ -3,7 +3,6 @@ package inode
 import (
 	"fmt"
 	. "minixfs/common"
-	"minixfs/utils"
 )
 
 type dirop int
@@ -15,9 +14,9 @@ const (
 	IS_EMPTY              // return OK if only . and .. are in the dir, else ENOTEMPTY
 )
 
-func search_dir(dirp *Inode, path string, inum *int, op dirop) error {
+func search_dir(dirp *cacheInode, path string, inum *int, op dirop) error {
 	// TODO: Check permissions (see minix source)
-	blocksize := dirp.Devinfo.Blocksize
+	blocksize := dirp.devinfo.Blocksize
 
 	// step through the directory on block at a time
 	var bp *CacheBlock
@@ -29,11 +28,11 @@ func search_dir(dirp *Inode, path string, inum *int, op dirop) error {
 	extended := false
 
 	for pos := 0; pos < int(dirp.Size); pos += blocksize {
-		b := ReadMap(dirp, pos, dirp.Bcache) // get block number
-		if dirp.Bcache == nil {
+		b := ReadMap(dirp, pos, dirp.bcache) // get block number
+		if dirp.bcache == nil {
 			panic(fmt.Sprintf("%q", dirp))
 		}
-		bp = dirp.Bcache.GetBlock(dirp.Devnum, b, DIRECTORY_BLOCK, NORMAL)
+		bp = dirp.bcache.GetBlock(dirp.devnum, b, DIRECTORY_BLOCK, NORMAL)
 		if bp == nil {
 			panic("get_block returned NO_BLOCK")
 		}
@@ -73,11 +72,11 @@ func search_dir(dirp *Inode, path string, inum *int, op dirop) error {
 					// TODO: Save inode for recovery
 					dp.Inum = 0 // erase entry
 					bp.Dirty = true
-					dirp.Dirty = true
+					dirp.dirty = true
 				} else {
 					*inum = int(dp.Inum)
 				}
-				dirp.Bcache.PutBlock(bp, DIRECTORY_BLOCK)
+				dirp.bcache.PutBlock(bp, DIRECTORY_BLOCK)
 				return r
 			}
 
@@ -92,7 +91,7 @@ func search_dir(dirp *Inode, path string, inum *int, op dirop) error {
 		if e_hit { // e_hit set if ENTER can be performed now
 			break
 		}
-		dirp.Bcache.PutBlock(bp, DIRECTORY_BLOCK) // otherwise continue searching dir
+		dirp.bcache.PutBlock(bp, DIRECTORY_BLOCK) // otherwise continue searching dir
 	}
 
 	// The whole directory has now been searched
@@ -113,7 +112,7 @@ func search_dir(dirp *Inode, path string, inum *int, op dirop) error {
 			return EFBIG
 		}
 		var err error
-		bp, err = utils.NewBlock(dirp, int(dirp.Size), DIRECTORY_BLOCK, dirp.Bcache)
+		bp, err = NewBlock(dirp, int(dirp.Size), DIRECTORY_BLOCK, dirp.bcache)
 		if err != nil {
 			return err
 		}
@@ -136,15 +135,15 @@ func search_dir(dirp *Inode, path string, inum *int, op dirop) error {
 	dp.Inum = uint32(*inum)
 	bp.Dirty = true
 
-	dirp.Bcache.PutBlock(bp, DIRECTORY_BLOCK)
+	dirp.bcache.PutBlock(bp, DIRECTORY_BLOCK)
 	// TODO: update times
-	dirp.Dirty = true
+	dirp.dirty = true
 	if new_slots > old_slots {
 		dirp.Size = (int32(new_slots * DIR_ENTRY_SIZE))
 		// Send the change to disk if the directory is extended
 		if extended {
 			// TODO: Write this inode out to the block cache
-			dirp.Icache.FlushInode(dirp)
+			dirp.icache.FlushInode(dirp)
 		}
 	}
 	return nil

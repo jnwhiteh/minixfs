@@ -19,7 +19,7 @@ func TestMkdir(test *testing.T) {
 		FatalHere(test, "Failed when spawning new process: %s", err)
 	}
 
-	bitmap := proc.rootdir.Bitmap
+	bitmap := fs.bitmaps[proc.rootdir.Devnum()]
 
 	// Check the state of the bitmaps before creating this file
 	inum, err := bitmap.AllocInode()
@@ -43,8 +43,8 @@ func TestMkdir(test *testing.T) {
 	if err != nil {
 		FatalHere(test, "Failed when looking up new directory: %s", err)
 	}
-	if dirp.Inum != inum {
-		ErrorHere(test, "Inum mismatch expected %d, got %d", inum, dirp.Inum)
+	if dirp.Inum() != inum {
+		ErrorHere(test, "Inum mismatch expected %d, got %d", inum, dirp.Inum())
 	}
 	fs.icache.PutInode(dirp)
 

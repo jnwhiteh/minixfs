@@ -4,10 +4,11 @@ import (
 	"io"
 	"log"
 	. "minixfs/common"
-	"minixfs/utils"
 )
 
-func Read(rip *Inode, b []byte, pos int) (int, error) {
+func Read(ripi Inode, b []byte, pos int) (int, error) {
+	rip := ripi.(*cacheInode)
+
 	// We want to read at most len(b) bytes from the given riple. This data
 	// will almost certainly be split up amongst multiple blocks.
 	curpos := pos
@@ -23,16 +24,16 @@ func Read(rip *Inode, b []byte, pos int) (int, error) {
 		return 0, io.EOF
 	}
 
-	blocksize := rip.Devinfo.Blocksize
+	blocksize := rip.devinfo.Blocksize
 
 	// We can't just start reading at the start of a block, since we may be at
 	// an offset within that block. So work out the riprst chunk to read
 	offset := curpos % blocksize
-	bnum := ReadMap(rip, curpos, rip.Bcache)
+	bnum := ReadMap(rip, curpos, rip.bcache)
 
 	// TODO: Error check this
 	// read the riprst data block and copy the portion of data we need
-	bp := rip.Bcache.GetBlock(rip.Devnum, bnum, FULL_DATA_BLOCK, NORMAL)
+	bp := rip.bcache.GetBlock(rip.devnum, bnum, FULL_DATA_BLOCK, NORMAL)
 	bdata, bok := bp.Block.(FullDataBlock)
 	if !bok {
 		// TODO: Attempt to read from an invalid location, what should happen?
@@ -44,7 +45,7 @@ func Read(rip *Inode, b []byte, pos int) (int, error) {
 			b[i] = bdata[offset+i]
 		}
 		curpos += len(b)
-		rip.Bcache.PutBlock(bp, FULL_DATA_BLOCK)
+		rip.bcache.PutBlock(bp, FULL_DATA_BLOCK)
 		return len(b), nil
 	}
 
@@ -55,14 +56,14 @@ func Read(rip *Inode, b []byte, pos int) (int, error) {
 		numBytes++
 	}
 
-	rip.Bcache.PutBlock(bp, FULL_DATA_BLOCK)
+	rip.bcache.PutBlock(bp, FULL_DATA_BLOCK)
 	curpos += numBytes
 
 	// At this stage, all reads should be on block boundaries. The ripnal block
 	// will likely be a partial block, so handle that specially.
 	for numBytes < len(b) {
-		bnum = ReadMap(rip, curpos, rip.Bcache)
-		bp := rip.Bcache.GetBlock(rip.Devnum, bnum, FULL_DATA_BLOCK, NORMAL)
+		bnum = ReadMap(rip, curpos, rip.bcache)
+		bp := rip.bcache.GetBlock(rip.devnum, bnum, FULL_DATA_BLOCK, NORMAL)
 		if _, sok := bp.Block.(FullDataBlock); !sok {
 			log.Printf("block num: %d", bp.Blockno)
 			log.Panicf("When reading block %d for position %d, got IndirectBlock", bnum, curpos)
@@ -81,7 +82,7 @@ func Read(rip *Inode, b []byte, pos int) (int, error) {
 			}
 
 			curpos += bytesLeft
-			rip.Bcache.PutBlock(bp, FULL_DATA_BLOCK)
+			rip.bcache.PutBlock(bp, FULL_DATA_BLOCK)
 			return numBytes, nil
 		}
 
@@ -92,14 +93,16 @@ func Read(rip *Inode, b []byte, pos int) (int, error) {
 		}
 
 		curpos += len(bdata)
-		rip.Bcache.PutBlock(bp, FULL_DATA_BLOCK)
+		rip.bcache.PutBlock(bp, FULL_DATA_BLOCK)
 	}
 
 	return numBytes, nil
 }
 
 // Write len(b) bytes to the riple at position 'pos'
-func Write(rip *Inode, data []byte, pos int) (n int, err error) {
+func Write(ripi LockedInode, data []byte, pos int) (n int, err error) {
+	rip := ripi.(*cacheInode)
+
 	// TODO: This implementation is direct and doesn't match the abstractions
 	// in the original source. At some point it should be reviewed.
 	cum_io := 0
@@ -107,7 +110,7 @@ func Write(rip *Inode, data []byte, pos int) (n int, err error) {
 	fsize := int(rip.Size)
 
 	// Check in advance to see if riple will grow too big
-	if position > rip.Devinfo.Maxsize-len(data) {
+	if position > rip.devinfo.Maxsize-len(data) {
 		return 0, EFBIG
 	}
 
@@ -115,10 +118,10 @@ func Write(rip *Inode, data []byte, pos int) (n int, err error) {
 	// created. This is necessary because all unwritten blocks prior to the
 	// EOF must read as zeros.
 	if position > fsize {
-		utils.ClearZone(rip, fsize, 0, rip.Bcache)
+		ClearZone(rip, fsize, 0, rip.bcache)
 	}
 
-	bsize := rip.Devinfo.Blocksize
+	bsize := rip.devinfo.Blocksize
 	nbytes := len(data)
 	// Split the transfer into chunks that don't span two blocks.
 	for nbytes != 0 {
@@ -135,7 +138,7 @@ func Write(rip *Inode, data []byte, pos int) (n int, err error) {
 		}
 
 		// Read or write 'chunk' bytes, fetch the riprst block
-		err = utils.WriteChunk(rip, position, off, chunk, data, rip.Bcache)
+		err = WriteChunk(rip, position, off, chunk, data, rip.bcache)
 		if err != nil {
 			break // EOF reached
 		}
@@ -156,11 +159,9 @@ func Write(rip *Inode, data []byte, pos int) (n int, err error) {
 
 	// TODO: Update times
 	if err == nil {
-		rip.Dirty = true
+		rip.dirty = true
 	}
 
 	return cum_io, err
 
 }
-
-
