@@ -1,11 +1,13 @@
 package inode
 
 import (
+	"log"
 	. "minixfs/common"
 )
 
 func Lookup(rip Inode, name string) (bool, int, int) {
 	if !rip.IsDirectory() {
+		log.Printf("this happens: %v, %v, %b", rip.Inum(), name, rip.GetMode())
 		return false, NO_DEV, NO_INODE
 	}
 
@@ -19,7 +21,6 @@ func Lookup(rip Inode, name string) (bool, int, int) {
 
 	return true, dirp.devnum, inum
 }
-
 
 func Link(rip LockedInode, name string, inum int) error {
 	if !rip.IsDirectory() {

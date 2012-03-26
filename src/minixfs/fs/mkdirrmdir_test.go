@@ -2,6 +2,7 @@ package fs
 
 import (
 	. "minixfs/common"
+	"minixfs/inode"
 	. "minixfs/testutils"
 	"testing"
 )
@@ -39,12 +40,29 @@ func TestMkdir(test *testing.T) {
 	if err != nil {
 		FatalHere(test, "Failed when creating new directory: %s", err)
 	}
+
 	dirp, err := fs.eatPath(proc, "/tmp/new_directory")
 	if err != nil {
 		FatalHere(test, "Failed when looking up new directory: %s", err)
 	}
 	if dirp.Inum() != inum {
 		ErrorHere(test, "Inum mismatch expected %d, got %d", inum, dirp.Inum())
+	}
+	ok, devnum, inum := inode.Lookup(dirp, ".")
+	if !ok {
+		ErrorHere(test, "Current directory . lookup failed")
+	}
+	if devnum != dirp.Devnum() {
+		ErrorHere(test, "Current directory . devnum mismatch expected %d, got %d", dirp.Devnum(), devnum)
+	}
+	if inum != dirp.Inum() {
+		ErrorHere(test, "Current directory . inum mismatch expected %d, got %d", dirp.Inum(), inum)
+	}
+	if !dirp.IsDirectory() {
+		ErrorHere(test, "New directory is not a directory")
+	}
+	if dirp.Links() != 2 {
+		ErrorHere(test, "Links mismatch expected %d, got %d", 2, dirp.Links())
 	}
 	fs.icache.PutInode(dirp)
 

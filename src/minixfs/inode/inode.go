@@ -1,6 +1,7 @@
 package inode
 
 import (
+	"fmt"
 	. "minixfs/common"
 	"sync"
 )
@@ -24,6 +25,10 @@ type cacheInode struct {
 	mount bool // whether or not this inode is used as a mount point
 
 	locked bool // whether or not the inode is/was in a locked state
+}
+
+func (rip *cacheInode) String() string {
+	return fmt.Sprintf("(%d, %d)", rip.devnum, rip.inum)
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -81,6 +86,7 @@ func (rip *cacheInode) GetSize() int {
 func (rip *cacheInode) GetZone(znum int) uint32 {
 	return rip.Disk_Inode.Zone[znum]
 }
+
 //////////////////////////////////////////////////////////////////////////////
 // Write methods
 //

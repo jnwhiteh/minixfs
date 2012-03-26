@@ -144,4 +144,3 @@ func (fs *FileSystem) advance(proc *Process, dirp Inode, path string) (Inode, er
 	}
 	return rip, nil
 }
-

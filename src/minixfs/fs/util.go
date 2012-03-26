@@ -99,15 +99,15 @@ func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) 
 		inum, err = fs.bitmaps[dirp.Devnum()].AllocInode()
 		// TODO: Get the current uid/gid
 		rip, err = fs.icache.GetInode(dirp.Devnum(), inum)
-		wrip = fs.icache.WLockInode(rip)
-		wrip.SetMode(bits)
-		wrip.SetZone(0, uint32(z0))
-
 		if rip == nil {
 			// Can't create new inode, out of inodes
 			fs.icache.PutInode(dirp)
 			return nil, nil, "", ENFILE
 		}
+		wrip = fs.icache.WLockInode(rip)
+		wrip.SetMode(bits)
+		wrip.SetZone(0, uint32(z0))
+		wrip.IncLinks()
 
 		// Force the inode to disk before making a directory entry to make the
 		// system more robust in the face of a crash: an inode with no
@@ -119,8 +119,8 @@ func (fs *FileSystem) newNode(proc *Process, path string, bits uint16, z0 uint) 
 
 		if err != nil {
 			fs.icache.PutInode(dirp)
-			wrip.DecLinks()            // pity, have to free disk inode
-			wrip.SetDirty(true)        // dirty inodes are written out
+			wrip.DecLinks()         // pity, have to free disk inode
+			wrip.SetDirty(true)     // dirty inodes are written out
 			fs.icache.PutInode(rip) // this call frees the inode
 			return nil, nil, "", err
 		}
@@ -166,12 +166,15 @@ func (fs *FileSystem) unlinkPrep(proc *Process, path string) (LockedInode, Locke
 	return wrldirp, wrip, rest, nil
 }
 
+// Unlink a the file 'rip' from 'dirp', with filename 'filename'. The altered
+// inodes are not 'put', so that must be done by the caller.
 func (fs *FileSystem) unlinkFile(dirp, rip LockedInode, filename string) error {
 	var err error
 
 	// if rip is not nil, it is used to get access to the inode
 	if rip == nil {
 		// Search for file in directory and try to get its inode
+		log.Printf("Looking for entry %v in %v", filename, dirp.Inum())
 		if ok, dnum, inum := inode.Lookup(dirp, filename); ok {
 			var rrip Inode
 			rrip, err = fs.icache.GetInode(dnum, inum)
@@ -183,8 +186,6 @@ func (fs *FileSystem) unlinkFile(dirp, rip LockedInode, filename string) error {
 		if err != nil {
 			return ENOENT
 		}
-	} else {
-		fs.icache.DupInode(rip) // inode will be returned with put_inode
 	}
 
 	err = inode.Unlink(dirp, filename)
@@ -194,6 +195,5 @@ func (fs *FileSystem) unlinkFile(dirp, rip LockedInode, filename string) error {
 		rip.SetDirty(true)
 	}
 
-	fs.icache.PutInode(rip)
 	return err
 }

@@ -84,8 +84,8 @@ func (r req_InodeCache_MountDevice) is_reqInodeCache()  {}
 func (r res_InodeCache_MountDevice) is_resInodeCache()  {}
 func (r req_InodeCache_GetInode) is_reqInodeCache()     {}
 func (r res_InodeCache_GetInode) is_resInodeCache()     {}
-func (r req_InodeCache_DupInode) is_reqInodeCache() {}
-func (r res_InodeCache_DupInode) is_resInodeCache() {}
+func (r req_InodeCache_DupInode) is_reqInodeCache()     {}
+func (r res_InodeCache_DupInode) is_resInodeCache()     {}
 func (r req_InodeCache_RLockInode) is_reqInodeCache()   {}
 func (r res_InodeCache_RLockInode) is_resInodeCache()   {}
 func (r req_InodeCache_RUnlockInode) is_reqInodeCache() {}

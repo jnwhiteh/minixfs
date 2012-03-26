@@ -75,6 +75,7 @@ func (c *inodeCache) loop() {
 			} else if xp.count > 0 {
 				// We found the inode, just need to return it
 				xp.count++
+				xp.RLock()
 				c.out <- res_InodeCache_Async{callback}
 				callback <- res_InodeCache_GetInode{xp, nil}
 			} else {
@@ -147,6 +148,7 @@ func (c *inodeCache) loop() {
 
 			callback := make(chan resInodeCache)
 			go func() {
+				rip.RUnlock() // it should be read-locked right now
 				rip.Lock()
 				rip.locked = true
 				callback <- res_InodeCache_WLockInode{rip}

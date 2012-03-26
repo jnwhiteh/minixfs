@@ -13,10 +13,4 @@ func TestClose(test *testing.T) {
 	if err := cache.Close(); err != nil {
 		ErrorHere(test, "Failed when closing icache: %s", err)
 	}
-	if _, ok := <-cache.in; ok {
-		FatalHere(test, "icache did not close properly")
-	}
-	if _, ok := <-cache.out; ok {
-		FatalHere(test, "icache did not close properly")
-	}
 }

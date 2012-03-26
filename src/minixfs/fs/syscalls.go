@@ -3,6 +3,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"log"
 	"minixfs/bitmap"
 	. "minixfs/common"
 	"minixfs/inode"
@@ -368,8 +369,9 @@ func (fs *FileSystem) Open(proc *Process, path string, oflags int, omode uint16)
 		// Something went wrong
 		return nil, err
 	} else {
+		rrip := fs.icache.RUnlockInode(rip)
 		// Allocate a proper filp entry and update fs/filp tables
-		filp = &Filp{filpidx, bits, oflags, rip, 1, 0}
+		filp = &Filp{filpidx, bits, oflags, rrip, 1, 0}
 		proc.filp[fd] = filp
 		fs.filps[filpidx] = filp
 	}
@@ -506,10 +508,12 @@ func (fs *FileSystem) Rmdir(proc *Process, path string) error {
 	}
 
 	// Unlink . and .. from the directory.
-	if err = fs.unlinkFile(rip, nil, "."); err != nil {
+	if err = fs.unlinkFile(rip, dirp, ".."); err != nil {
+		log.Printf("Failed unlinking ..")
 		return err
 	}
-	if err = fs.unlinkFile(rip, nil, ".."); err != nil {
+	if err = fs.unlinkFile(rip, rip, "."); err != nil {
+		log.Printf("Failed unlinking .")
 		return err
 	}
 
