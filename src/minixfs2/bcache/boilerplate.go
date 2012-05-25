@@ -34,11 +34,11 @@ type res_BlockCache_PutBlock struct {
 	Arg0 error
 }
 type req_BlockCache_Invalidate struct {
-	device int
+	devnum int
 }
 type res_BlockCache_Invalidate struct {}
 type req_BlockCache_Flush struct {
-	device int
+	devnum int
 }
 type res_BlockCache_Flush struct {}
 type res_BlockCache_Async struct {
@@ -101,13 +101,13 @@ func (c *LRUCache) PutBlock(cb *CacheBlock, btype BlockType) (error) {
 	result := (<-c.out).(res_BlockCache_PutBlock)
 	return result.Arg0
 }
-func (c *LRUCache) Invalidate(device int) () {
-	c.in <- req_BlockCache_Invalidate{device}
+func (c *LRUCache) Invalidate(devnum int) () {
+	c.in <- req_BlockCache_Invalidate{devnum}
 	<-c.out
 	return
 }
-func (c *LRUCache) Flush(device int) () {
-	c.in <- req_BlockCache_Flush{device}
+func (c *LRUCache) Flush(devnum int) () {
+	c.in <- req_BlockCache_Flush{devnum}
 	<-c.out
 	return
 }

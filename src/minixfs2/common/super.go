@@ -22,6 +22,8 @@ func GetDeviceInfo(dev BlockDevice) (DeviceInfo, error) {
 		int(sup.Max_size),
 		int(sup.Imap_blocks),
 		int(sup.Zmap_blocks),
+		NO_DEV,
+		nil,
 	}
 
 	return info, nil

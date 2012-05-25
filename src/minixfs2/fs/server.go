@@ -26,6 +26,8 @@ func (s *server_FS) loop() {
 			// Code here
 		case req_FS_Creat:
 			// Code here
+		case req_FS_Close:
+			// Code here
 		case req_FS_Stat:
 			// Code here
 		case req_FS_Chmod:

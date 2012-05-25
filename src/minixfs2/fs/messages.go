@@ -56,6 +56,13 @@ type res_FS_Creat struct {
 	Arg0 *Fd
 	Arg1 error
 }
+type req_FS_Close struct {
+	proc *Process
+	fs *Fd
+}
+type res_FS_Close struct {
+	Arg0 error
+}
 type req_FS_Stat struct {
 	proc *Process
 	path string
@@ -131,6 +138,8 @@ func (r req_FS_Open) is_reqFS() {}
 func (r res_FS_Open) is_resFS() {}
 func (r req_FS_Creat) is_reqFS() {}
 func (r res_FS_Creat) is_resFS() {}
+func (r req_FS_Close) is_reqFS() {}
+func (r res_FS_Close) is_resFS() {}
 func (r req_FS_Stat) is_reqFS() {}
 func (r res_FS_Stat) is_resFS() {}
 func (r req_FS_Chmod) is_reqFS() {}
@@ -163,6 +172,8 @@ var _ reqFS = req_FS_Open{}
 var _ resFS = res_FS_Open{}
 var _ reqFS = req_FS_Creat{}
 var _ resFS = res_FS_Creat{}
+var _ reqFS = req_FS_Close{}
+var _ resFS = res_FS_Close{}
 var _ reqFS = req_FS_Stat{}
 var _ resFS = res_FS_Stat{}
 var _ reqFS = req_FS_Chmod{}

@@ -53,6 +53,11 @@ func (proc *Process) Creat(path string, flags int, mode uint16) (*Fd, error) {
 	result := (<-proc.fs.out).(res_FS_Creat)
 	return result.Arg0, result.Arg1
 }
+func (proc *Process) Close(fd *Fd) error {
+	proc.fs.in <- req_FS_Close{proc, fd}
+	result := (<-proc.fs.out).(res_FS_Close)
+	return result.Arg0
+}
 func (proc *Process) Stat(path string) (*StatInfo, error) {
 	proc.fs.in <- req_FS_Stat{proc, path}
 	result := (<-proc.fs.out).(res_FS_Stat)

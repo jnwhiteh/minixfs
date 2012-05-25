@@ -161,8 +161,14 @@ func (c *LRUCache) loop() {
 				}
 			}
 		case req_BlockCache_PutBlock:
+			err := c.putBlock(req.cb, req.btype)
+			c.out <- res_BlockCache_PutBlock{err}
 		case req_BlockCache_Invalidate:
+			c.invalidate(req.devnum)
+			c.out <- res_BlockCache_Invalidate{}
 		case req_BlockCache_Flush:
+			c.flush(req.devnum)
+			c.out <- res_BlockCache_Flush{}
 		}
 	}
 }
