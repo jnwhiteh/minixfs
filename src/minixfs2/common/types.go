@@ -9,9 +9,9 @@ type Inode struct {
 	Icache  InodeTbl   // the inode table for the file system
 	Devinfo DeviceInfo // the device information for this inode's device
 
-	Inum    int   // the inode number of this inode
-	Count   int   // the number of clients of this inode
-	Dirty   bool  // whether or not this inode has uncommited changes
+	Inum    int    // the inode number of this inode
+	Count   int    // the number of clients of this inode
+	Dirty   bool   // whether or not this inode has uncommited changes
 	Mounted *Inode // the inode that is mounted on top of this one (if any)
 }
 
@@ -68,12 +68,12 @@ type AllocTbl interface {
 }
 
 type InodeTbl interface {
-	MountDevice(devnum int, alloc AllocTbl, info DeviceInfo)
+	MountDevice(devnum int, info DeviceInfo)
 	UnmountDevice(devnum int) error
-	GetInode(devnum int, inode int) (Inode, error)
-	DupInode(inode Inode) Inode
-	PutInode(inode Inode)
-	FlushInode(inode Inode)
+	GetInode(devnum int, inode int) (*Inode, error)
+	DupInode(inode *Inode) *Inode
+	PutInode(inode *Inode)
+	FlushInode(inode *Inode)
 	IsDeviceBusy(devnum int) bool
 }
 

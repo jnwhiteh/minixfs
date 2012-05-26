@@ -2,151 +2,217 @@ package inode
 
 import (
 	. "minixfs2/common"
+	"sync"
 )
 
-type req_InodeTbl_MountDevice struct {
-	device int
-	alloc AllocTbl
-	info DeviceInfo
-}
-type res_InodeTbl_MountDevice struct {}
-type req_InodeTbl_UnmountDevice struct {
-	device int
-}
-type res_InodeTbl_UnmountDevice struct {
-	Arg0 error
-}
-type req_InodeTbl_GetInode struct {
-	device int
-	inode int
-}
-type res_InodeTbl_GetInode struct {
-	Arg0 Inode
-	Arg1 error
-}
-type req_InodeTbl_DupInode struct {
-	inode Inode
-}
-type res_InodeTbl_DupInode struct {
-	Arg0 Inode
-}
-type req_InodeTbl_PutInode struct {
-	inode Inode
-}
-type res_InodeTbl_PutInode struct {}
-type req_InodeTbl_FlushInode struct {
-	inode Inode
-}
-type res_InodeTbl_FlushInode struct {}
-type req_InodeTbl_IsDeviceBusy struct {
-	device int
-}
-type res_InodeTbl_IsDeviceBusy struct {
-	Arg0 bool
-}
-
-// Interface types and implementations
-type reqInodeTbl interface {
-	is_reqInodeTbl()
-}
-type resInodeTbl interface {
-	is_resInodeTbl()
-}
-func (r req_InodeTbl_MountDevice) is_reqInodeTbl() {}
-func (r res_InodeTbl_MountDevice) is_resInodeTbl() {}
-func (r req_InodeTbl_UnmountDevice) is_reqInodeTbl() {}
-func (r res_InodeTbl_UnmountDevice) is_resInodeTbl() {}
-func (r req_InodeTbl_GetInode) is_reqInodeTbl() {}
-func (r res_InodeTbl_GetInode) is_resInodeTbl() {}
-func (r req_InodeTbl_DupInode) is_reqInodeTbl() {}
-func (r res_InodeTbl_DupInode) is_resInodeTbl() {}
-func (r req_InodeTbl_PutInode) is_reqInodeTbl() {}
-func (r res_InodeTbl_PutInode) is_resInodeTbl() {}
-func (r req_InodeTbl_FlushInode) is_reqInodeTbl() {}
-func (r res_InodeTbl_FlushInode) is_resInodeTbl() {}
-func (r req_InodeTbl_IsDeviceBusy) is_reqInodeTbl() {}
-func (r res_InodeTbl_IsDeviceBusy) is_resInodeTbl() {}
-
-// Type check request/response types
-var _ reqInodeTbl = req_InodeTbl_MountDevice{}
-var _ resInodeTbl = res_InodeTbl_MountDevice{}
-var _ reqInodeTbl = req_InodeTbl_UnmountDevice{}
-var _ resInodeTbl = res_InodeTbl_UnmountDevice{}
-var _ reqInodeTbl = req_InodeTbl_GetInode{}
-var _ resInodeTbl = res_InodeTbl_GetInode{}
-var _ reqInodeTbl = req_InodeTbl_DupInode{}
-var _ resInodeTbl = res_InodeTbl_DupInode{}
-var _ reqInodeTbl = req_InodeTbl_PutInode{}
-var _ resInodeTbl = res_InodeTbl_PutInode{}
-var _ reqInodeTbl = req_InodeTbl_FlushInode{}
-var _ resInodeTbl = res_InodeTbl_FlushInode{}
-var _ reqInodeTbl = req_InodeTbl_IsDeviceBusy{}
-var _ resInodeTbl = res_InodeTbl_IsDeviceBusy{}
-
-func (s *server_InodeTbl) MountDevice(device int, alloc AllocTbl, info DeviceInfo) () {
-	s.in <- req_InodeTbl_MountDevice{device, alloc, info}
-	<-s.out
-	return
-}
-func (s *server_InodeTbl) UnmountDevice(device int) (error) {
-	s.in <- req_InodeTbl_UnmountDevice{device}
-	result := (<-s.out).(res_InodeTbl_UnmountDevice)
-	return result.Arg0
-}
-func (s *server_InodeTbl) GetInode(devnum int, inum int) (Inode, error) {
-	s.in <- req_InodeTbl_GetInode{inum, devnum}
-	result := (<-s.out).(res_InodeTbl_GetInode)
-	return result.Arg0, result.Arg1
-}
-func (s *server_InodeTbl) DupInode(inode Inode) (Inode) {
-	s.in <- req_InodeTbl_DupInode{inode}
-	result := (<-s.out).(res_InodeTbl_DupInode)
-	return result.Arg0
-}
-func (s *server_InodeTbl) PutInode(inode Inode) () {
-	s.in <- req_InodeTbl_PutInode{inode}
-	<-s.out
-	return
-}
-func (s *server_InodeTbl) FlushInode(inode Inode) () {
-	s.in <- req_InodeTbl_FlushInode{inode}
-	<-s.out
-	return
-}
-func (s *server_InodeTbl) IsDeviceBusy(devnum int) (bool) {
-	s.in <- req_InodeTbl_IsDeviceBusy{devnum}
-	result := (<-s.out).(res_InodeTbl_IsDeviceBusy)
-	return result.Arg0
-}
-
 type server_InodeTbl struct {
-	in chan reqInodeTbl
+	bcache  BlockCache
+	devices []DeviceInfo
+	inodes  []*Inode
+
+	in  chan reqInodeTbl
 	out chan resInodeTbl
+
+	waiting   [][]chan resInodeTbl
+	m_waiting *sync.Mutex
 }
 
-func (s *server_InodeTbl) loop() {
+func NewCache(bcache BlockCache, numdevs int, size int) InodeTbl {
+	cache := &server_InodeTbl{
+		bcache,
+		make([]DeviceInfo, numdevs),
+		make([]*Inode, size),
+		make(chan reqInodeTbl),
+		make(chan resInodeTbl),
+		make([][]chan resInodeTbl, size),
+		new(sync.Mutex),
+	}
+
+	for i := 0; i < len(cache.inodes); i++ {
+		inode := new(Inode)
+		inode.Bcache = bcache
+		inode.Icache = cache
+		cache.inodes[i] = inode
+	}
+
+	go cache.loop()
+
+	return cache
+}
+
+func (itable *server_InodeTbl) loop() {
 	alive := true
 	for alive {
-		req := <-s.in
+		req := <-itable.in
 		switch req := req.(type) {
 		case req_InodeTbl_MountDevice:
+			itable.devices[req.devnum] = req.info
+			itable.out <- res_InodeTbl_MountDevice{}
 			// Code here
 		case req_InodeTbl_UnmountDevice:
-			// Code here
+			// TODO: Do omething more here?
+			itable.devices[req.devnum] = NO_DEVINFO
 		case req_InodeTbl_GetInode:
-			// Code here
+			callback := make(chan resInodeTbl)
+
+			slot := itable.findSlot(req.devnum, req.inum)
+			var xp *Inode
+			if slot != NO_INODE && slot < len(itable.inodes) {
+				xp = itable.inodes[slot]
+			}
+
+			if xp == nil {
+				// Inode table is completely full
+				itable.out <- res_InodeTbl_Async{callback}
+				callback <- res_InodeTbl_GetInode{nil, ENFILE}
+			} else if xp.Count > 0 {
+				// We found the inode, just need to return it
+				xp.Count++
+				itable.out <- res_InodeTbl_Async{callback}
+				callback <- res_InodeTbl_GetInode{xp, nil}
+			} else {
+				// Need to load the inode asynchronously, so make sure the
+				// cache slot isn't claimed by someone else in the meantime
+				xp.Devinfo = itable.devices[req.devnum]
+				xp.Inum = req.inum
+				xp.Count++
+
+				// Aquire the waiting lock and add us to the wait list
+				itable.m_waiting.Lock()
+				itable.waiting[slot] = append(itable.waiting[slot], callback)
+				itable.m_waiting.Unlock()
+
+				go func() {
+					// Load the inode into the Inode
+					itable.loadInode(xp)
+					itable.m_waiting.Lock()
+					for _, callback := range itable.waiting[slot] {
+						callback <- res_InodeTbl_GetInode{xp, nil}
+					}
+					itable.waiting[slot] = nil
+					itable.m_waiting.Unlock()
+				}()
+
+				itable.out <- res_InodeTbl_Async{callback}
+			}
 		case req_InodeTbl_DupInode:
-			// Code here
+			// Given an inode, duplicate it by incrementing its count
+			rip := req.inode
+			rip.Count++
+			itable.out <- res_InodeTbl_DupInode{rip}
 		case req_InodeTbl_PutInode:
-			// Code here
+			rip := req.inode
+
+			if rip == nil {
+				itable.out <- res_InodeTbl_PutInode{}
+				continue
+			}
+
+			rip.Count--
+			if rip.Count == 0 { // means no one is using it now
+				if rip.Nlinks == 0 { // free the inode
+					Truncate(rip, 0, itable.bcache) // return all the disk blocks
+					rip.Mode = I_NOT_ALLOC
+					rip.Dirty = true
+					rip.Devinfo.AllocTbl.FreeInode(rip.Inum)
+				} else {
+					// TODO: Handle the pipe case here
+					// if rip.pipe == true {
+					//   truncate(rip)
+					// }
+				}
+				// rip.pipe = false
+
+				if rip.Dirty {
+					// Write this inode out to disk
+					// TODO: Should this be performed asynchronously?
+					itable.writeInode(rip)
+				}
+			}
+
+			itable.out <- res_InodeTbl_PutInode{}
 		case req_InodeTbl_FlushInode:
-			// Code here
+			rip := req.inode
+
+			if rip == nil {
+				itable.out <- res_InodeTbl_FlushInode{}
+			} else {
+				itable.writeInode(rip)
+			}
+			itable.out <- res_InodeTbl_FlushInode{}
 		case req_InodeTbl_IsDeviceBusy:
-			// Code here
-		default:
-			// This can be removed when you utilize 'req'
-			_ = req
+			count := 0
+			for i := 0; i < len(itable.inodes); i++ {
+				rip := itable.inodes[i]
+				if rip.Count > 0 && rip.Devinfo.Devnum == req.devnum {
+					count += rip.Count
+				}
+			}
+			itable.out <- res_InodeTbl_IsDeviceBusy{count > 1}
 		}
 	}
+}
+
+// Returns the slot that contains a given inode, an available slot is the
+// given inode is not present, or NO_INODE.
+func (c *server_InodeTbl) findSlot(devnum, inum int) int {
+	var slot int = NO_INODE
+
+	for i := 0; i < len(c.inodes); i++ {
+		rip := c.inodes[i]
+		if rip.Count > 0 {
+			if rip.Devinfo.Devnum == devnum && rip.Inum == inum {
+				// this is the inode we're looking for
+				return i
+			}
+		} else {
+			slot = i // unused slot, will use if not found
+		}
+	}
+
+	return slot
+}
+
+func (c *server_InodeTbl) loadInode(xp *Inode) {
+	// The count at this point is guaranteed to be > 0, so the device cannot
+	// be unmounted until the load has completed and the inode has been 'put'
+
+	inum := xp.Inum - 1
+
+	info := xp.Devinfo
+	inodes_per_block := info.Blocksize / V2_INODE_SIZE
+	ioffset := inum % inodes_per_block
+	blocknum := info.MapOffset + (inum / inodes_per_block)
+
+	// Load the inode from the disk and create an in-memory version of it
+	bp := c.bcache.GetBlock(info.Devnum, blocknum, INODE_BLOCK, NORMAL)
+	inodeb := bp.Block.(InodeBlock)
+
+	// We have the full block, now get the correct inode entry
+	inode_d := &inodeb[ioffset]
+	xp.Disk_Inode = inode_d
+	xp.Dirty = false
+	xp.Mounted = nil
+}
+
+func (c *server_InodeTbl) writeInode(xp *Inode) {
+	// Calculate the block number we need
+	inum := xp.Inum - 1
+	info := xp.Devinfo
+	inodes_per_block := info.Blocksize / V2_INODE_SIZE
+	ioffset := inum % inodes_per_block
+	block_num := info.MapOffset + (inum / inodes_per_block)
+
+	// Load the inode from the disk
+	bp := c.bcache.GetBlock(info.Devnum, block_num, INODE_BLOCK, NORMAL)
+	inodeb := bp.Block.(InodeBlock)
+
+	// TODO: Update times, handle read-only filesystems
+	bp.Dirty = true
+
+	// Copy the disk_inode from rip into the inode block
+	inodeb[ioffset] = *xp.Disk_Inode
+	xp.Dirty = false
+	c.bcache.PutBlock(bp, INODE_BLOCK)
 }
 

@@ -5,6 +5,7 @@ import (
 	"log"
 	. "minixfs2/common"
 	"minixfs2/debug"
+	"runtime"
 	"sync"
 )
 
@@ -82,6 +83,12 @@ func NewLRUCache(numdevices int, numslots int, numhash int) BlockCache {
 	// Start the main processing loop
 	go cache.loop()
 
+	// When we are garbage collected (or can be), signal the exit channel
+	finalizer := func(c *LRUCache) {
+		close(c.in)
+	}
+	runtime.SetFinalizer(cache, finalizer)
+
 	return cache
 }
 
@@ -99,6 +106,7 @@ func (c *LRUCache) loop() {
 			c.devinfo[req.devnum] = req.info
 			c.out <- res_BlockCache_MountDevice{nil}
 		case req_BlockCache_UnmountDevice:
+			c.flush(req.devnum)
 			c.devices[req.devnum] = nil
 			c.out <- res_BlockCache_UnmountDevice{}
 		case req_BlockCache_GetBlock:
@@ -169,6 +177,9 @@ func (c *LRUCache) loop() {
 		case req_BlockCache_Flush:
 			c.flush(req.devnum)
 			c.out <- res_BlockCache_Flush{}
+		case req_BlockCache_Close:
+			alive = false
+			c.out <- res_BlockCache_Close{}
 		}
 	}
 }
@@ -343,12 +354,12 @@ func (c *LRUCache) invalidate(dev int) {
 func (c *LRUCache) flush(dev int) {
 	// TODO: These should be static (or pre-created) so the file server can't
 	// possible panic due to failed memory allocation.
-	var dirty = make([]*lru_buf, NR_BUFS) // a slice of dirty blocks
+	var dirty []*lru_buf
 	ndirty := 0
 
 	// TODO: Remove this debug code
 	var bp *lru_buf
-	for i := 0; i < NR_BUFS; i++ {
+	for i := 0; i < len(c.buf); i++ {
 		bp = c.buf[i]
 		if bp.Dirty && bp.Devnum == dev {
 			if c.showdebug {
@@ -356,7 +367,7 @@ func (c *LRUCache) flush(dev int) {
 				log.Printf("Block type: %T", bp.Block)
 				debug.PrintBlock(bp.CacheBlock, c.devinfo[bp.Devnum])
 			}
-			dirty[ndirty] = bp
+			dirty = append(dirty, bp)
 			ndirty++
 		}
 	}
