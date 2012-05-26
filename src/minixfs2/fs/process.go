@@ -10,7 +10,7 @@ type Process struct {
 	rootdir *Inode     // root directory of the process
 	workdir *Inode     // working directory of the process
 	filp    []*Filp    // list of file descriptors
-	fs      FileSystem // the file system for this process
+	fs      *FileSystem // the file system for this process
 }
 
 func (proc *Process) Mount(dev BlockDevice, path string) error {

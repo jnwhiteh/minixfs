@@ -130,13 +130,14 @@ func (fs *FileSystem) advance(proc *Process, dirp *Inode, path string) (*Inode, 
 	// See if the inode is mounted on. If so, switch to the root directory of
 	// the mounted file system. The super_block provides the linkage between
 	// the inode mounted on and the root directory of the mounted file system.
-	for rip != nil && rip.Mounted != nil {
+	// TODO: MOUNTING RIGHT NOW IS NOT VERY ROBUST
+	if rip != nil && rip.Mounted != nil {
 		// The inode is indeed mounted on
 		// Release the inode that is mounted on and replace it with the root
 		// inode of the mounted device
-		mrip := rip.Mounted
+		minfo := rip.Mounted
 		fs.itable.PutInode(rip)
-		rip = fs.itable.DupInode(mrip)
+		rip = fs.itable.DupInode(minfo.MountTarget)
 	}
 	return rip, nil
 }

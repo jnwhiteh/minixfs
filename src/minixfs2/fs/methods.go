@@ -19,10 +19,10 @@ func (s *FileSystem) Sync() {
 	<-s.out
 	return
 }
-func (s *FileSystem) Shutdown() {
+func (s *FileSystem) Shutdown() error {
 	s.in <- req_FS_Shutdown{}
-	<-s.out
-	return
+	result := (<-s.out).(res_FS_Shutdown)
+	return result.Arg0
 }
 func (s *FileSystem) Fork(proc *Process) (*Process, error) {
 	s.in <- req_FS_Fork{proc}

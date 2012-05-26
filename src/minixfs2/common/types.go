@@ -2,6 +2,11 @@ package common
 
 type StatInfo struct{}
 
+type MountInfo struct {
+	MountPoint  *Inode // the inode on which another file system is mounted
+	MountTarget *Inode // the root inode of the mounted file system
+}
+
 type Inode struct {
 	*Disk_Inode // the inode as stored on disk
 
@@ -12,7 +17,8 @@ type Inode struct {
 	Inum    int    // the inode number of this inode
 	Count   int    // the number of clients of this inode
 	Dirty   bool   // whether or not this inode has uncommited changes
-	Mounted *Inode // the inode that is mounted on top of this one (if any)
+
+	Mounted *MountInfo // non-nil if this inode is a mount point or target
 }
 
 func (rip *Inode) Type() int {

@@ -99,7 +99,7 @@ func (s *server_InodeTbl) UnmountDevice(devnum int) error {
 	return result.Arg0
 }
 func (s *server_InodeTbl) GetInode(devnum int, inum int) (*Inode, error) {
-	s.in <- req_InodeTbl_GetInode{inum, devnum}
+	s.in <- req_InodeTbl_GetInode{devnum, inum}
 	ares := (<-s.out).(res_InodeTbl_Async)
 	result := (<-ares.ch).(res_InodeTbl_GetInode)
 	return result.Arg0, result.Arg1

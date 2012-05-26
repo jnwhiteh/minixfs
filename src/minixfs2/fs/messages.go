@@ -24,7 +24,9 @@ type req_FS_Sync struct {
 type res_FS_Sync struct{}
 type req_FS_Shutdown struct {
 }
-type res_FS_Shutdown struct{}
+type res_FS_Shutdown struct {
+	Arg0 error
+}
 type req_FS_Fork struct {
 	proc *Process
 }

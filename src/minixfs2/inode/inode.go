@@ -50,8 +50,9 @@ func (itable *server_InodeTbl) loop() {
 			itable.out <- res_InodeTbl_MountDevice{}
 			// Code here
 		case req_InodeTbl_UnmountDevice:
-			// TODO: Do omething more here?
+			// TODO: Do something more here?
 			itable.devices[req.devnum] = NO_DEVINFO
+			itable.out <- res_InodeTbl_UnmountDevice{}
 		case req_InodeTbl_GetInode:
 			callback := make(chan resInodeTbl)
 
@@ -180,6 +181,7 @@ func (c *server_InodeTbl) loadInode(xp *Inode) {
 	inum := xp.Inum - 1
 
 	info := xp.Devinfo
+
 	inodes_per_block := info.Blocksize / V2_INODE_SIZE
 	ioffset := inum % inodes_per_block
 	blocknum := info.MapOffset + (inum / inodes_per_block)
