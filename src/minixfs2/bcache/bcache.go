@@ -28,7 +28,7 @@ var LRU_ALLINUSE *CacheBlock = new(CacheBlock)
 
 type LRUCache struct {
 	devices []BlockDevice
-	devinfo []DeviceInfo
+	devinfo []*DeviceInfo
 
 	buf       []*lru_buf // static list of cache blocks
 	buf_hash  []*lru_buf // the buffer hash table
@@ -39,7 +39,7 @@ type LRUCache struct {
 	in  chan reqBlockCache
 	out chan resBlockCache
 
-	showdebug bool
+	showdebug     bool
 	actuallywrite bool
 }
 
@@ -47,7 +47,7 @@ type LRUCache struct {
 func NewLRUCache(numdevices int, numslots int, numhash int) BlockCache {
 	cache := &LRUCache{
 		devices:  make([]BlockDevice, numdevices),
-		devinfo:  make([]DeviceInfo, numdevices),
+		devinfo:  make([]*DeviceInfo, numdevices),
 		buf:      make([]*lru_buf, numslots),
 		buf_hash: make([]*lru_buf, numhash),
 		in:       make(chan reqBlockCache),
@@ -406,4 +406,3 @@ func (c *LRUCache) rm_lru(bp *lru_buf) {
 		c.rear = prevp
 	}
 }
-

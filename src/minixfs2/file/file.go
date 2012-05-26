@@ -7,9 +7,9 @@ import (
 
 type server_File struct {
 	rip *Inode
-	wg *sync.WaitGroup
+	wg  *sync.WaitGroup
 
-	in chan reqFile
+	in  chan reqFile
 	out chan resFile
 }
 

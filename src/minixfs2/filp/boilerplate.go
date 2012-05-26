@@ -43,14 +43,15 @@ type reqFilp interface {
 type resFilp interface {
 	is_resFilp()
 }
-func (r req_Filp_Seek) is_reqFilp() {}
-func (r res_Filp_Seek) is_resFilp() {}
-func (r req_Filp_Read) is_reqFilp() {}
-func (r res_Filp_Read) is_resFilp() {}
+
+func (r req_Filp_Seek) is_reqFilp()  {}
+func (r res_Filp_Seek) is_resFilp()  {}
+func (r req_Filp_Read) is_reqFilp()  {}
+func (r res_Filp_Read) is_resFilp()  {}
 func (r req_Filp_Write) is_reqFilp() {}
 func (r res_Filp_Write) is_resFilp() {}
-func (r req_Filp_Dup) is_reqFilp() {}
-func (r res_Filp_Dup) is_resFilp() {}
+func (r req_Filp_Dup) is_reqFilp()   {}
+func (r res_Filp_Dup) is_resFilp()   {}
 func (r req_Filp_Close) is_reqFilp() {}
 func (r res_Filp_Close) is_resFilp() {}
 
@@ -81,12 +82,12 @@ func (s *server_Filp) Write(buf []byte) (int, error) {
 	result := (<-s.out).(res_Filp_Write)
 	return result.Arg0, result.Arg1
 }
-func (s *server_Filp) Dup() (Filp) {
+func (s *server_Filp) Dup() Filp {
 	s.in <- req_Filp_Dup{}
 	result := (<-s.out).(res_Filp_Dup)
 	return result.Arg0
 }
-func (s *server_Filp) Close() (error) {
+func (s *server_Filp) Close() error {
 	s.in <- req_Filp_Close{}
 	result := (<-s.out).(res_Filp_Close)
 	return result.Arg0

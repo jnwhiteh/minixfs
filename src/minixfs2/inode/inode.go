@@ -7,7 +7,7 @@ import (
 
 type server_InodeTbl struct {
 	bcache  BlockCache
-	devices []DeviceInfo
+	devices []*DeviceInfo
 	inodes  []*Inode
 
 	in  chan reqInodeTbl
@@ -20,7 +20,7 @@ type server_InodeTbl struct {
 func NewCache(bcache BlockCache, numdevs int, size int) InodeTbl {
 	cache := &server_InodeTbl{
 		bcache,
-		make([]DeviceInfo, numdevs),
+		make([]*DeviceInfo, numdevs),
 		make([]*Inode, size),
 		make(chan reqInodeTbl),
 		make(chan resInodeTbl),
@@ -215,4 +215,3 @@ func (c *server_InodeTbl) writeInode(xp *Inode) {
 	xp.Dirty = false
 	c.bcache.PutBlock(bp, INODE_BLOCK)
 }
-

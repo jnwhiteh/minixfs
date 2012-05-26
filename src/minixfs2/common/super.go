@@ -1,18 +1,18 @@
 package common
 
-var NO_DEVINFO = DeviceInfo{}
+var NO_DEVINFO = new(DeviceInfo)
 
 // Read the superblock from the seconds 1024k block of the file and perform
 // some calculations to provide the basic device information needed throughout
 // the file system.
-func GetDeviceInfo(dev BlockDevice) (DeviceInfo, error) {
+func GetDeviceInfo(dev BlockDevice) (*DeviceInfo, error) {
 	sup := new(Disk_Superblock)
 	err := dev.Read(sup, 1024)
 	if err != nil {
 		return NO_DEVINFO, err
 	}
 
-	info := DeviceInfo{
+	info := &DeviceInfo{
 		int(sup.Imap_blocks + sup.Zmap_blocks + 2),
 		int(sup.Block_size),
 		uint(sup.Log_zone_size),

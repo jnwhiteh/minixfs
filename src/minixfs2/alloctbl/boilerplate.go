@@ -33,14 +33,15 @@ type reqAllocTbl interface {
 type resAllocTbl interface {
 	is_resAllocTbl()
 }
+
 func (r req_AllocTbl_AllocInode) is_reqAllocTbl() {}
 func (r res_AllocTbl_AllocInode) is_resAllocTbl() {}
-func (r req_AllocTbl_AllocZone) is_reqAllocTbl() {}
-func (r res_AllocTbl_AllocZone) is_resAllocTbl() {}
-func (r req_AllocTbl_FreeInode) is_reqAllocTbl() {}
-func (r res_AllocTbl_FreeInode) is_resAllocTbl() {}
-func (r req_AllocTbl_FreeZone) is_reqAllocTbl() {}
-func (r res_AllocTbl_FreeZone) is_resAllocTbl() {}
+func (r req_AllocTbl_AllocZone) is_reqAllocTbl()  {}
+func (r res_AllocTbl_AllocZone) is_resAllocTbl()  {}
+func (r req_AllocTbl_FreeInode) is_reqAllocTbl()  {}
+func (r res_AllocTbl_FreeInode) is_resAllocTbl()  {}
+func (r req_AllocTbl_FreeZone) is_reqAllocTbl()   {}
+func (r res_AllocTbl_FreeZone) is_resAllocTbl()   {}
 
 // Type check request/response types
 var _ reqAllocTbl = req_AllocTbl_AllocInode{}
@@ -62,12 +63,12 @@ func (s *server_AllocTbl) AllocZone(zstart int) (int, error) {
 	result := (<-s.out).(res_AllocTbl_AllocZone)
 	return result.Arg0, result.Arg1
 }
-func (s *server_AllocTbl) FreeInode(inum int) (error) {
+func (s *server_AllocTbl) FreeInode(inum int) error {
 	s.in <- req_AllocTbl_FreeInode{inum}
 	result := (<-s.out).(res_AllocTbl_FreeInode)
 	return result.Arg0
 }
-func (s *server_AllocTbl) FreeZone(znum int) (error) {
+func (s *server_AllocTbl) FreeZone(znum int) error {
 	s.in <- req_AllocTbl_FreeZone{znum}
 	result := (<-s.out).(res_AllocTbl_FreeZone)
 	return result.Arg0

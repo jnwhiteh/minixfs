@@ -1,8 +1,8 @@
 package testutils
 
 import (
-	. "minixfs/common"
-	. "minixfs/device"
+	. "minixfs2/common"
+	. "minixfs2/device"
 	"testing"
 )
 
@@ -53,6 +53,6 @@ func (dev *BlockingDevice) Read(buf interface{}, pos int64) error {
 	return dev.BlockDevice.Read(buf, pos)
 }
 
-func (dev *BlockingDevice) Close() error {
-	return dev.BlockDevice.Close()
-}
+//func (dev *BlockingDevice) Close() error {
+//	return dev.BlockDevice.Close()
+//}

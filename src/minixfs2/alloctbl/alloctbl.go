@@ -7,7 +7,7 @@ import . "minixfs2/common"
 const FS_BITCHUNK_BITS = 16 // the number of bits in a bitchunk_t
 
 type server_AllocTbl struct {
-	devinfo DeviceInfo
+	devinfo *DeviceInfo
 	cache   BlockCache // so we can read/write the allocTbl blocks
 	devno   int        // the device number of the device with this allocerblock
 
@@ -21,7 +21,7 @@ type server_AllocTbl struct {
 	out chan resAllocTbl
 }
 
-func NewAllocTbl(devinfo DeviceInfo, cache BlockCache, devno int) AllocTbl {
+func NewAllocTbl(devinfo *DeviceInfo, cache BlockCache, devno int) AllocTbl {
 	alloc := &server_AllocTbl{
 		devinfo,
 		cache,
@@ -218,4 +218,3 @@ func (alloc *server_AllocTbl) free_bit(which int, bit_returned int) {
 	bp.Dirty = true
 	alloc.cache.PutBlock(bp, MAP_BLOCK)
 }
-

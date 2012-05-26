@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-func getDevInfo(bsize int) DeviceInfo {
-	info := DeviceInfo{}
+func getDevInfo(bsize int) *DeviceInfo {
+	info := (*DeviceInfo){}
 	info.Blocksize = 64
 	return info
 }
@@ -31,13 +31,13 @@ func closeTestCache(test *testing.T, dev BlockDevice, cache *LRUCache) {
 		ErrorHere(test, "Failed when unmounting ramdisk device: %s", err)
 	}
 
-//	if err = cache.Close(); err != nil {
-//		ErrorHere(test, "Failed when closing cache: %s", err)
-//	}
+	//	if err = cache.Close(); err != nil {
+	//		ErrorHere(test, "Failed when closing cache: %s", err)
+	//	}
 
-//	if err = dev.Close(); err != nil {
-//		ErrorHere(test, "Failed when closing device: %s", err)
-//	}
+	//	if err = dev.Close(); err != nil {
+	//		ErrorHere(test, "Failed when closing device: %s", err)
+	//	}
 }
 
 // Check for proper resource cleanup when the cache is closed

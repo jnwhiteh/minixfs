@@ -57,21 +57,22 @@ type reqFile interface {
 type resFile interface {
 	is_resFile()
 }
-func (r req_File_Read) is_reqFile() {}
-func (r res_File_Read) is_resFile() {}
-func (r req_File_Write) is_reqFile() {}
-func (r res_File_Write) is_resFile() {}
+
+func (r req_File_Read) is_reqFile()     {}
+func (r res_File_Read) is_resFile()     {}
+func (r req_File_Write) is_reqFile()    {}
+func (r res_File_Write) is_resFile()    {}
 func (r req_File_Truncate) is_reqFile() {}
 func (r res_File_Truncate) is_resFile() {}
-func (r req_File_Fstat) is_reqFile() {}
-func (r res_File_Fstat) is_resFile() {}
-func (r req_File_Sync) is_reqFile() {}
-func (r res_File_Sync) is_resFile() {}
-func (r req_File_Dup) is_reqFile() {}
-func (r res_File_Dup) is_resFile() {}
-func (r req_File_Close) is_reqFile() {}
-func (r res_File_Close) is_resFile() {}
-func (r res_File_Async) is_resFile() {}
+func (r req_File_Fstat) is_reqFile()    {}
+func (r res_File_Fstat) is_resFile()    {}
+func (r req_File_Sync) is_reqFile()     {}
+func (r res_File_Sync) is_resFile()     {}
+func (r req_File_Dup) is_reqFile()      {}
+func (r res_File_Dup) is_resFile()      {}
+func (r req_File_Close) is_reqFile()    {}
+func (r res_File_Close) is_resFile()    {}
+func (r res_File_Async) is_resFile()    {}
 
 // Type check request/response types
 var _ reqFile = req_File_Read{}
@@ -101,29 +102,28 @@ func (s *server_File) Write(buf []byte, pos int) (int, error) {
 	result := (<-s.out).(res_File_Write)
 	return result.Arg0, result.Arg1
 }
-func (s *server_File) Truncate(size int) (error) {
+func (s *server_File) Truncate(size int) error {
 	s.in <- req_File_Truncate{size}
 	result := (<-s.out).(res_File_Truncate)
 	return result.Arg0
 }
-func (s *server_File) Fstat() (StatInfo) {
+func (s *server_File) Fstat() StatInfo {
 	s.in <- req_File_Fstat{}
 	result := (<-s.out).(res_File_Fstat)
 	return result.Arg0
 }
-func (s *server_File) Sync() (error) {
+func (s *server_File) Sync() error {
 	s.in <- req_File_Sync{}
 	result := (<-s.out).(res_File_Sync)
 	return result.Arg0
 }
-func (s *server_File) Dup() (File) {
+func (s *server_File) Dup() File {
 	s.in <- req_File_Dup{}
 	result := (<-s.out).(res_File_Dup)
 	return result.Arg0
 }
-func (s *server_File) Close() (error) {
+func (s *server_File) Close() error {
 	s.in <- req_File_Close{}
 	result := (<-s.out).(res_File_Close)
 	return result.Arg0
 }
-

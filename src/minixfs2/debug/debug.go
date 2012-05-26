@@ -7,7 +7,7 @@ import (
 	. "minixfs2/common"
 )
 
-func PrintBlock(bp *CacheBlock, devinfo DeviceInfo) {
+func PrintBlock(bp *CacheBlock, devinfo *DeviceInfo) {
 	switch bp.Block.(type) {
 	case DirectoryBlock:
 		// Print the directory block entries

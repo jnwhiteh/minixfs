@@ -5,14 +5,26 @@ type StatInfo struct{}
 type Inode struct {
 	*Disk_Inode // the inode as stored on disk
 
-	Bcache  BlockCache // the block cache for the file system
-	Icache  InodeTbl   // the inode table for the file system
-	Devinfo DeviceInfo // the device information for this inode's device
+	Bcache  BlockCache  // the block cache for the file system
+	Icache  InodeTbl    // the inode table for the file system
+	Devinfo *DeviceInfo // the device information for this inode's device
 
 	Inum    int    // the inode number of this inode
 	Count   int    // the number of clients of this inode
 	Dirty   bool   // whether or not this inode has uncommited changes
 	Mounted *Inode // the inode that is mounted on top of this one (if any)
+}
+
+func (rip *Inode) Type() int {
+	return int(rip.Mode & I_TYPE)
+}
+
+func (rip *Inode) IsRegular() bool {
+	return rip.Mode&I_TYPE == I_REGULAR
+}
+
+func (rip *Inode) IsDirectory() bool {
+	return rip.Mode&I_TYPE == I_DIRECTORY
 }
 
 type DeviceInfo struct {
@@ -68,7 +80,7 @@ type AllocTbl interface {
 }
 
 type InodeTbl interface {
-	MountDevice(devnum int, info DeviceInfo)
+	MountDevice(devnum int, info *DeviceInfo)
 	UnmountDevice(devnum int) error
 	GetInode(devnum int, inode int) (*Inode, error)
 	DupInode(inode *Inode) *Inode
@@ -78,7 +90,7 @@ type InodeTbl interface {
 }
 
 type BlockCache interface {
-	MountDevice(devnum int, dev BlockDevice, info DeviceInfo) error
+	MountDevice(devnum int, dev BlockDevice, info *DeviceInfo) error
 	UnmountDevice(devnum int) error
 	GetBlock(devnum, bnum int, btype BlockType, only_search int) *CacheBlock
 	PutBlock(cb *CacheBlock, btype BlockType) error
