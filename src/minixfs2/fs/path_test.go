@@ -61,6 +61,20 @@ func TestEatPath(test *testing.T) {
 				ErrorHere(test, "[%s] mismatch for zone[%d] got %d, expected %d", i, itest.path, rip.Zone[i], itest.zones[i])
 			}
 		}
+
+		// Convert the test to use a relative path and then compare the inodes
+		if len(itest.path) > 1 {
+			relpath := itest.path[1:]
+			relrip, err := fs.eatPath(proc, relpath)
+			if err != nil {
+				ErrorHere(test, "Failed fetching relative path %s", relpath)
+			}
+			if relrip != rip {
+				ErrorHere(test, "Relative inode does not match absolute inode for path %s", itest.path)
+			}
+			fs.itable.PutInode(relrip)
+		}
+
 		fs.itable.PutInode(rip)
 	}
 

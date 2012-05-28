@@ -5,11 +5,11 @@ import (
 )
 
 type Process struct {
-	pid     int        // the numeric id of this process
-	umask   uint16     // file creation mask
-	rootdir *Inode     // root directory of the process
-	workdir *Inode     // working directory of the process
-	filp    []*Filp    // list of file descriptors
+	pid     int         // the numeric id of this process
+	umask   uint16      // file creation mask
+	rootdir *Inode      // root directory of the process
+	workdir *Inode      // working directory of the process
+	files   []*filp     // list of file descriptors
 	fs      *FileSystem // the file system for this process
 }
 
@@ -43,17 +43,17 @@ func (proc *Process) Exit() {
 	<-proc.fs.out
 	return
 }
-func (proc *Process) Open(path string, flags int, mode uint16) (*Fd, error) {
-	proc.fs.in <- req_FS_Open{proc, path, flags, mode}
-	result := (<-proc.fs.out).(res_FS_Open)
+func (proc *Process) Open(path string, flags int, mode uint16) (Fd, error) {
+	proc.fs.in <- req_FS_OpenCreat{proc, path, flags, mode}
+	result := (<-proc.fs.out).(res_FS_OpenCreat)
 	return result.Arg0, result.Arg1
 }
-func (proc *Process) Creat(path string, flags int, mode uint16) (*Fd, error) {
-	proc.fs.in <- req_FS_Creat{proc, path, flags, mode}
-	result := (<-proc.fs.out).(res_FS_Creat)
+func (proc *Process) Creat(path string, flags int, mode uint16) (Fd, error) {
+	proc.fs.in <- req_FS_OpenCreat{proc, path, flags | O_CREAT, mode}
+	result := (<-proc.fs.out).(res_FS_OpenCreat)
 	return result.Arg0, result.Arg1
 }
-func (proc *Process) Close(fd *Fd) error {
+func (proc *Process) Close(fd Fd) error {
 	proc.fs.in <- req_FS_Close{proc, fd}
 	result := (<-proc.fs.out).(res_FS_Close)
 	return result.Arg0

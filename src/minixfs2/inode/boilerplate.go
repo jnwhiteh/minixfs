@@ -43,6 +43,10 @@ type req_InodeTbl_IsDeviceBusy struct {
 type res_InodeTbl_IsDeviceBusy struct {
 	Arg0 bool
 }
+type req_InodeTbl_Shutdown struct {}
+type res_InodeTbl_Shutdown struct {
+	Arg0 error
+}
 type res_InodeTbl_Async struct {
 	ch chan resInodeTbl
 }
@@ -69,6 +73,8 @@ func (r req_InodeTbl_FlushInode) is_reqInodeTbl()    {}
 func (r res_InodeTbl_FlushInode) is_resInodeTbl()    {}
 func (r req_InodeTbl_IsDeviceBusy) is_reqInodeTbl()  {}
 func (r res_InodeTbl_IsDeviceBusy) is_resInodeTbl()  {}
+func (r req_InodeTbl_Shutdown) is_reqInodeTbl()  {}
+func (r res_InodeTbl_Shutdown) is_resInodeTbl()  {}
 func (r res_InodeTbl_Async) is_resInodeTbl()         {}
 
 // Type check request/response types
@@ -86,6 +92,8 @@ var _ reqInodeTbl = req_InodeTbl_FlushInode{}
 var _ resInodeTbl = res_InodeTbl_FlushInode{}
 var _ reqInodeTbl = req_InodeTbl_IsDeviceBusy{}
 var _ resInodeTbl = res_InodeTbl_IsDeviceBusy{}
+var _ reqInodeTbl = req_InodeTbl_Shutdown{}
+var _ resInodeTbl = res_InodeTbl_Shutdown{}
 var _ resInodeTbl = res_InodeTbl_Async{}
 
 func (s *server_InodeTbl) MountDevice(devnum int, info *DeviceInfo) {
@@ -122,5 +130,10 @@ func (s *server_InodeTbl) FlushInode(inode *Inode) {
 func (s *server_InodeTbl) IsDeviceBusy(devnum int) bool {
 	s.in <- req_InodeTbl_IsDeviceBusy{devnum}
 	result := (<-s.out).(res_InodeTbl_IsDeviceBusy)
+	return result.Arg0
+}
+func (s *server_InodeTbl) Shutdown() error {
+	s.in <- req_InodeTbl_Shutdown{}
+	result := (<-s.out).(res_InodeTbl_Shutdown)
 	return result.Arg0
 }

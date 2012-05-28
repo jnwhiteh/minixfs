@@ -25,6 +25,10 @@ type req_AllocTbl_FreeZone struct {
 type res_AllocTbl_FreeZone struct {
 	Arg0 error
 }
+type req_AllocTbl_Shutdown struct {}
+type res_AllocTbl_Shutdown struct {
+	Arg0 error
+}
 
 // Interface types and implementations
 type reqAllocTbl interface {
@@ -42,6 +46,8 @@ func (r req_AllocTbl_FreeInode) is_reqAllocTbl()  {}
 func (r res_AllocTbl_FreeInode) is_resAllocTbl()  {}
 func (r req_AllocTbl_FreeZone) is_reqAllocTbl()   {}
 func (r res_AllocTbl_FreeZone) is_resAllocTbl()   {}
+func (r req_AllocTbl_Shutdown) is_reqAllocTbl()   {}
+func (r res_AllocTbl_Shutdown) is_resAllocTbl()   {}
 
 // Type check request/response types
 var _ reqAllocTbl = req_AllocTbl_AllocInode{}
@@ -52,6 +58,8 @@ var _ reqAllocTbl = req_AllocTbl_FreeInode{}
 var _ resAllocTbl = res_AllocTbl_FreeInode{}
 var _ reqAllocTbl = req_AllocTbl_FreeZone{}
 var _ resAllocTbl = res_AllocTbl_FreeZone{}
+var _ reqAllocTbl = req_AllocTbl_Shutdown{}
+var _ resAllocTbl = res_AllocTbl_Shutdown{}
 
 func (s *server_AllocTbl) AllocInode() (int, error) {
 	s.in <- req_AllocTbl_AllocInode{}
@@ -71,5 +79,10 @@ func (s *server_AllocTbl) FreeInode(inum int) error {
 func (s *server_AllocTbl) FreeZone(znum int) error {
 	s.in <- req_AllocTbl_FreeZone{znum}
 	result := (<-s.out).(res_AllocTbl_FreeZone)
+	return result.Arg0
+}
+func (s *server_AllocTbl) Shutdown() error {
+	s.in <- req_AllocTbl_Shutdown{}
+	result := (<-s.out).(res_AllocTbl_Shutdown)
 	return result.Arg0
 }

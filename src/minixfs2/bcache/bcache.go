@@ -5,7 +5,6 @@ import (
 	"log"
 	. "minixfs2/common"
 	"minixfs2/debug"
-	"runtime"
 	"sync"
 )
 
@@ -82,13 +81,6 @@ func NewLRUCache(numdevices int, numslots int, numhash int) BlockCache {
 
 	// Start the main processing loop
 	go cache.loop()
-
-	// When we are garbage collected (or can be), signal the exit channel
-	finalizer := func(c *LRUCache) {
-		close(c.in)
-	}
-	runtime.SetFinalizer(cache, finalizer)
-
 	return cache
 }
 
@@ -177,9 +169,15 @@ func (c *LRUCache) loop() {
 		case req_BlockCache_Flush:
 			c.flush(req.devnum)
 			c.out <- res_BlockCache_Flush{}
-		case req_BlockCache_Close:
+		case req_BlockCache_Shutdown:
+			for i := 0; i < len(c.devices); i++ {
+				if c.devices[i] != nil {
+					c.out <- res_BlockCache_Shutdown{EBUSY}
+					continue
+				}
+			}
+			c.out <- res_BlockCache_Shutdown{nil}
 			alive = false
-			c.out <- res_BlockCache_Close{}
 		}
 	}
 }

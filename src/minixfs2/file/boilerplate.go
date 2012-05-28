@@ -29,7 +29,8 @@ type res_File_Truncate struct {
 type req_File_Fstat struct {
 }
 type res_File_Fstat struct {
-	Arg0 StatInfo
+	Arg0 *StatInfo
+	Arg1 error
 }
 type req_File_Sync struct {
 }
@@ -107,10 +108,10 @@ func (s *server_File) Truncate(size int) error {
 	result := (<-s.out).(res_File_Truncate)
 	return result.Arg0
 }
-func (s *server_File) Fstat() StatInfo {
+func (s *server_File) Fstat() (*StatInfo, error) {
 	s.in <- req_File_Fstat{}
 	result := (<-s.out).(res_File_Fstat)
-	return result.Arg0
+	return result.Arg0, result.Arg1
 }
 func (s *server_File) Sync() error {
 	s.in <- req_File_Sync{}

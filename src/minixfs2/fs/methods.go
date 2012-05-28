@@ -34,17 +34,17 @@ func (s *FileSystem) Exit(proc *Process) {
 	<-s.out
 	return
 }
-func (s *FileSystem) Open(proc *Process, path string, flags int, mode uint16) (*Fd, error) {
-	s.in <- req_FS_Open{proc, path, flags, mode}
-	result := (<-s.out).(res_FS_Open)
+func (s *FileSystem) Open(proc *Process, path string, flags int, mode uint16) (Fd, error) {
+	s.in <- req_FS_OpenCreat{proc, path, flags, mode}
+	result := (<-s.out).(res_FS_OpenCreat)
 	return result.Arg0, result.Arg1
 }
-func (s *FileSystem) Creat(proc *Process, path string, flags int, mode uint16) (*Fd, error) {
-	s.in <- req_FS_Creat{proc, path, flags, mode}
-	result := (<-s.out).(res_FS_Creat)
+func (s *FileSystem) Creat(proc *Process, path string, flags int, mode uint16) (Fd, error) {
+	s.in <- req_FS_OpenCreat{proc, path, flags, mode}
+	result := (<-s.out).(res_FS_OpenCreat)
 	return result.Arg0, result.Arg1
 }
-func (s *FileSystem) Close(proc *Process, fd *Fd) error {
+func (s *FileSystem) Close(proc *Process, fd Fd) error {
 	proc.fs.in <- req_FS_Close{proc, fd}
 	result := (<-proc.fs.out).(res_FS_Close)
 	return result.Arg0

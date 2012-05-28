@@ -17,7 +17,8 @@ type FileSystem struct {
 	bcache BlockCache // the block cache for all devices
 	itable InodeTbl   // the shared inode table
 
-	procs []*Process // the list of user processes
+	procs      map[int]*Process // the list of user processes
+	pidcounter int              // the next available pid
 
 	in  chan reqFS
 	out chan resFS
@@ -56,7 +57,7 @@ func NewFileSystem(dev BlockDevice) (*FileSystem, *Process, error) {
 	fs.devices[ROOT_DEVICE] = dev
 	fs.devinfo[ROOT_DEVICE] = devinfo
 
-	fs.procs = make([]*Process, NR_PROCS)
+	fs.procs = make(map[int]*Process, NR_PROCS)
 
 	fs.in = make(chan reqFS)
 	fs.out = make(chan resFS)
@@ -80,9 +81,12 @@ func NewFileSystem(dev BlockDevice) (*FileSystem, *Process, error) {
 		022,
 		rip,
 		rip,
-		make([]*Filp, OPEN_MAX),
+		make([]*filp, OPEN_MAX),
 		fs,
 	}
+
+	// Initialite the pidcounter
+	fs.pidcounter = ROOT_PROCESS + 1
 
 	go fs.loop()
 
@@ -95,184 +99,24 @@ func (fs *FileSystem) loop() {
 		req := <-fs.in
 		switch req := req.(type) {
 		case req_FS_Mount:
-		if req.dev == nil {
-				fs.out <- res_FS_Mount{EINVAL}
-				continue
-			}
-
-			// scan bitmap block table to see if 'dev' is already mounted
-			found := false
-			freeIndex := -1
-			for i := 0; i < NR_DEVICES; i++ {
-				if fs.devices[i] == req.dev {
-					found = true
-				} else if fs.devices[i] == nil {
-					freeIndex = i
-				}
-			}
-
-			if found {
-				fs.out <- res_FS_Mount{EBUSY} // already mounted
-				continue
-			}
-
-			if freeIndex == -1 {
-				fs.out <- res_FS_Mount{ENFILE} // no device slot available
-				continue
-			}
-
-			// Invalidate the cache for this index to be sure
-			fs.bcache.Invalidate(freeIndex)
-
-			// Fill in the device info
-			devinfo, err := GetDeviceInfo(req.dev)
-
-			// If it a recognized Minix filesystem
-			if err != nil {
-				fs.out <- res_FS_Mount{err}
-				continue
-			}
-
-			// Create a new allocation table for this device
-			alloc := alloctbl.NewAllocTbl(devinfo, fs.bcache, freeIndex)
-
-			// Update the device number/alloc table
-			devinfo.Devnum = freeIndex
-			devinfo.AllocTbl = alloc
-
-			// Add the device to the block cache/inode table
-			fs.bcache.MountDevice(freeIndex, req.dev, devinfo)
-			fs.itable.MountDevice(freeIndex, devinfo)
-			fs.devices[freeIndex] = req.dev
-			fs.devinfo[freeIndex] = devinfo
-
-			// Get the inode of the file to be mounted on
-			rip, err := fs.eatPath(fs.procs[ROOT_PROCESS], req.path)
-
-			if err != nil {
-				// Perform lots of cleanup
-				fs.devices[freeIndex] = nil
-				fs.devinfo[freeIndex] = nil
-				fs.bcache.UnmountDevice(freeIndex)
-				fs.itable.UnmountDevice(freeIndex)
-				fs.out <- res_FS_Mount{err}
-				continue
-			}
-
-			var r error = nil
-
-			// It may not be busy
-			if rip.Count > 1 {
-				r = EBUSY
-			}
-
-			// It may not be spacial
-			bits := rip.Type()
-			if bits == I_BLOCK_SPECIAL || bits == I_CHAR_SPECIAL {
-				r = ENOTDIR
-			}
-
-			// Get the root inode of the mounted file system
-			var root_ip *Inode
-			if r == nil {
-				root_ip, err = fs.itable.GetInode(freeIndex, ROOT_INODE)
-				if err != nil {
-					r = err
-				}
-			}
-
-			if root_ip != nil && root_ip.Mode == 0 {
-				r = EINVAL
-			}
-
-			// File types of 'rip' and 'root_ip' may not conflict
-			if r == nil {
-				if !rip.IsDirectory() && root_ip.IsDirectory() {
-					r = EISDIR
-				}
-			}
-
-			// If error, return the bitmap and both inodes; release the maps
-			if r != nil {
-				// TODO: Refactor this error handling code?
-				// Perform lots of cleanup
-				fs.devices[freeIndex] = nil
-				fs.devinfo[freeIndex] = nil
-				fs.bcache.UnmountDevice(freeIndex)
-				fs.itable.UnmountDevice(freeIndex)
-				fs.out <- res_FS_Mount{r}
-				continue
-			}
-
-			// Nothing else can go wrong, so perform the mount
-			minfo := &MountInfo{
-				MountPoint:  rip,
-				MountTarget: root_ip,
-			}
-			rip.Mounted = minfo     // so we can find the root inode during lookup
-			root_ip.Mounted = minfo // so we can easily resolve from a mount target to the mount point
-			fs.out <- res_FS_Mount{nil}
+			fs.do_mount(req.proc, req.dev, req.path)
 		case req_FS_Unmount:
-			// The filesystem hierarchy cannot change during the processing of
-			// this request. We're going to use a bit of a hack here,
-			// returning the inode and then continuing to use it.
-			rip, err := fs.eatPath(req.proc, req.path)
-			if err != nil {
-				fs.out <- res_FS_Unmount{err}
-				continue
-			}
-
-			devIndex := rip.Devinfo.Devnum
-			fs.itable.PutInode(rip)
-
-			// See if the mounted device is busy. Only one inode using it should be
-			// open, the root inode, and only once.
-
-			if fs.itable.IsDeviceBusy(devIndex) {
-				fs.out <- res_FS_Unmount{EBUSY} // can't unmount a busy file system
-				continue
-			}
-
-			if rip.Mounted == nil {
-				// This is not a mounted file system
-				fs.out <- res_FS_Unmount{EINVAL}
-				continue
-			}
-
-			minfo := rip.Mounted
-
-			// Clear each inode of the mount info
-			minfo.MountPoint.Mounted = nil
-			minfo.MountTarget.Mounted = nil
-
-			// Release each inode
-			fs.itable.PutInode(minfo.MountPoint)
-			fs.itable.PutInode(minfo.MountTarget)
-
-			// Flush and invalidate the cache for the device
-			fs.bcache.Flush(devIndex)
-			fs.bcache.Invalidate(devIndex)
-
-			// TODO: Shut down the bitmap process?
-			fs.devices[devIndex] = nil
-			fs.devinfo[devIndex] = nil
-			fs.bcache.UnmountDevice(devIndex)
-			fs.itable.UnmountDevice(devIndex)
-			fs.out <- res_FS_Unmount{nil}
+			fs.do_unmount(req.proc, req.path)
 		case req_FS_Sync:
 			// Code here
 		case req_FS_Shutdown:
-			fs.out <- res_FS_Shutdown{}
+			succ := fs.do_shutdown()
+			if succ {
+				alive = false
+			}
 		case req_FS_Fork:
-			// Code here
+			fs.do_fork(req.proc)
 		case req_FS_Exit:
-			fs.out <- res_FS_Exit{}
-		case req_FS_Open:
-			// Code here
-		case req_FS_Creat:
-			// Code here
+			fs.do_exit(req.proc)
+		case req_FS_OpenCreat:
+			fs.do_open(req.proc, req.path, req.flags, req.mode)
 		case req_FS_Close:
-			// Code here
+			fs.do_close(req.proc, req.fd)
 		case req_FS_Stat:
 			// Code here
 		case req_FS_Chmod:
@@ -286,7 +130,7 @@ func (fs *FileSystem) loop() {
 		case req_FS_Rmdir:
 			// Code here
 		case req_FS_Chdir:
-			// Code here
+			fs.do_chdir(req.proc, req.path)
 		}
 	}
 }

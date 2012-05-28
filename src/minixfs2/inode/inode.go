@@ -51,7 +51,7 @@ func (itable *server_InodeTbl) loop() {
 			// Code here
 		case req_InodeTbl_UnmountDevice:
 			// TODO: Do something more here?
-			itable.devices[req.devnum] = NO_DEVINFO
+			itable.devices[req.devnum] = nil
 			itable.out <- res_InodeTbl_UnmountDevice{}
 		case req_InodeTbl_GetInode:
 			callback := make(chan resInodeTbl)
@@ -150,6 +150,15 @@ func (itable *server_InodeTbl) loop() {
 				}
 			}
 			itable.out <- res_InodeTbl_IsDeviceBusy{count > 1}
+		case req_InodeTbl_Shutdown:
+			for i := 0; i < len(itable.devices); i++ {
+				if itable.devices[i] != nil {
+					itable.out <- res_InodeTbl_Shutdown{EBUSY}
+					continue
+				}
+			}
+			itable.out <- res_InodeTbl_Shutdown{nil}
+			alive = false
 		}
 	}
 }

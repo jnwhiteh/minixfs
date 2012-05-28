@@ -41,8 +41,9 @@ type req_BlockCache_Flush struct {
 	devnum int
 }
 type res_BlockCache_Flush struct{}
-type req_BlockCache_Close struct{}
-type res_BlockCache_Close struct {
+type req_BlockCache_Shutdown struct{}
+type res_BlockCache_Shutdown struct {
+	Arg0 error
 }
 type res_BlockCache_Async struct {
 	ch chan resBlockCache
@@ -68,8 +69,8 @@ func (r req_BlockCache_Invalidate) is_reqBlockCache()    {}
 func (r res_BlockCache_Invalidate) is_resBlockCache()    {}
 func (r req_BlockCache_Flush) is_reqBlockCache()         {}
 func (r res_BlockCache_Flush) is_resBlockCache()         {}
-func (r req_BlockCache_Close) is_reqBlockCache()         {}
-func (r res_BlockCache_Close) is_resBlockCache()         {}
+func (r req_BlockCache_Shutdown) is_reqBlockCache()         {}
+func (r res_BlockCache_Shutdown) is_resBlockCache()         {}
 func (r res_BlockCache_Async) is_resBlockCache()         {}
 
 // Type check request/response types
@@ -85,8 +86,8 @@ var _ reqBlockCache = req_BlockCache_Invalidate{}
 var _ resBlockCache = res_BlockCache_Invalidate{}
 var _ reqBlockCache = req_BlockCache_Flush{}
 var _ resBlockCache = res_BlockCache_Flush{}
-var _ reqBlockCache = req_BlockCache_Close{}
-var _ resBlockCache = res_BlockCache_Close{}
+var _ reqBlockCache = req_BlockCache_Shutdown{}
+var _ resBlockCache = res_BlockCache_Shutdown{}
 var _ resBlockCache = res_BlockCache_Async{}
 
 func (c *LRUCache) MountDevice(devnum int, dev BlockDevice, info *DeviceInfo) error {
@@ -125,8 +126,8 @@ func (c *LRUCache) Flush(devnum int) {
 	<-c.out
 	return
 }
-func (c *LRUCache) Close() {
-	c.in <- req_BlockCache_Close{}
-	<-c.out
-	return
+func (c *LRUCache) Shutdown() error {
+	c.in <- req_BlockCache_Shutdown{}
+	result := (<-c.out).(res_BlockCache_Shutdown)
+	return result.Arg0
 }

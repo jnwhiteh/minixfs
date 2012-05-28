@@ -6,11 +6,25 @@ import (
 )
 
 type server_File struct {
-	rip *Inode
-	wg  *sync.WaitGroup
+	rip   *Inode          // the underlying inode
+	count int             // the number of clients of this server
+	wg    *sync.WaitGroup // tracking outstanding read requests
 
 	in  chan reqFile
 	out chan resFile
+}
+
+func NewFile(rip *Inode) File {
+	file := &server_File{
+		rip,
+		1,
+		new(sync.WaitGroup),
+		make(chan reqFile),
+		make(chan resFile),
+	}
+
+	go file.loop()
+	return file
 }
 
 func (file *server_File) loop() {
@@ -36,15 +50,28 @@ func (file *server_File) loop() {
 			n, err := Write(file.rip, req.buf, req.pos)
 			file.out <- res_File_Write{n, err}
 		case req_File_Truncate:
-			// Code here
+			file.wg.Wait() // wait for any outstanding reads to complete before proceeding
+			Truncate(file.rip, req.size, file.rip.Bcache)
+			file.out <- res_File_Truncate{}
 		case req_File_Fstat:
 			// Code here
 		case req_File_Sync:
 			// Code here
 		case req_File_Dup:
-			// Code here
+			file.count++
+			file.out <- res_File_Dup{}
 		case req_File_Close:
-			// Code here
+			file.wg.Wait() // wait for any outstanding reads to complete before proeceding
+			file.count--
+
+			// Let's push our changes to the inode cache
+			file.rip.Icache.FlushInode(file.rip)
+
+			if file.count == 0 {
+				alive = false
+			}
+
+			file.out <- res_File_Close{}
 		}
 	}
 }

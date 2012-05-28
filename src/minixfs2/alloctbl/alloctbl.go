@@ -101,6 +101,10 @@ func (alloc *server_AllocTbl) loop() {
 				alloc.z_search = bit
 			}
 			alloc.out <- res_AllocTbl_FreeZone{}
+		case req_AllocTbl_Shutdown:
+			// This is always successful
+			alive = false
+			alloc.out <- res_AllocTbl_Shutdown{nil}
 		}
 	}
 }
