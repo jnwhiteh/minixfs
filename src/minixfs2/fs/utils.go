@@ -25,13 +25,14 @@ func (fs *FileSystem) new_node(proc *Process, path string, bits uint16, z0 uint)
 	}
 
 	// The file/directory does not exist, create it
+	devinfo := dirp.Devinfo
 	var inum int // this is here to fix shadowing of err
-	inum, err = rip.Devinfo.AllocTbl.AllocInode()
+	inum, err = devinfo.AllocTbl.AllocInode()
 	if err != nil {
 		// Could not allocate new inode
 		return nil, nil, "", err
 	}
-	rip, err = fs.itable.GetInode(rip.Devinfo.Devnum, inum)
+	rip, err = fs.itable.GetInode(devinfo.Devnum, inum)
 	if err != nil {
 		// Could not fetch the new inode
 		return nil, nil, "", err
