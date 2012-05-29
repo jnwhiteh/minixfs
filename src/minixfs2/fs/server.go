@@ -124,7 +124,7 @@ func (fs *FileSystem) loop() {
 		case req_FS_Link:
 			// Code here
 		case req_FS_Unlink:
-			// Code here
+			fs.do_unlink(req.proc, req.path)
 		case req_FS_Mkdir:
 			// Code here
 		case req_FS_Rmdir:

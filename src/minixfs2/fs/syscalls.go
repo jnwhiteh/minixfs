@@ -421,7 +421,7 @@ func (fs *FileSystem) do_open(proc *Process, path string, oflags int, omode uint
 	}
 
 	// Create a new 'filp' object to expose to the user
-	filp := &filp{1, 0, rip.File, bits, new(sync.Mutex)}
+	filp := &filp{1, 0, rip.File, rip, bits, new(sync.Mutex)}
 	proc.files[fdindex] = filp
 
 	fs.out <- res_FS_OpenCreat{filp, nil}
@@ -447,5 +447,35 @@ func (fs *FileSystem) do_close(proc *Process, fd Fd) {
 
 	// If we get here, it was not a valid file descriptor
 	fs.out <- res_FS_Close{EBADF}
+	return
+}
+
+func (fs *FileSystem) do_unlink(proc *Process, path string) {
+	// Get the inodes we need to perform the unlink
+	dirp, rip, filename, err := fs.unlink_prep(proc, path)
+	if err != nil {
+		fs.out <- res_FS_Unlink{err}
+		return
+	} else if dirp == nil || rip == nil {
+		fs.out <- res_FS_Unlink{ENOENT}
+		return
+	}
+
+	// Now test if the call is allowed (altered from Minix)
+	if rip.Inum == ROOT_INODE {
+		err = EBUSY
+	}
+
+	if err == nil {
+		// Perform the unlink
+		err = Unlink(dirp, filename)
+		rip.Nlinks--
+		rip.Dirty = true
+	}
+
+	// Regardless, return both inodes
+	fs.itable.PutInode(rip)
+	fs.itable.PutInode(dirp)
+	fs.out <- res_FS_Unlink{err}
 	return
 }

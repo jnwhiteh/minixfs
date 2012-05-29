@@ -60,3 +60,31 @@ func (fs *FileSystem) new_node(proc *Process, path string, bits uint16, z0 uint)
 	// Return the parent directory and the new inode
 	return dirp, rip, rlast, nil
 }
+
+// Given a path, fetch the inode for the parent directory of final entry and
+// the inode of the final entry itself. In addition, return the portion of the
+// path that is the filename of the final entry, so it can be removed from the
+// parent directory, and any error that may have occurred.
+func (fs *FileSystem) unlink_prep(proc *Process, path string) (*Inode, *Inode, string, error) {
+	// Get the last directory in the path
+	dirp, rest, err := fs.lastDir(proc, path)
+	if dirp == nil {
+		return nil, nil, "", err
+	}
+
+	// The last directory exists. Does the file also exist?
+	rip, err := fs.advance(proc, dirp, rest)
+	if rip == nil || err != nil {
+		fs.itable.PutInode(dirp)
+		return nil, nil, "", err
+	}
+
+	// Do not remove a mount point
+	if rip.Inum == ROOT_INODE {
+		fs.itable.PutInode(dirp)
+		fs.itable.PutInode(rip)
+		return nil, nil, "", EBUSY
+	}
+
+	return dirp, rip, rest, nil
+}

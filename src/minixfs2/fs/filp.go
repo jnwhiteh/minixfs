@@ -13,9 +13,10 @@ import (
 // This is implemented using a mutex because all operations require exclusive
 // access to the resource.
 type filp struct {
-	count int  // the number of clients
-	pos   int  // the current position in the file
-	file  File // the file server backing the operations
+	count int    // the number of clients
+	pos   int    // the current position in the file
+	file  File   // the file server backing the operations
+	inode *Inode // the inode this refers to
 
 	mode uint16 // the mode under which this file was opened
 
