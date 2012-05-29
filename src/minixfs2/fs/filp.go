@@ -39,7 +39,7 @@ func (fi *filp) Seek(pos, whence int) (int, error) {
 		panic("NYI: Seek with whence > 1")
 	}
 
-	return pos, nil
+	return fi.pos, nil
 }
 
 func (fi *filp) Read(buf []byte) (int, error) {
@@ -50,7 +50,10 @@ func (fi *filp) Read(buf []byte) (int, error) {
 		return 0, EBADF
 	}
 
-	return fi.file.Read(buf, fi.pos)
+	n, err := fi.file.Read(buf, fi.pos)
+	fi.pos += n
+
+	return n, err
 }
 
 func (fi *filp) Write(buf []byte) (int, error) {
@@ -61,7 +64,10 @@ func (fi *filp) Write(buf []byte) (int, error) {
 		return 0, EBADF
 	}
 
-	return fi.file.Write(buf, fi.pos)
+	n, err := fi.file.Write(buf, fi.pos)
+	fi.pos += n
+
+	return n, err
 }
 
 func (fi *filp) Truncate(length int) error {
@@ -71,6 +77,8 @@ func (fi *filp) Truncate(length int) error {
 	if fi.file == nil {
 		return EBADF
 	}
+
+	fi.pos = length
 
 	return fi.file.Truncate(length)
 }
