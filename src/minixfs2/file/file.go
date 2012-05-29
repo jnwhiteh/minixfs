@@ -66,6 +66,7 @@ func (file *server_File) loop() {
 
 			// Let's push our changes to the inode cache
 			file.rip.Icache.FlushInode(file.rip)
+			file.rip.Icache.PutInode(file.rip)
 
 			if file.count == 0 {
 				alive = false
