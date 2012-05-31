@@ -88,6 +88,7 @@ type res_FS_Unlink struct {
 type req_FS_Mkdir struct {
 	proc *Process
 	path string
+	mode uint16
 }
 type res_FS_Mkdir struct {
 	Arg0 error

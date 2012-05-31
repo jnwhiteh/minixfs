@@ -502,3 +502,98 @@ func (fs *FileSystem) do_link(proc *Process, oldpath, newpath string) error {
 	fs.itable.PutInode(dirp)
 	return r
 }
+
+func (fs *FileSystem) do_mkdir(proc *Process, path string, mode uint16) error {
+	// Create the new inode. If that fails, return err
+	bits := I_DIRECTORY | (mode & RWX_MODES & proc.umask)
+	dirp, rip, rest, err := fs.new_node(proc, path, bits, 0)
+	if rip == nil || err == EEXIST {
+		fs.itable.PutInode(rip)  // can't make dir: it already exists
+		fs.itable.PutInode(dirp) // return parent too
+		return err
+	}
+
+	// Get the inode numbers for . and .. to enter into the directory
+	dotdot := dirp.Inum // parent's inode number
+	dot := rip.Inum     // inode number of the new dir itself
+
+	// Now make dir entries for . and .. unless the disk is completely full.
+	rip.Mode = bits                 // set mode
+	err1 := Link(rip, ".", dot)     // enter . in the new dir
+	err2 := Link(rip, "..", dotdot) // enter .. in the new dir
+
+	// If both . and .. were entered, increment the link counts
+
+	if err1 == nil && err2 == nil {
+		// Normal case
+		rip.Nlinks++  // this accounts for .
+		dirp.Nlinks++ // this accounts for ..
+		dirp.Dirty = true
+	} else {
+		// It did not work, so remove the new directory
+		Unlink(dirp, rest)
+		rip.Nlinks--
+	}
+
+	// Either way nlinks has been updated
+	rip.Dirty = true
+	fs.itable.PutInode(dirp)
+	fs.itable.PutInode(rip)
+
+	if err1 != nil {
+		return err1
+	} else if err2 != nil {
+		return err2
+	}
+	return err
+}
+
+// Remove a directory from the file system.
+func (fs *FileSystem) do_rmdir(proc *Process, path string) error {
+	// Get parent/inode and filename
+	dirp, rip, filename, err := fs.unlink_prep(proc, path)
+	if err != nil {
+		return err
+	}
+
+	// Check to see if the directory is empty
+	if !IsEmpty(rip) {
+		return ENOTEMPTY
+	}
+
+	if path == "." || path == ".." {
+		return EINVAL
+	}
+	if rip.Inum == ROOT_INODE { // can't remove root
+		return EBUSY
+	}
+
+	// Make sure no one else is using this directory. This is a stronger
+	// condition than given in Minix initially, where it just cannot be the
+	// root or working directory of a process. Could be relaxed, this is just
+	// for sanity.
+	if rip.Count > 1 {
+		return EBUSY
+	}
+
+	// Actually try to unlink from the parent
+	if err = Unlink(dirp, filename); err != nil {
+		return err
+	}
+	rip.Nlinks--
+
+	// We hold the inodes for both directories, so unlink . and .. from the
+	// directory.
+	Unlink(rip, "..")
+	Unlink(rip, ".")
+
+	rip.Nlinks--
+	dirp.Nlinks--
+
+	// If the unlink was possible it has been done, otherwise it has not
+	// If unlink was possible, it has been done. Otherwise it has not
+	fs.itable.PutInode(rip)
+	fs.itable.PutInode(dirp)
+
+	return nil
+}

@@ -78,8 +78,8 @@ func (proc *Process) Unlink(path string) error {
 	result := (<-proc.fs.out).(res_FS_Unlink)
 	return result.Arg0
 }
-func (proc *Process) Mkdir(path string) error {
-	proc.fs.in <- req_FS_Mkdir{proc, path}
+func (proc *Process) Mkdir(path string, mode uint16) error {
+	proc.fs.in <- req_FS_Mkdir{proc, path, mode}
 	result := (<-proc.fs.out).(res_FS_Mkdir)
 	return result.Arg0
 }

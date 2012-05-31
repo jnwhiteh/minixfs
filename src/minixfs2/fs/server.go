@@ -135,9 +135,11 @@ func (fs *FileSystem) loop() {
 			err := fs.do_unlink(req.proc, req.path)
 			fs.out <- res_FS_Unlink{err}
 		case req_FS_Mkdir:
-			// Code here
+			err := fs.do_mkdir(req.proc, req.path, req.mode)
+			fs.out <- res_FS_Mkdir{err}
 		case req_FS_Rmdir:
-			// Code here
+			err := fs.do_rmdir(req.proc, req.path)
+			fs.out <- res_FS_Rmdir{err}
 		case req_FS_Chdir:
 			err := fs.do_chdir(req.proc, req.path)
 			fs.out <- res_FS_Chdir{err}
