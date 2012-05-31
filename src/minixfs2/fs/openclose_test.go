@@ -60,6 +60,8 @@ func TestOpenClose(test *testing.T) {
 
 	// How many goroutines are open right now?
 	numgoros := runtime.NumGoroutine()
+	stacknow := make([]byte, 4096)
+	runtime.Stack(stacknow, true)
 
 	fs.Exit(proc)
 	err = fs.Shutdown()
@@ -73,8 +75,14 @@ func TestOpenClose(test *testing.T) {
 	//  * inode cache
 	//  * allocation table
 	//  * file server
+
+	// This test is fragile, so be careful with it!
 	expected := numgoros - 5
 	if runtime.NumGoroutine() != expected {
+		test.Logf("Original stack:\n%s\n", stacknow)
+		newstack := make([]byte, 4096)
+		runtime.Stack(newstack, true)
+		test.Logf("Current stack:\n%s\n", newstack)
 		FatalHere(test, "Goroutine count mismatch got %d, expected %d", expected, runtime.NumGoroutine())
 	}
 }

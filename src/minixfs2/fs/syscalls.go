@@ -10,10 +10,9 @@ import (
 	"sync"
 )
 
-func (fs *FileSystem) do_mount(proc *Process, dev BlockDevice, path string) {
+func (fs *FileSystem) do_mount(proc *Process, dev BlockDevice, path string) error {
 	if dev == nil {
-		fs.out <- res_FS_Mount{EINVAL}
-		return
+		return EINVAL
 	}
 
 	// scan bitmap block table to see if 'dev' is already mounted
@@ -28,13 +27,11 @@ func (fs *FileSystem) do_mount(proc *Process, dev BlockDevice, path string) {
 	}
 
 	if found {
-		fs.out <- res_FS_Mount{EBUSY} // already mounted
-		return
+		return EBUSY // already mounted
 	}
 
 	if freeIndex == -1 {
-		fs.out <- res_FS_Mount{ENFILE} // no device slot available
-		return
+		return ENFILE // no device slot available
 	}
 
 	// Invalidate the cache for this index to be sure
@@ -45,8 +42,7 @@ func (fs *FileSystem) do_mount(proc *Process, dev BlockDevice, path string) {
 
 	// If it a recognized Minix filesystem
 	if err != nil {
-		fs.out <- res_FS_Mount{err}
-		return
+		return err
 	}
 
 	// Create a new allocation table for this device
@@ -71,8 +67,7 @@ func (fs *FileSystem) do_mount(proc *Process, dev BlockDevice, path string) {
 		fs.devinfo[freeIndex] = nil
 		fs.bcache.UnmountDevice(freeIndex)
 		fs.itable.UnmountDevice(freeIndex)
-		fs.out <- res_FS_Mount{err}
-		return
+		return err
 	}
 
 	var r error = nil
@@ -116,8 +111,7 @@ func (fs *FileSystem) do_mount(proc *Process, dev BlockDevice, path string) {
 		fs.devinfo[freeIndex] = nil
 		fs.bcache.UnmountDevice(freeIndex)
 		fs.itable.UnmountDevice(freeIndex)
-		fs.out <- res_FS_Mount{r}
-		return
+		return r
 	}
 
 	// Nothing else can go wrong, so perform the mount
@@ -130,18 +124,16 @@ func (fs *FileSystem) do_mount(proc *Process, dev BlockDevice, path string) {
 
 	// Store the mountinfo in the device info table for easy mapping
 	devinfo.MountInfo = minfo
-
-	fs.out <- res_FS_Mount{nil}
+	return nil
 }
 
-func (fs *FileSystem) do_unmount(proc *Process, path string) {
+func (fs *FileSystem) do_unmount(proc *Process, path string) error {
 	// The filesystem hierarchy cannot change during the processing of
 	// this request. We're going to use a bit of a hack here,
 	// returning the inode and then continuing to use it.
 	rip, err := fs.eatPath(proc, path)
 	if err != nil {
-		fs.out <- res_FS_Unmount{err}
-		return
+		return err
 	}
 
 	devIndex := rip.Devinfo.Devnum
@@ -151,14 +143,11 @@ func (fs *FileSystem) do_unmount(proc *Process, path string) {
 	// open, the root inode, and only once.
 
 	if fs.itable.IsDeviceBusy(devIndex) {
-		fs.out <- res_FS_Unmount{EBUSY} // can't unmount a busy file system
-		return
+		return EBUSY // can't unmount a busy file system
 	}
 
 	if rip.Mounted == nil {
-		// This is not a mounted file system
-		fs.out <- res_FS_Unmount{EINVAL}
-		return
+		return EINVAL // not a mounted file system
 	}
 
 	minfo := rip.Mounted
@@ -186,10 +175,10 @@ func (fs *FileSystem) do_unmount(proc *Process, path string) {
 	fs.bcache.UnmountDevice(devIndex)
 	fs.itable.UnmountDevice(devIndex)
 
-	fs.out <- res_FS_Unmount{nil}
+	return nil
 }
 
-func (fs *FileSystem) do_fork(proc *Process) {
+func (fs *FileSystem) do_fork(proc *Process) (*Process, error) {
 	// Fork a process, duplicating the current root/working directories and
 	// all file descriptors.
 
@@ -211,7 +200,7 @@ func (fs *FileSystem) do_fork(proc *Process) {
 		}
 	}
 
-	fs.out <- res_FS_Fork{child, nil}
+	return child, nil
 }
 
 func (fs *FileSystem) do_exit(proc *Process) {
@@ -230,19 +219,16 @@ func (fs *FileSystem) do_exit(proc *Process) {
 	fs.itable.PutInode(proc.rootdir)
 	fs.itable.PutInode(proc.workdir)
 	delete(fs.procs, proc.pid)
-
-	fs.out <- res_FS_Exit{}
 }
 
 // Attempt to shut down the file system, only return 'true' if the shutdown
 // was successful and the main server loop can exit.
-func (fs *FileSystem) do_shutdown() bool {
+func (fs *FileSystem) do_shutdown() error {
 	// Attempt to unmount each non-root device
 	for i := ROOT_DEVICE + 1; i < NR_DEVICES; i++ {
 		if fs.devices[i] != nil {
 			if fs.itable.IsDeviceBusy(i) {
-				fs.out <- res_FS_Shutdown{EBUSY}
-				return false
+				return EBUSY
 			}
 
 			minfo := fs.devinfo[i].MountInfo
@@ -275,8 +261,7 @@ func (fs *FileSystem) do_shutdown() bool {
 	// Now try to unmount the root device
 	if fs.itable.IsDeviceBusy(ROOT_DEVICE) {
 		// Cannot unmount this device, so we need to fail
-		fs.out <- res_FS_Shutdown{EBUSY}
-		return false
+		return EBUSY
 	} else {
 		// Release the inodes for the root process
 		proc := fs.procs[ROOT_PROCESS]
@@ -307,15 +292,13 @@ func (fs *FileSystem) do_shutdown() bool {
 		panic(fmt.Sprintf("Failed to shut down block cache: %s", err))
 	}
 
-	fs.out <- res_FS_Shutdown{nil}
-	return true
+	return nil
 }
 
-func (fs *FileSystem) do_chdir(proc *Process, path string) {
+func (fs *FileSystem) do_chdir(proc *Process, path string) error {
 	rip, err := fs.eatPath(proc, path)
 	if err != nil {
-		fs.out <- res_FS_Chdir{err}
-		return
+		return err
 	}
 
 	var r error
@@ -328,19 +311,18 @@ func (fs *FileSystem) do_chdir(proc *Process, path string) {
 	// If error then return inode
 	if r != nil {
 		fs.itable.PutInode(rip)
-		fs.out <- res_FS_Chdir{r}
-		return
+		return r
 	}
 
 	// Everything is okay, make the change
 	fs.itable.PutInode(proc.workdir)
 	proc.workdir = rip
-	fs.out <- res_FS_Chdir{nil}
+	return nil
 }
 
 var mode_map = []uint16{R_BIT, W_BIT, R_BIT | W_BIT, 0}
 
-func (fs *FileSystem) do_open(proc *Process, path string, oflags int, omode uint16) {
+func (fs *FileSystem) do_open(proc *Process, path string, oflags int, omode uint16) (Fd, error) {
 	// Remap the bottom two bits of oflags
 	bits := mode_map[oflags&O_ACCMODE]
 
@@ -356,8 +338,7 @@ func (fs *FileSystem) do_open(proc *Process, path string, oflags int, omode uint
 		if err == nil {
 			exist = false
 		} else if err != EEXIST {
-			fs.out <- res_FS_OpenCreat{nil, err}
-			return
+			return nil, err
 		} else {
 			exist = (oflags&O_EXCL == 0)
 		}
@@ -369,8 +350,7 @@ func (fs *FileSystem) do_open(proc *Process, path string, oflags int, omode uint
 		// grab the inode at the given path
 		rip, err = fs.eatPath(proc, path)
 		if err != nil {
-			fs.out <- res_FS_OpenCreat{nil, err}
-			return
+			return nil, err
 		}
 	}
 
@@ -384,8 +364,7 @@ func (fs *FileSystem) do_open(proc *Process, path string, oflags int, omode uint
 	}
 
 	if fdindex == -1 {
-		fs.out <- res_FS_OpenCreat{nil, EMFILE}
-		return
+		return nil, EMFILE
 	}
 
 	err = nil // we'll use this to set error codes
@@ -411,8 +390,7 @@ func (fs *FileSystem) do_open(proc *Process, path string, oflags int, omode uint
 	if err != nil {
 		// Something went wrong, so release the inode
 		fs.itable.PutInode(rip)
-		fs.out <- res_FS_OpenCreat{nil, err}
-		return
+		return nil, err
 	}
 
 	// Make sure there is a 'File' server running
@@ -425,14 +403,13 @@ func (fs *FileSystem) do_open(proc *Process, path string, oflags int, omode uint
 	filp := &filp{1, 0, rip.File, rip, bits, new(sync.Mutex)}
 	proc.files[fdindex] = filp
 
-	fs.out <- res_FS_OpenCreat{filp, nil}
+	return filp, nil
 }
 
-func (fs *FileSystem) do_close(proc *Process, fd Fd) {
+func (fs *FileSystem) do_close(proc *Process, fd Fd) error {
 	filp, ok := fd.(*filp)
 	if !ok {
-		fs.out <- res_FS_Close{EBADF}
-		return
+		return EBADF
 	}
 
 	// Find this entry in the process table
@@ -441,25 +418,21 @@ func (fs *FileSystem) do_close(proc *Process, fd Fd) {
 			// This is actually a valid file descriptor
 			err := filp.Close()
 			proc.files[i] = nil
-			fs.out <- res_FS_Close{err}
-			return
+			return err
 		}
 	}
 
 	// If we get here, it was not a valid file descriptor
-	fs.out <- res_FS_Close{EBADF}
-	return
+	return EBADF
 }
 
-func (fs *FileSystem) do_unlink(proc *Process, path string) {
+func (fs *FileSystem) do_unlink(proc *Process, path string) error {
 	// Get the inodes we need to perform the unlink
 	dirp, rip, filename, err := fs.unlink_prep(proc, path)
 	if err != nil {
-		fs.out <- res_FS_Unlink{err}
-		return
+		return err
 	} else if dirp == nil || rip == nil {
-		fs.out <- res_FS_Unlink{ENOENT}
-		return
+		return ENOENT
 	}
 
 	// Now test if the call is allowed (altered from Minix)
@@ -477,22 +450,19 @@ func (fs *FileSystem) do_unlink(proc *Process, path string) {
 	// Regardless, return both inodes
 	fs.itable.PutInode(rip)
 	fs.itable.PutInode(dirp)
-	fs.out <- res_FS_Unlink{err}
-	return
+	return err
 }
 
-func (fs *FileSystem) do_link(proc *Process, oldpath, newpath string) {
+func (fs *FileSystem) do_link(proc *Process, oldpath, newpath string) error {
 	// Fetch the file to be linked
 	rip, err := fs.eatPath(proc, oldpath)
 	if err != nil {
-		fs.out <- res_FS_Link{err}
-		return
+		return err
 	}
 	// Check if the file has too many links
 	if rip.Nlinks >= math.MaxUint16 {
 		fs.itable.PutInode(rip)
-		fs.out <- res_FS_Link{EMLINK}
-		return
+		return EMLINK
 	}
 
 	// TODO: only root user can link to directories
@@ -501,8 +471,7 @@ func (fs *FileSystem) do_link(proc *Process, oldpath, newpath string) {
 	dirp, rest, err := fs.lastDir(proc, newpath)
 	if err != nil {
 		fs.itable.PutInode(rip)
-		fs.out <- res_FS_Link{err}
-		return
+		return err
 	}
 
 	var r error = nil // to help with cleanup
@@ -531,5 +500,5 @@ func (fs *FileSystem) do_link(proc *Process, oldpath, newpath string) {
 	// Done, release both inodes
 	fs.itable.PutInode(rip)
 	fs.itable.PutInode(dirp)
-	fs.out <- res_FS_Link{err}
+	return r
 }

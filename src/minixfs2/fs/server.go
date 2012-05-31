@@ -99,38 +99,48 @@ func (fs *FileSystem) loop() {
 		req := <-fs.in
 		switch req := req.(type) {
 		case req_FS_Mount:
-			fs.do_mount(req.proc, req.dev, req.path)
+			err := fs.do_mount(req.proc, req.dev, req.path)
+			fs.out <- res_FS_Mount{err}
 		case req_FS_Unmount:
-			fs.do_unmount(req.proc, req.path)
+			err := fs.do_unmount(req.proc, req.path)
+			fs.out <- res_FS_Unmount{err}
 		case req_FS_Sync:
 			// Code here
 		case req_FS_Shutdown:
-			succ := fs.do_shutdown()
-			if succ {
+			err := fs.do_shutdown()
+			if err == nil {
 				alive = false
 			}
+			fs.out <- res_FS_Shutdown{err}
 		case req_FS_Fork:
-			fs.do_fork(req.proc)
+			proc, err := fs.do_fork(req.proc)
+			fs.out <- res_FS_Fork{proc, err}
 		case req_FS_Exit:
 			fs.do_exit(req.proc)
+			fs.out <- res_FS_Exit{}
 		case req_FS_OpenCreat:
-			fs.do_open(req.proc, req.path, req.flags, req.mode)
+			fd, err := fs.do_open(req.proc, req.path, req.flags, req.mode)
+			fs.out <- res_FS_OpenCreat{fd, err}
 		case req_FS_Close:
-			fs.do_close(req.proc, req.fd)
+			err := fs.do_close(req.proc, req.fd)
+			fs.out <- res_FS_Close{err}
 		case req_FS_Stat:
 			// Code here
 		case req_FS_Chmod:
 			// Code here
 		case req_FS_Link:
-			fs.do_link(req.proc, req.oldpath, req.newpath)
+			err := fs.do_link(req.proc, req.oldpath, req.newpath)
+			fs.out <- res_FS_Link{err}
 		case req_FS_Unlink:
-			fs.do_unlink(req.proc, req.path)
+			err := fs.do_unlink(req.proc, req.path)
+			fs.out <- res_FS_Unlink{err}
 		case req_FS_Mkdir:
 			// Code here
 		case req_FS_Rmdir:
 			// Code here
 		case req_FS_Chdir:
-			fs.do_chdir(req.proc, req.path)
+			err := fs.do_chdir(req.proc, req.path)
+			fs.out <- res_FS_Chdir{err}
 		}
 	}
 }
