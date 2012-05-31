@@ -3,6 +3,7 @@ package fs
 import (
 	"fmt"
 	"log"
+	"math"
 	"minixfs2/alloctbl"
 	. "minixfs2/common"
 	"minixfs2/file"
@@ -478,4 +479,57 @@ func (fs *FileSystem) do_unlink(proc *Process, path string) {
 	fs.itable.PutInode(dirp)
 	fs.out <- res_FS_Unlink{err}
 	return
+}
+
+func (fs *FileSystem) do_link(proc *Process, oldpath, newpath string) {
+	// Fetch the file to be linked
+	rip, err := fs.eatPath(proc, oldpath)
+	if err != nil {
+		fs.out <- res_FS_Link{err}
+		return
+	}
+	// Check if the file has too many links
+	if rip.Nlinks >= math.MaxUint16 {
+		fs.itable.PutInode(rip)
+		fs.out <- res_FS_Link{EMLINK}
+		return
+	}
+
+	// TODO: only root user can link to directories
+
+	// Grab the new parent directory
+	dirp, rest, err := fs.lastDir(proc, newpath)
+	if err != nil {
+		fs.itable.PutInode(rip)
+		fs.out <- res_FS_Link{err}
+		return
+	}
+
+	var r error = nil // to help with cleanup
+
+	// Check to see if the target file exists
+	newrip, err := fs.advance(proc, dirp, rest)
+	if err == nil {
+		// The target already exists
+		fs.itable.PutInode(newrip)
+		r = EEXIST
+	}
+
+	// Check for links across devices
+	if r == nil && rip.Devinfo.Devnum != dirp.Devinfo.Devnum {
+		r = EXDEV
+	}
+
+	// Perform the link operation
+	r = Link(dirp, rest, rip.Inum)
+
+	if r == nil { // everything was successful, register the linking
+		rip.Nlinks++
+		rip.Dirty = true
+	}
+
+	// Done, release both inodes
+	fs.itable.PutInode(rip)
+	fs.itable.PutInode(dirp)
+	fs.out <- res_FS_Link{err}
 }

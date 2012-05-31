@@ -122,7 +122,7 @@ func (fs *FileSystem) loop() {
 		case req_FS_Chmod:
 			// Code here
 		case req_FS_Link:
-			// Code here
+			fs.do_link(req.proc, req.oldpath, req.newpath)
 		case req_FS_Unlink:
 			fs.do_unlink(req.proc, req.path)
 		case req_FS_Mkdir:

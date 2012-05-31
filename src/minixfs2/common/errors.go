@@ -19,4 +19,5 @@ var (
 	ENOSPC    = errors.New("No space left on device")
 	ENOTDIR   = errors.New("Not a directory")
 	ENOTEMPTY = errors.New("Directory not empty")
+	EXDEV     = errors.New("Cross-device link")
 )
