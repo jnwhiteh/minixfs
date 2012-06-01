@@ -270,9 +270,9 @@ func (fs *FileSystem) do_shutdown() error {
 				fs.itable.PutInode(proc.workdir)
 			}
 			fs.itable.PutInode(proc.rootdir)
-			fs.bcache.Flush(ROOT_DEVICE)
 		}
 
+		fs.bcache.Flush(ROOT_DEVICE)
 		fs.bcache.Invalidate(ROOT_DEVICE)
 
 		fs.devinfo[ROOT_DEVICE].AllocTbl.Shutdown()
