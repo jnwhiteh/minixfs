@@ -63,6 +63,13 @@ func TestWrite(test *testing.T) {
 			ErrorHere(test, "Error mismatch at offset %d: expected '%s', got '%s'", pos, herr, gerr)
 		}
 
+		rip, err := fs.eatPath(proc, "/tmp/europarl-en.txt")
+		if err != nil {
+			FatalHere(test, "After write at position %d: could not locate newly created file: %s", pos, err)
+		} else {
+			fs.itable.PutInode(rip)
+		}
+
 		pos += gn
 	}
 
