@@ -6,6 +6,10 @@ import (
 	"testing"
 )
 
+func TestSimple(test *testing.T) {
+	TestShutdownWithRootProcExit(test)
+}
+
 func TestShutdownNoRootProcExit(test *testing.T) {
 	fs, _, err := OpenFileSystemFile("../../../minix3root.img")
 	if err != nil {
