@@ -77,7 +77,7 @@ func TestOpenClose(test *testing.T) {
 	//  * file server
 
 	// This test is fragile, so be careful with it!
-	expected := numgoros - 5
+	expected := numgoros - 4
 	if runtime.NumGoroutine() != expected {
 		test.Logf("Original stack:\n%s\n", stacknow)
 		newstack := make([]byte, 4096)

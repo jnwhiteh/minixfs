@@ -3,7 +3,7 @@ package fs
 import (
 	"encoding/binary"
 	"log"
-	"minixfs2/alloctbl"
+	bitmap "minixfs2/bitmap"
 	"minixfs2/bcache"
 	. "minixfs2/common"
 	"minixfs2/device"
@@ -52,7 +52,14 @@ func NewFileSystem(dev BlockDevice) (*FileSystem, *Process, error) {
 	fs.itable = inode.NewCache(fs.bcache, NR_DEVICES, NR_INODES)
 
 	devinfo.Devnum = ROOT_DEVICE
-	devinfo.AllocTbl = alloctbl.NewAllocTbl(devinfo, fs.bcache, ROOT_DEVICE)
+
+	if err := fs.bcache.MountDevice(ROOT_DEVICE, dev, devinfo); err != nil {
+		log.Printf("Could not mount root device: %s", err)
+		return nil, nil, err
+	}
+	fs.itable.MountDevice(ROOT_DEVICE, devinfo)
+
+	devinfo.AllocTbl = bitmap.NewBitmap(devinfo, fs.bcache, ROOT_DEVICE)
 
 	fs.devices[ROOT_DEVICE] = dev
 	fs.devinfo[ROOT_DEVICE] = devinfo
@@ -61,12 +68,6 @@ func NewFileSystem(dev BlockDevice) (*FileSystem, *Process, error) {
 
 	fs.in = make(chan reqFS)
 	fs.out = make(chan resFS)
-
-	if err := fs.bcache.MountDevice(ROOT_DEVICE, dev, devinfo); err != nil {
-		log.Printf("Could not mount root device: %s", err)
-		return nil, nil, err
-	}
-	fs.itable.MountDevice(ROOT_DEVICE, devinfo)
 
 	// Fetch the root inode
 	rip, err := fs.itable.GetInode(ROOT_DEVICE, ROOT_INODE)
