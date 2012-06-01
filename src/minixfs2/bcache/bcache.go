@@ -79,6 +79,9 @@ func NewLRUCache(numdevices int, numslots int, numhash int) BlockCache {
 	cache.buf_hash[0] = cache.front
 	cache.hash_mask = numhash - 1
 
+	cache.showdebug = false
+	cache.actuallywrite = false
+
 	// Start the main processing loop
 	go cache.loop()
 	return cache
@@ -109,9 +112,10 @@ func (c *LRUCache) loop() {
 			if req.devnum != NO_DEV {
 				b := req.bnum & c.hash_mask
 				for bp = c.buf_hash[b]; bp != nil; bp = bp.b_hash {
-
-					// we found what we were looking for!
-					break
+					if bp.Blocknum == req.bnum && bp.Devnum == req.devnum {
+						// we found what we were looking for!
+						break
+					}
 				}
 			}
 
