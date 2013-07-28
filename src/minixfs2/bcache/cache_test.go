@@ -8,7 +8,7 @@ import (
 )
 
 func getDevInfo(bsize int) *DeviceInfo {
-	info := (*DeviceInfo){}
+	info := new(DeviceInfo)
 	info.Blocksize = 64
 	return info
 }

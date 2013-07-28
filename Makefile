@@ -1,4 +1,5 @@
-all: minixfs fsck
+all:
+	GOPATH=$(PWD) go build all
 
 minixfs:
 	go build minixfs/fs
