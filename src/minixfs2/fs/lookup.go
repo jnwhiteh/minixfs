@@ -38,29 +38,25 @@ func (fs *FileSystem) lastDir(proc *Process, path string) (*Inode, string, error
 		return nil, "", ENOENT
 	}
 
-	// We're going to use this inode, so make a copy of it (read)
+	// We're going to use this inode, so make a copy of it
 	rip = fs.itable.DupInode(rip)
 
-	var pathlist []string
+	pathlist := strings.Split(path, string(filepath.Separator))
 	if filepath.IsAbs(path) {
-		pathlist = strings.Split(path, string(filepath.Separator))
 		pathlist = pathlist[1:]
-	} else {
-		pathlist = strings.Split(path, string(filepath.Separator))
 	}
 
+	// Scan the path component by component
 	for i := 0; i < len(pathlist)-1; i++ {
 		// Fetch the next component in the path
 		newrip, err := fs.advance(proc, rip, pathlist[i])
 
-		// Regardless of whether it was there or not, we're done with the
-		// current path level, so return that to the cache
+		// Current inode obsolete or irrelevant
 		fs.itable.PutInode(rip)
 		if newrip == nil || err != nil {
 			return nil, "", ENOENT
 		}
-		// The new inode is already locked (type Indode) so we don't have to
-		// do anything special.
+		// Continue to the next component
 		rip = newrip
 	}
 

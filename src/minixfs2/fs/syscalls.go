@@ -376,7 +376,6 @@ func (fs *FileSystem) do_open(proc *Process, path string, oflags int, omode uint
 			if oflags&O_TRUNC > 0 {
 				Truncate(rip, 0, fs.bcache)
 				// Flush the inode so it gets written on next block cache
-				// flush
 				fs.itable.FlushInode(rip)
 			}
 		case I_DIRECTORY:
