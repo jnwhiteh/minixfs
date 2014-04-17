@@ -1,7 +1,7 @@
 package fs
 
 import (
-	. "minixfs/common"
+	. "github.com/jnwhiteh/minixfs/common"
 )
 
 func Lookup(rip *Inode, name string) (bool, int, int) {

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	. "minixfs/common"
+	. "github.com/jnwhiteh/minixfs/common"
 )
 
 func PrintBlock(bp *CacheBlock, devinfo *DeviceInfo) {

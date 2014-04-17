@@ -1,7 +1,7 @@
 package inode
 
 import (
-	. "minixfs/common"
+	. "github.com/jnwhiteh/minixfs/common"
 )
 
 type req_InodeTbl_MountDevice struct {

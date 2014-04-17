@@ -1,7 +1,7 @@
 package bitmap
 
 import (
-	. "minixfs/common"
+	. "github.com/jnwhiteh/minixfs/common"
 )
 
 // Load the contents from disk into map.imap

@@ -3,8 +3,8 @@ package fs
 import (
 	"bytes"
 	"io/ioutil"
-	. "minixfs/common"
-	. "minixfs/testutils"
+	. "github.com/jnwhiteh/minixfs/common"
+	. "github.com/jnwhiteh/minixfs/testutils"
 	"os"
 	"testing"
 )

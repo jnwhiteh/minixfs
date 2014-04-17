@@ -1,7 +1,7 @@
 package file
 
 import (
-	. "minixfs/common"
+	. "github.com/jnwhiteh/minixfs/common"
 )
 
 type req_File_Read struct {

@@ -2,7 +2,7 @@ package device
 
 import (
 	"encoding/binary"
-	. "minixfs/common"
+	. "github.com/jnwhiteh/minixfs/common"
 	"os"
 )
 

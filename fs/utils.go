@@ -2,7 +2,7 @@ package fs
 
 import (
 	"math"
-	. "minixfs/common"
+	. "github.com/jnwhiteh/minixfs/common"
 )
 
 func (fs *FileSystem) new_node(proc *Process, path string, bits uint16, z0 uint) (*Inode, *Inode, string, error) {

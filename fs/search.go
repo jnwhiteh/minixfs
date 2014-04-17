@@ -3,7 +3,7 @@ package fs
 import (
 	"fmt"
 	"log"
-	. "minixfs/common"
+	. "github.com/jnwhiteh/minixfs/common"
 )
 
 type dirop int

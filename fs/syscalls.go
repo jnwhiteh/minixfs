@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"minixfs/alloctbl"
-	. "minixfs/common"
-	"minixfs/file"
+	"github.com/jnwhiteh/minixfs/alloctbl"
+	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/file"
 	"sync"
 )
 

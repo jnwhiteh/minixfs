@@ -3,8 +3,8 @@ package bcache
 import (
 	"fmt"
 	"log"
-	. "minixfs/common"
-	"minixfs/debug"
+	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/debug"
 	"sync"
 )
 

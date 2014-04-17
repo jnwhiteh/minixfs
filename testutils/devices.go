@@ -1,8 +1,8 @@
 package testutils
 
 import (
-	. "minixfs/common"
-	. "minixfs/device"
+	. "github.com/jnwhiteh/minixfs/common"
+	. "github.com/jnwhiteh/minixfs/device"
 	"testing"
 )
 

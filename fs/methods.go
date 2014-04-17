@@ -1,7 +1,7 @@
 package fs
 
 import (
-	. "minixfs/common"
+	. "github.com/jnwhiteh/minixfs/common"
 )
 
 func (s *FileSystem) Mount(proc *Process, dev BlockDevice, path string) error {

@@ -3,11 +3,11 @@ package fs
 import (
 	"encoding/binary"
 	"log"
-	bitmap "minixfs/bitmap"
-	"minixfs/bcache"
-	. "minixfs/common"
-	"minixfs/device"
-	"minixfs/inode"
+	bitmap "github.com/jnwhiteh/minixfs/bitmap"
+	"github.com/jnwhiteh/minixfs/bcache"
+	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/device"
+	"github.com/jnwhiteh/minixfs/inode"
 )
 
 type FileSystem struct {

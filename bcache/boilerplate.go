@@ -1,7 +1,7 @@
 package bcache
 
 import (
-	. "minixfs/common"
+	. "github.com/jnwhiteh/minixfs/common"
 )
 
 type req_BlockCache_MountDevice struct {

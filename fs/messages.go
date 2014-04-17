@@ -1,7 +1,7 @@
 package fs
 
 import (
-	. "minixfs/common"
+	. "github.com/jnwhiteh/minixfs/common"
 )
 
 type req_FS_Mount struct {

@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"io"
 	"io/ioutil"
-	. "minixfs/common"
+	. "github.com/jnwhiteh/minixfs/common"
 	"os"
 	"sync"
 )

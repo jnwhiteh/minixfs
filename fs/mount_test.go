@@ -2,8 +2,8 @@ package fs
 
 import (
 	"encoding/binary"
-	"minixfs/device"
-	. "minixfs/testutils"
+	"github.com/jnwhiteh/minixfs/device"
+	. "github.com/jnwhiteh/minixfs/testutils"
 	"testing"
 )
 

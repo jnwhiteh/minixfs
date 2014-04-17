@@ -1,8 +1,8 @@
 package fs
 
 import (
-	"minixfs/common"
-	. "minixfs/testutils"
+	"github.com/jnwhiteh/minixfs/common"
+	. "github.com/jnwhiteh/minixfs/testutils"
 	"testing"
 )
 

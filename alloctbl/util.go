@@ -1,7 +1,7 @@
 package alloctbl
 
 import (
-	. "minixfs/common"
+	. "github.com/jnwhiteh/minixfs/common"
 )
 
 func bitmapsize(nr_bits int, block_size int) int {

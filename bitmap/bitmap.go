@@ -2,7 +2,7 @@ package bitmap
 
 import "fmt"
 import "log"
-import . "minixfs/common"
+import . "github.com/jnwhiteh/minixfs/common"
 import "sync"
 
 const FS_BITCHUNK_BITS = 16 // the number of bits in a bitchunk_t
