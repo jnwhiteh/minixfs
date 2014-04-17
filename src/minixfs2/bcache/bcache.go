@@ -80,7 +80,7 @@ func NewLRUCache(numdevices int, numslots int, numhash int) BlockCache {
 	cache.hash_mask = numhash - 1
 
 	cache.showdebug = false
-	cache.actuallywrite = true
+	cache.actuallywrite = false
 
 	// Start the main processing loop
 	go cache.loop()
