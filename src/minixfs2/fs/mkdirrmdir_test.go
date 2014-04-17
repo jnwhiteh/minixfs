@@ -59,6 +59,9 @@ func TestMkdir(test *testing.T) {
 	if dirp.Nlinks != 2 {
 		ErrorHere(test, "Links mismatch expected %d, got %d", 2, dirp.Nlinks)
 	}
+	if dirp.Size != 128 {
+		ErrorHere(test, "Directory size mismatch expected %d, got %d", 128, dirp.Size)
+	}
 	fs.itable.PutInode(dirp)
 
 	// Remove the new directory

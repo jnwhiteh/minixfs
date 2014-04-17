@@ -2,6 +2,7 @@ package fs
 
 import (
 	"fmt"
+	"log"
 	. "minixfs2/common"
 )
 
@@ -55,6 +56,7 @@ func search_dir(dirp *Inode, path string, inum *int, op dirop) error {
 				if op == IS_EMPTY {
 					// If this succeeds, dir is not empty
 					if !dp.HasName(".") && !dp.HasName("..") {
+						log.Printf("Found entry: %s (%d)", dp.String(), dp.Inum)
 						match = true
 					}
 				} else {

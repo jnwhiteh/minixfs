@@ -2,6 +2,7 @@ package fs
 
 import (
 	"bytes"
+	"io/ioutil"
 	. "minixfs2/common"
 	. "minixfs2/testutils"
 	"os"
@@ -22,13 +23,19 @@ func TestWrite(test *testing.T) {
 	if err != nil {
 		FatalHere(test, "Could not open original file: %s", err)
 	}
-	if ofile.Close() != nil {
-		FatalHere(test, "Failed when closing original file: %s", err)
-	}
 
 	// Read the data for the entire file
 	filesize := 4489799 // known
-	filedata := make([]byte, filesize)
+	filedata, err := ioutil.ReadAll(ofile)
+	if err != nil {
+		FatalHere(test, "Failed when reading from original file: %s", err)
+	}
+	if filesize != len(filedata) {
+		FatalHere(test, "File content sizes differ: %v != %v", len(filedata), filesize)
+	}
+	if ofile.Close() != nil {
+		FatalHere(test, "Failed when closing original file: %s", err)
+	}
 
 	// Open the two files that will be written to
 	gfile, err := fs.Open(proc, "/tmp/europarl-en.txt", O_CREAT|O_TRUNC|O_RDWR, 0666)

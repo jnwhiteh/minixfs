@@ -39,6 +39,7 @@ func (fs *FileSystem) new_node(proc *Process, path string, bits uint16, z0 uint)
 	}
 	rip.Mode = bits
 	rip.Zone[0] = uint32(z0)
+	rip.Size = 0
 	// TODO: Add uid/gid here
 	rip.Nlinks++
 
