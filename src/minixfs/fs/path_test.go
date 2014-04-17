@@ -7,13 +7,9 @@ import (
 
 // Test that path lookups function properly
 func TestEatPath(test *testing.T) {
-	fs, err := OpenFileSystemFile("../../../minix3root.img")
+	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
 	if err != nil {
 		FatalHere(test, "Failed opening file system: %s", err)
-	}
-	proc, err := fs.Spawn(1, 022, "/")
-	if err != nil {
-		FatalHere(test, "Failed when spawning new process: %s", err)
 	}
 
 	// Fetch some additional inodes to ensure path lookup is functioning
@@ -51,21 +47,35 @@ func TestEatPath(test *testing.T) {
 		if err != nil {
 			FatalHere(test, "Failed when fetching inode for %s: %s", itest.path, err)
 		}
-		if itest.inum != -1 && rip.Inum() != itest.inum {
-			ErrorHere(test, "[%s] mismatch for inum got %d, expected %d", itest.path, rip.Inum(), itest.inum)
+		if itest.inum != -1 && rip.Inum != itest.inum {
+			ErrorHere(test, "[%s] mismatch for inum got %d, expected %d", itest.path, rip.Inum, itest.inum)
 		}
-		if itest.links != -1 && rip.Links() != itest.links {
-			ErrorHere(test, "[%s] mismatch for links got %d, expected %d", itest.path, rip.Links(), itest.links)
+		if itest.links != -1 && rip.Nlinks != uint16(itest.links) {
+			ErrorHere(test, "[%s] mismatch for links got %d, expected %d", itest.path, rip.Nlinks, itest.links)
 		}
-		if itest.size != -1 && rip.GetSize() != itest.size {
-			ErrorHere(test, "[%s] mismatch for size got %d, expected %d", itest.path, rip.GetSize(), itest.size)
+		if itest.size != -1 && rip.Size != int32(itest.size) {
+			ErrorHere(test, "[%s] mismatch for size got %d, expected %d", itest.path, rip.Size, itest.size)
 		}
 		for i := 0; i < 10; i++ {
-			if i < len(itest.zones) && rip.GetZone(i) != uint32(itest.zones[i]) {
-				ErrorHere(test, "[%s] mismatch for zone[%d] got %d, expected %d", i, itest.path, rip.GetZone(i), itest.zones[i])
+			if i < len(itest.zones) && rip.Zone[i] != uint32(itest.zones[i]) {
+				ErrorHere(test, "[%s] mismatch for zone[%d] got %d, expected %d", i, itest.path, rip.Zone[i], itest.zones[i])
 			}
 		}
-		fs.icache.PutInode(rip)
+
+		// Convert the test to use a relative path and then compare the inodes
+		if len(itest.path) > 1 {
+			relpath := itest.path[1:]
+			relrip, err := fs.eatPath(proc, relpath)
+			if err != nil {
+				ErrorHere(test, "Failed fetching relative path %s", relpath)
+			}
+			if relrip != rip {
+				ErrorHere(test, "Relative inode does not match absolute inode for path %s", itest.path)
+			}
+			fs.itable.PutInode(relrip)
+		}
+
+		fs.itable.PutInode(rip)
 	}
 
 	fs.Exit(proc)

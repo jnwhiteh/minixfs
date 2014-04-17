@@ -2,6 +2,25 @@ package common
 
 type BlockType int
 
+func (bt BlockType) String() string {
+	switch bt {
+	case INODE_BLOCK:
+		return "INODE_BLOCK"
+	case DIRECTORY_BLOCK:
+		return "DIRECTORY_BLOCK"
+	case INDIRECT_BLOCK:
+		return "INDIRECT_BLOCK"
+	case MAP_BLOCK:
+		return "MAP_BLOCK"
+	case FULL_DATA_BLOCK:
+		return "FULL_DATA_BLOCK"
+	case PARTIAL_DATA_BLOCK:
+		return "PARTIAL_DATA_BLOCK"
+	}
+
+	return "UNKNOWN_BLOCK"
+}
+
 const (
 	CHAR_BIT    = 8 // number of bits in a char
 	START_BLOCK = 2 // first block of FS (not counting SB)
@@ -98,7 +117,7 @@ const (
 
 	INODE_BLOCK        BlockType = 0 // inode block
 	DIRECTORY_BLOCK    BlockType = 1 // directory block
-	INDIRECT_BLOCK     BlockType = 2 // pointer block
+	INDIRECT_BLOCK     BlockType = 2 // indirect block
 	MAP_BLOCK          BlockType = 3 // bit map
 	FULL_DATA_BLOCK    BlockType = 5 // data, fully used
 	PARTIAL_DATA_BLOCK BlockType = 6 // data, partly used

@@ -3,36 +3,41 @@ package fs
 import (
 	. "minixfs/common"
 	. "minixfs/testutils"
+	"runtime"
 	"testing"
 )
 
-// Test that we can open a file an it is added to the files/filp tables
-func TestOpen(test *testing.T) {
-	fs, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
-	proc, err := fs.Spawn(1, 022, "/")
-	if err != nil {
-		FatalHere(test, "Failed when spawning new process: %s", err)
-	}
-
-	file, err := fs.Open(proc, "/sample/europarl-en.txt", O_RDONLY, 0666)
-	if err != nil {
-		FatalHere(test, "Failed opening file: %s", err)
-	}
+func checkFileAndCount(proc *Process, file Fd) (bool, int) {
+	filp := file.(*filp)
 
 	// Verify open file count and presence of *File entry
 	found := false
 	count := 0
 	for _, fi := range proc.files {
-		if fi == file {
+		if fi == filp {
 			found = true
 		}
 		if fi != nil {
 			count++
 		}
 	}
+
+	return found, count
+}
+
+// Test that we can open and close a file
+func TestOpenClose(test *testing.T) {
+	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
+	if err != nil {
+		FatalHere(test, "Failed opening file system: %s", err)
+	}
+
+	file, err := proc.Open("/sample/europarl-en.txt", O_RDONLY, 0666)
+	if err != nil {
+		FatalHere(test, "Failed opening file: %s", err)
+	}
+
+	found, count := checkFileAndCount(proc, file)
 
 	if !found {
 		FatalHere(test, "Did not find open file in proc.files")
@@ -41,98 +46,43 @@ func TestOpen(test *testing.T) {
 		FatalHere(test, "Open file count incorrect got %d, expected %d", count, 1)
 	}
 
-	if file.count != 1 {
-		FatalHere(test, "Filp count wrong got %d, expected %d", file.count, 1)
+	// Now close the file and make sure things are cleaned up
+	err = proc.Close(file)
+
+	found, count = checkFileAndCount(proc, file)
+
+	if found {
+		FatalHere(test, "Found file in process table, should not have")
+	}
+	if count != 0 {
+		FatalHere(test, "Open file count mismatch got %d, expected %d", count, 0)
 	}
 
-	// Check to make sure there is a global filp entry
-	found = false
-	count = 0
-	for _, fi := range fs.filps {
-		if fi == file.Filp {
-			found = true
-		}
-		if fi != nil {
-			count++
-		}
-	}
-
-	if !found {
-		FatalHere(test, "Did not find global filp entry")
-	}
-	if count != 1 {
-		FatalHere(test, "Global filp count wrong got %d, expected %d", count, 1)
-	}
+	// How many goroutines are open right now?
+	numgoros := runtime.NumGoroutine()
+	stacknow := make([]byte, 4096)
+	runtime.Stack(stacknow, true)
 
 	fs.Exit(proc)
 	err = fs.Shutdown()
 	if err != nil {
 		FatalHere(test, "Failed when shutting down filesystem: %s", err)
 	}
-}
 
-// Test that we close a file it is removed from fd/filp tables
-func TestClose(test *testing.T) {
-	fs, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
-	proc, err := fs.Spawn(1, 022, "/")
-	if err != nil {
-		FatalHere(test, "Failed when spawning new process: %s", err)
-	}
+	// We expect shutdown to have killed the following goroutines
+	//  * device
+	//  * block cache
+	//  * inode cache
+	//  * allocation table
+	//  * file server
 
-	file, err := fs.Open(proc, "/sample/europarl-en.txt", O_RDONLY, 0666)
-	if err != nil {
-		FatalHere(test, "Failed opening file: %s", err)
-	}
-
-	err = fs.Close(proc, file)
-	if err != nil {
-		FatalHere(test, "Failed closing file: %s", err)
-	}
-
-	// Verify open file count and presence of *File entry
-	found := false
-	count := 0
-	for _, fi := range proc.files {
-		if fi == file {
-			found = true
-		}
-		if fi != nil {
-			count++
-		}
-	}
-
-	if found {
-		FatalHere(test, "Found closed file in proc.files")
-	}
-	if count != 0 {
-		FatalHere(test, "Open file count incorrect got %d, expected %d", count, 0)
-	}
-
-	// Check to make sure the filp is not in the global table anymore
-	found = false
-	count = 0
-	for _, fi := range fs.filps {
-		if fi == file.Filp && fi != nil {
-			found = true
-		}
-		if fi != nil {
-			count++
-		}
-	}
-
-	if found {
-		FatalHere(test, "Found global filp entry for closed file")
-	}
-	if count != 0 {
-		FatalHere(test, "Global filp count wrong got %d, expected %d", count, 0)
-	}
-
-	fs.Exit(proc)
-	err = fs.Shutdown()
-	if err != nil {
-		FatalHere(test, "Failed when shutting down filesystem: %s", err)
+	// This test is fragile, so be careful with it!
+	expected := numgoros - 4
+	if runtime.NumGoroutine() != expected {
+		test.Logf("Original stack:\n%s\n", stacknow)
+		newstack := make([]byte, 4096)
+		runtime.Stack(newstack, true)
+		test.Logf("Current stack:\n%s\n", newstack)
+		FatalHere(test, "Goroutine count mismatch got %d, expected %d", expected, runtime.NumGoroutine())
 	}
 }

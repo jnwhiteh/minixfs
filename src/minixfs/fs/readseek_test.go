@@ -14,13 +14,9 @@ import (
 // number of bytes read per call is set to (4/3) of the block size of the file
 // system to ensure that we hit all codepaths.
 func TestRead(test *testing.T) {
-	fs, err := OpenFileSystemFile("../../../minix3root.img")
+	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
 	if err != nil {
 		FatalHere(test, "Failed opening file system: %s", err)
-	}
-	proc, err := fs.Spawn(1, 022, "/")
-	if err != nil {
-		FatalHere(test, "Failed when spawning new process: %s", err)
 	}
 	file, err := fs.Open(proc, "/sample/europarl-en.txt", O_RDONLY, 0666)
 	if err != nil {
@@ -41,7 +37,7 @@ func TestRead(test *testing.T) {
 	offset := 0
 
 	for {
-		n, err := fs.Read(proc, file, data)
+		n, err := file.Read(data)
 		od, oerr := ofile.Read(odata)
 
 		if n != od {
@@ -72,13 +68,9 @@ func TestRead(test *testing.T) {
 // TestRead, by comparing to the POSIX API provided by the Go standard
 // libraries corresponding calls.
 func TestSeek(test *testing.T) {
-	fs, err := OpenFileSystemFile("../../../minix3root.img")
+	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
 	if err != nil {
 		FatalHere(test, "Failed opening file system: %s", err)
-	}
-	proc, err := fs.Spawn(1, 022, "/")
-	if err != nil {
-		FatalHere(test, "Failed when spawning new process: %s", err)
 	}
 	file, err := fs.Open(proc, "/sample/europarl-en.txt", O_RDONLY, 0666)
 	if err != nil {
@@ -110,14 +102,14 @@ func TestSeek(test *testing.T) {
 	odata := make([]byte, numbytes)
 
 	for idx, testData := range seekOps {
-		pos, err := fs.Seek(proc, file, testData.pos, testData.whence)
+		pos, err := file.Seek(testData.pos, testData.whence)
 		opos, err := ofile.Seek(int64(testData.pos), testData.whence)
 
 		if int64(pos) != opos {
 			FatalHere(test, "Seek position mismatch in test %d: exected %d, got %d", idx, opos, pos)
 		}
 
-		n, err := fs.Read(proc, file, data)
+		n, err := file.Read(data)
 		od, oerr := ofile.Read(odata)
 
 		if n != od {

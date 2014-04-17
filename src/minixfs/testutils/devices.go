@@ -53,6 +53,6 @@ func (dev *BlockingDevice) Read(buf interface{}, pos int64) error {
 	return dev.BlockDevice.Read(buf, pos)
 }
 
-func (dev *BlockingDevice) Close() error {
-	return dev.BlockDevice.Close()
-}
+//func (dev *BlockingDevice) Close() error {
+//	return dev.BlockDevice.Close()
+//}

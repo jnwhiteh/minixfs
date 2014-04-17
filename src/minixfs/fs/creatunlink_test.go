@@ -9,24 +9,20 @@ import (
 // Create a new file on the file system, ensure that it is given the
 // appropriate inode number and created successfully. Then unlink the file
 // so the file system remains in the same state it began in.
-func TestCreate(test *testing.T) {
-	fs, err := OpenFileSystemFile("../../../minix3root.img")
+func TestCreateThenUnlink(test *testing.T) {
+	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
 	if err != nil {
 		FatalHere(test, "Failed opening file system: %s", err)
 	}
-	proc, err := fs.Spawn(1, 022, "/")
-	if err != nil {
-		FatalHere(test, "Failed when spawning new process: %s", err)
-	}
 
-	bitmap := fs.bitmaps[proc.rootdir.Devnum()]
+	alloc := proc.rootdir.Devinfo.AllocTbl
 
 	// Check the state of the bitmap before creating this file
-	inum, err := bitmap.AllocInode()
+	inum, err := alloc.AllocInode()
 	if err != nil {
 		FatalHere(test, "Error pre-allocating an inode: %s", err)
 	}
-	bitmap.FreeInode(inum)
+	alloc.FreeInode(inum)
 
 	// Get block 13 and print it before we make any changes
 	//bp := fs.bcache.GetBlock(ROOT_DEVICE, 13, INODE_BLOCK, NORMAL)
@@ -37,8 +33,9 @@ func TestCreate(test *testing.T) {
 	if err != nil {
 		FatalHere(test, "Failed when creating new file: %s", err)
 	}
-	if file.inode.Inum() != inum {
-		ErrorHere(test, "Inum mismatch expected %d, got %d", inum, file.inode.Inum())
+	filp := file.(*filp)
+	if filp.inode.Inum != inum {
+		ErrorHere(test, "Inum mismatch expected %d, got %d", inum, filp.inode.Inum)
 	}
 
 	// Close and unlink the new file
@@ -52,14 +49,14 @@ func TestCreate(test *testing.T) {
 	}
 
 	// The bit we just freed should be our next
-	inum2, err := bitmap.AllocInode()
+	inum2, err := alloc.AllocInode()
 	if err != nil {
 		FatalHere(test, "Failed when checking inode allocation: %s", err)
 	}
 	if inum != inum2 {
 		FatalHere(test, "Inode mismatch expected %d, got %d", inum, inum2)
 	}
-	bitmap.FreeInode(inum2)
+	alloc.FreeInode(inum2)
 
 	fs.Exit(proc)
 	err = fs.Shutdown()

@@ -2,14 +2,14 @@ package fs
 
 import (
 	"encoding/binary"
-	device "minixfs/device"
+	"minixfs/device"
 	. "minixfs/testutils"
 	"testing"
 )
 
 // Test that mounting a device (on /mnt) functions properly
 func TestMount(test *testing.T) {
-	fs, err := OpenFileSystemFile("../../../minix3root.img")
+	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
 	if err != nil {
 		FatalHere(test, "Failed opening file system: %s", err)
 	}
@@ -21,32 +21,27 @@ func TestMount(test *testing.T) {
 	}
 
 	// Mount it on /mnt, so that is a mirror of the root filesystem
-	err = fs.Mount(dev, "/mnt")
+	err = fs.Mount(proc, dev, "/mnt")
 	if err != nil {
 		FatalHere(test, "Failed when mounting: %s", err)
 	}
 
-	proc, err := fs.Spawn(1, 022, "/")
-	if err != nil {
-		FatalHere(test, "Failed spawning new process: %s", err)
-	}
 	rip, err := fs.eatPath(proc, "/mnt/sample/europarl-en.txt")
 	if err != nil {
 		FatalHere(test, "Failed fetching inode: %s", err)
 	}
 
-	if rip.Inum() != 542 {
-		FatalHere(test, "Data mismatch for inum got %d, expected %d", rip.Inum(), 542)
+	if rip.Inum != 542 {
+		FatalHere(test, "Data mismatch for inum got %d, expected %d", rip.Inum, 542)
 	}
-	if rip.Links() != 1 {
-		FatalHere(test, "Data mismatch for links got %d, expected %d", rip.Links(), 1)
+	if rip.Nlinks != 1 {
+		FatalHere(test, "Data mismatch for links got %d, expected %d", rip.Nlinks, 1)
 	}
-	if rip.GetSize() != 4489799 {
-		FatalHere(test, "Data mismatch for size got %d, expected %d", rip.GetSize(), 4489799)
+	if rip.Size != 4489799 {
+		FatalHere(test, "Data mismatch for size got %d, expected %d", rip.Size, 4489799)
 	}
 
-	fs.icache.PutInode(rip)
-	fs.Exit(proc)
+	fs.itable.PutInode(rip)
 
 	err = fs.Shutdown()
 	if err != nil {
@@ -56,7 +51,7 @@ func TestMount(test *testing.T) {
 
 // Test that unmounting restores the file system to normal
 func TestUnmount(test *testing.T) {
-	fs, err := OpenFileSystemFile("../../../minix3root.img")
+	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
 	if err != nil {
 		FatalHere(test, "Failed opening file system: %s", err)
 	}
@@ -68,31 +63,32 @@ func TestUnmount(test *testing.T) {
 	}
 
 	// Mount it on /mnt, so that is a mirror of the root filesystem
-	err = fs.Mount(dev, "/mnt")
+	err = fs.Mount(proc, dev, "/mnt")
 	if err != nil {
 		FatalHere(test, "Failed when mounting: %s", err)
 	}
-	err = fs.Unmount(dev)
+	err = fs.Unmount(proc, "/mnt")
 	if err != nil {
 		FatalHere(test, "Failed when unmounting: %s", err)
 	}
 
-	proc, err := fs.Spawn(1, 022, "/mnt")
+	// Now check to make sure that things have been returned to normal
+	rip, err := fs.eatPath(proc, "/mnt")
 	if err != nil {
-		FatalHere(test, "Failed spawning new process: %s", err)
-	}
-	rip := fs.icache.RLockInode(proc.rootdir)
-	if rip.Inum() != 518 {
-		FatalHere(test, "Data mismatch for inum got %d, expected %d", rip.Inum(), 518)
-	}
-	if rip.Links() != 2 {
-		FatalHere(test, "Data mismatch for links got %d, expected %d", rip.Links(), 2)
-	}
-	if rip.GetSize() != 128 {
-		FatalHere(test, "Data mismatch for size got %d, expected %d", rip.GetSize(), 128)
+		FatalHere(test, "Could not fetch path /mnt: %s", err)
 	}
 
-	fs.Exit(proc)
+	if rip.Inum != 518 {
+		FatalHere(test, "Data mismatch for inum got %d, expected %d", rip.Inum, 518)
+	}
+	if rip.Nlinks != 2 {
+		FatalHere(test, "Data mismatch for links got %d, expected %d", rip.Nlinks, 2)
+	}
+	if rip.Size != 128 {
+		FatalHere(test, "Data mismatch for size got %d, expected %d", rip.Size, 128)
+	}
+
+	fs.itable.PutInode(rip)
 
 	err = fs.Shutdown()
 	if err != nil {

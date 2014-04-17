@@ -7,7 +7,7 @@ import (
 	. "minixfs/common"
 )
 
-func PrintBlock(bp *CacheBlock, devinfo DeviceInfo) {
+func PrintBlock(bp *CacheBlock, devinfo *DeviceInfo) {
 	switch bp.Block.(type) {
 	case DirectoryBlock:
 		// Print the directory block entries
@@ -23,7 +23,7 @@ func PrintBlock(bp *CacheBlock, devinfo DeviceInfo) {
 		// Print which inodes these are, so need to convert from block number
 		// to inode number.
 		block_offset := devinfo.MapOffset
-		inum := ((bp.Blockno - block_offset) * (devinfo.Blocksize / V2_INODE_SIZE)) + 1
+		inum := ((bp.Blocknum - block_offset) * (devinfo.Blocksize / V2_INODE_SIZE)) + 1
 		buf := bytes.NewBuffer(nil)
 		bdata := bp.Block.(InodeBlock)
 		fmt.Fprintf(buf, "%8s %-16s %8s %8s %s\n", "INODE #", "MODE", "NLINKS", "SIZE", "ZONES")

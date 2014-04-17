@@ -2,6 +2,7 @@ package fs
 
 import (
 	"bytes"
+	"io/ioutil"
 	. "minixfs/common"
 	. "minixfs/testutils"
 	"os"
@@ -13,26 +14,28 @@ import (
 // time) and comparing the returns from these functions. Then compare the
 // written data to the original data to make sure it was written correctly.
 func TestWrite(test *testing.T) {
-	fs, err := OpenFileSystemFile("../../../minix3root.img")
+	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
 	if err != nil {
 		FatalHere(test, "Failed opening file system: %s", err)
-	}
-	proc, err := fs.Spawn(1, 022, "/")
-	if err != nil {
-		FatalHere(test, "Failed when spawning new process: %s", err)
 	}
 
 	ofile, err := os.OpenFile("../../../europarl-en.txt", os.O_RDONLY, 0666)
 	if err != nil {
 		FatalHere(test, "Could not open original file: %s", err)
 	}
-	if ofile.Close() != nil {
-		FatalHere(test, "Failed when closing original file: %s", err)
-	}
 
 	// Read the data for the entire file
 	filesize := 4489799 // known
-	filedata := make([]byte, filesize)
+	filedata, err := ioutil.ReadAll(ofile)
+	if err != nil {
+		FatalHere(test, "Failed when reading from original file: %s", err)
+	}
+	if filesize != len(filedata) {
+		FatalHere(test, "File content sizes differ: %v != %v", len(filedata), filesize)
+	}
+	if ofile.Close() != nil {
+		FatalHere(test, "Failed when closing original file: %s", err)
+	}
 
 	// Open the two files that will be written to
 	gfile, err := fs.Open(proc, "/tmp/europarl-en.txt", O_CREAT|O_TRUNC|O_RDWR, 0666)
@@ -57,7 +60,7 @@ func TestWrite(test *testing.T) {
 		}
 		data := filedata[pos:endpos]
 
-		gn, gerr := fs.Write(proc, gfile, data)
+		gn, gerr := gfile.Write(data)
 		hn, herr := hfile.Write(data)
 
 		if gn != hn {
@@ -65,6 +68,13 @@ func TestWrite(test *testing.T) {
 		}
 		if gerr != herr {
 			ErrorHere(test, "Error mismatch at offset %d: expected '%s', got '%s'", pos, herr, gerr)
+		}
+
+		rip, err := fs.eatPath(proc, "/tmp/europarl-en.txt")
+		if err != nil {
+			FatalHere(test, "After write at position %d: could not locate newly created file: %s", pos, err)
+		} else {
+			fs.itable.PutInode(rip)
 		}
 
 		pos += gn
@@ -75,9 +85,9 @@ func TestWrite(test *testing.T) {
 	}
 
 	// Seek to beginning of file
-	fs.Seek(proc, gfile, 0, 0)
+	gfile.Seek(0, 0)
 	written := make([]byte, filesize)
-	n, err := fs.Read(proc, gfile, written)
+	n, err := gfile.Read(written)
 	if n != filesize {
 		ErrorHere(test, "Verify count mismatch expected %d, got %d", filesize, n)
 	}

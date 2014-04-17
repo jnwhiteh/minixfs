@@ -2,7 +2,6 @@ package fs
 
 import (
 	. "minixfs/common"
-	"minixfs/inode"
 	. "minixfs/testutils"
 	"testing"
 )
@@ -11,16 +10,12 @@ import (
 // appropriate number/contents, then rmdir the file and check that the file
 // system is returned to its initial state.
 func TestMkdir(test *testing.T) {
-	fs, err := OpenFileSystemFile("../../../minix3root.img")
+	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
 	if err != nil {
 		FatalHere(test, "Failed opening file system: %s", err)
 	}
-	proc, err := fs.Spawn(1, 022, "/")
-	if err != nil {
-		FatalHere(test, "Failed when spawning new process: %s", err)
-	}
 
-	bitmap := fs.bitmaps[proc.rootdir.Devnum()]
+	bitmap := proc.rootdir.Devinfo.AllocTbl
 
 	// Check the state of the bitmaps before creating this file
 	inum, err := bitmap.AllocInode()
@@ -45,26 +40,29 @@ func TestMkdir(test *testing.T) {
 	if err != nil {
 		FatalHere(test, "Failed when looking up new directory: %s", err)
 	}
-	if dirp.Inum() != inum {
-		ErrorHere(test, "Inum mismatch expected %d, got %d", inum, dirp.Inum())
+	if dirp.Inum != inum {
+		ErrorHere(test, "Inum mismatch expected %d, got %d", inum, dirp.Inum)
 	}
-	ok, devnum, inum := inode.Lookup(dirp, ".")
+	ok, devnum, inum := Lookup(dirp, ".")
 	if !ok {
 		ErrorHere(test, "Current directory . lookup failed")
 	}
-	if devnum != dirp.Devnum() {
-		ErrorHere(test, "Current directory . devnum mismatch expected %d, got %d", dirp.Devnum(), devnum)
+	if devnum != dirp.Devinfo.Devnum {
+		ErrorHere(test, "Current directory . devnum mismatch expected %d, got %d", dirp.Devinfo.Devnum, devnum)
 	}
-	if inum != dirp.Inum() {
-		ErrorHere(test, "Current directory . inum mismatch expected %d, got %d", dirp.Inum(), inum)
+	if inum != dirp.Inum {
+		ErrorHere(test, "Current directory . inum mismatch expected %d, got %d", dirp.Inum, inum)
 	}
 	if !dirp.IsDirectory() {
 		ErrorHere(test, "New directory is not a directory")
 	}
-	if dirp.Links() != 2 {
-		ErrorHere(test, "Links mismatch expected %d, got %d", 2, dirp.Links())
+	if dirp.Nlinks != 2 {
+		ErrorHere(test, "Links mismatch expected %d, got %d", 2, dirp.Nlinks)
 	}
-	fs.icache.PutInode(dirp)
+	if dirp.Size != 128 {
+		ErrorHere(test, "Directory size mismatch expected %d, got %d", 128, dirp.Size)
+	}
+	fs.itable.PutInode(dirp)
 
 	// Remove the new directory
 	err = fs.Rmdir(proc, "/tmp/new_directory")

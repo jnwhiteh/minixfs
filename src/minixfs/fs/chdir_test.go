@@ -1,7 +1,6 @@
 package fs
 
 import (
-	. "minixfs/common"
 	. "minixfs/testutils"
 	"testing"
 )
@@ -9,28 +8,30 @@ import (
 // Change the working directory of the process, and verify that we can open a
 // file using the relative path.
 func TestChdir(test *testing.T) {
-	fs, err := OpenFileSystemFile("../../../minix3root.img")
+	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
 	if err != nil {
 		FatalHere(test, "Failed opening file system: %s", err)
 	}
-	proc, err := fs.Spawn(1, 022, "/")
-	if err != nil {
-		FatalHere(test, "Failed when spawning new process: %s", err)
-	}
 
 	// Change into /var and then try to open run/syslogd.pid
-	if err = fs.Chdir(proc, "/var"); err != nil {
+	if err = proc.Chdir("/var"); err != nil {
 		FatalHere(test, "Failed to change directory: %s", err)
 	}
-	if proc.workdir.Inum() != 543 {
-		FatalHere(test, "Got wrong inode expected %d, got %d", 543, proc.workdir.Inum())
+	if proc.workdir.Inum != 543 {
+		FatalHere(test, "Got wrong inode expected %d, got %d", 543, proc.workdir.Inum)
 	}
-	_, err = fs.Open(proc, "run/syslogd.pid", O_RDONLY, 0666)
+
+	// Fetch something with a relative path
+	rip, err := fs.eatPath(proc, "run/syslogd.pid")
 	if err != nil {
 		FatalHere(test, "Could not open relative file: %s", err)
 	}
+	if rip.Inum != 481 {
+		FatalHere(test, "Got wrong inode expected %d, got %d", 481, rip.Inum)
+	}
 
-	fs.Exit(proc)
+	fs.itable.PutInode(rip)
+
 	err = fs.Shutdown()
 	if err != nil {
 		FatalHere(test, "Failed when shutting down filesystem: %s", err)
