@@ -3,7 +3,7 @@ package fs
 import (
 	"encoding/binary"
 	"log"
-	bitmap "github.com/jnwhiteh/minixfs/bitmap"
+	"github.com/jnwhiteh/minixfs/alloctbl"
 	"github.com/jnwhiteh/minixfs/bcache"
 	. "github.com/jnwhiteh/minixfs/common"
 	"github.com/jnwhiteh/minixfs/device"
@@ -59,7 +59,7 @@ func NewFileSystem(dev BlockDevice) (*FileSystem, *Process, error) {
 	}
 	fs.itable.MountDevice(ROOT_DEVICE, devinfo)
 
-	devinfo.AllocTbl = bitmap.NewBitmap(devinfo, fs.bcache, ROOT_DEVICE)
+	devinfo.AllocTbl = alloctbl.NewAllocTbl(devinfo, fs.bcache, ROOT_DEVICE)
 
 	fs.devices[ROOT_DEVICE] = dev
 	fs.devinfo[ROOT_DEVICE] = devinfo
