@@ -14,15 +14,8 @@ import (
 // time) and comparing the returns from these functions. Then compare the
 // written data to the original data to make sure it was written correctly.
 func TestWrite(test *testing.T) {
-	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
-
-	ofile, err := os.OpenFile("../../../europarl-en.txt", os.O_RDONLY, 0666)
-	if err != nil {
-		FatalHere(test, "Could not open original file: %s", err)
-	}
+	fs, proc := OpenMinixImage(test)
+	ofile := OpenEuroparl(test)
 
 	// Read the data for the entire file
 	filesize := 4489799 // known

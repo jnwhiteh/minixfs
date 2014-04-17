@@ -27,10 +27,7 @@ func checkFileAndCount(proc *Process, file Fd) (bool, int) {
 
 // Test that we can open and close a file
 func TestOpenClose(test *testing.T) {
-	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
+	fs, proc := OpenMinixImage(test)
 
 	file, err := proc.Open("/sample/europarl-en.txt", O_RDONLY, 0666)
 	if err != nil {

@@ -10,11 +10,7 @@ import (
 // appropriate inode number and created successfully. Then unlink the file
 // so the file system remains in the same state it began in.
 func TestCreateThenUnlink(test *testing.T) {
-	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
-
+	fs, proc := OpenMinixImage(test)
 	alloc := proc.rootdir.Devinfo.AllocTbl
 
 	// Check the state of the bitmap before creating this file

@@ -7,10 +7,7 @@ import (
 
 // Test that path lookups function properly
 func TestEatPath(test *testing.T) {
-	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
+	fs, proc := OpenMinixImage(test)
 
 	// Fetch some additional inodes to ensure path lookup is functioning
 	// properly.
@@ -79,7 +76,7 @@ func TestEatPath(test *testing.T) {
 	}
 
 	fs.Exit(proc)
-	err = fs.Shutdown()
+	err := fs.Shutdown()
 	if err != nil {
 		FatalHere(test, "Failed when shutting down filesystem: %s", err)
 	}

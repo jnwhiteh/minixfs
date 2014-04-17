@@ -9,13 +9,11 @@ import (
 
 // Test that mounting a device (on /mnt) functions properly
 func TestMount(test *testing.T) {
-	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
+	fs, proc := OpenMinixImage(test)
 
 	// Create a secondary device to mount
-	dev, err := device.NewFileDevice("../../../minix3root.img", binary.LittleEndian)
+	imageFilename := getExtraFilename("minix3root.img")
+	dev, err := device.NewFileDevice(imageFilename, binary.LittleEndian)
 	if err != nil {
 		FatalHere(test, "Failed when creating new device: %s", err)
 	}
@@ -51,13 +49,11 @@ func TestMount(test *testing.T) {
 
 // Test that unmounting restores the file system to normal
 func TestUnmount(test *testing.T) {
-	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
+	fs, proc := OpenMinixImage(test)
 
 	// Create a secondary device to mount
-	dev, err := device.NewFileDevice("../../../minix3root.img", binary.LittleEndian)
+	imageFilename := getExtraFilename("minix3root.img")
+	dev, err := device.NewFileDevice(imageFilename, binary.LittleEndian)
 	if err != nil {
 		FatalHere(test, "Failed when creating new device: %s", err)
 	}

@@ -8,13 +8,10 @@ import (
 // Change the working directory of the process, and verify that we can open a
 // file using the relative path.
 func TestChdir(test *testing.T) {
-	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
+	fs, proc := OpenMinixImage(test)
 
 	// Change into /var and then try to open run/syslogd.pid
-	if err = proc.Chdir("/var"); err != nil {
+	if err := proc.Chdir("/var"); err != nil {
 		FatalHere(test, "Failed to change directory: %s", err)
 	}
 	if proc.workdir.Inum != 543 {

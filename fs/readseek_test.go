@@ -5,7 +5,6 @@ import (
 	"io"
 	. "github.com/jnwhiteh/minixfs/common"
 	. "github.com/jnwhiteh/minixfs/testutils"
-	"os"
 	"testing"
 )
 
@@ -14,19 +13,13 @@ import (
 // number of bytes read per call is set to (4/3) of the block size of the file
 // system to ensure that we hit all codepaths.
 func TestRead(test *testing.T) {
-	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
+	fs, proc := OpenMinixImage(test)
 	file, err := fs.Open(proc, "/sample/europarl-en.txt", O_RDONLY, 0666)
 	if err != nil {
 		FatalHere(test, "Failed when opening file: %s", err)
 	}
 
-	ofile, err := os.OpenFile("../../../europarl-en.txt", os.O_RDONLY, 0666)
-	if err != nil {
-		FatalHere(test, "Could not open original file: %s", err)
-	}
+	ofile := OpenEuroparl(test)
 
 	// Read and compare the two files
 	blocksize := fs.devinfo[ROOT_DEVICE].Blocksize
@@ -68,19 +61,14 @@ func TestRead(test *testing.T) {
 // TestRead, by comparing to the POSIX API provided by the Go standard
 // libraries corresponding calls.
 func TestSeek(test *testing.T) {
-	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
+	fs, proc := OpenMinixImage(test)
+
 	file, err := fs.Open(proc, "/sample/europarl-en.txt", O_RDONLY, 0666)
 	if err != nil {
 		FatalHere(test, "Failed when opening file: %s", err)
 	}
 
-	ofile, err := os.OpenFile("../../../europarl-en.txt", os.O_RDONLY, 0666)
-	if err != nil {
-		FatalHere(test, "Could not open original file: %s", err)
-	}
+	ofile := OpenEuroparl(test)
 
 	type seekData struct {
 		whence int

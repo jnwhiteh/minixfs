@@ -10,11 +10,7 @@ import (
 // appropriate number/contents, then rmdir the file and check that the file
 // system is returned to its initial state.
 func TestMkdir(test *testing.T) {
-	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
-
+	fs, proc := OpenMinixImage(test)
 	bitmap := proc.rootdir.Devinfo.AllocTbl
 
 	// Check the state of the bitmaps before creating this file

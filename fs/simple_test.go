@@ -11,25 +11,17 @@ func TestSimple(test *testing.T) {
 }
 
 func TestShutdownNoRootProcExit(test *testing.T) {
-	fs, _, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
-
-	err = fs.Shutdown()
+	fs, _ := OpenMinixImage(test)
+	err := fs.Shutdown()
 	if err != nil {
 		FatalHere(test, "Failed shutting down: %s", err)
 	}
 }
 
 func TestShutdownWithRootProcExit(test *testing.T) {
-	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
-
+	fs, proc := OpenMinixImage(test)
 	proc.Exit()
-	err = fs.Shutdown()
+	err := fs.Shutdown()
 	if err != nil {
 		FatalHere(test, "Failed shutting down: %s", err)
 	}
@@ -37,10 +29,7 @@ func TestShutdownWithRootProcExit(test *testing.T) {
 
 // Ensure cleanup happens properly with fork/exit
 func TestForkWithExit(test *testing.T) {
-	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
+	fs, proc := OpenMinixImage(test)
 
 	child, err := proc.Fork()
 	if err != nil {
@@ -56,12 +45,9 @@ func TestForkWithExit(test *testing.T) {
 
 // Ensure that an open process prevents clean shutdown
 func TestSpawnNoExit(test *testing.T) {
-	fs, proc, err := OpenFileSystemFile("../../../minix3root.img")
-	if err != nil {
-		FatalHere(test, "Failed opening file system: %s", err)
-	}
+	fs, proc := OpenMinixImage(test)
 
-	_, err = proc.Fork()
+	_, err := proc.Fork()
 	if err != nil {
 		FatalHere(test, "Failed when spawning new process: %s", err)
 	}
