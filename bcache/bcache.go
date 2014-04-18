@@ -3,7 +3,7 @@ package bcache
 import (
 	"fmt"
 	"log"
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 	"github.com/jnwhiteh/minixfs/debug"
 	"sync"
 )
@@ -11,7 +11,7 @@ import (
 // An elaboration of the CacheBlock type, decorated with the members we need
 // to handle the LRU cache policy.
 type lru_buf struct {
-	*CacheBlock
+	*common.CacheBlock
 
 	count int      // the number of clients of this block
 	next  *lru_buf // used to link all free bufs in a chain
@@ -23,11 +23,11 @@ type lru_buf struct {
 	m       *sync.Mutex          // mutex for the waiting slice
 }
 
-var LRU_ALLINUSE *CacheBlock = new(CacheBlock)
+var LRU_ALLINUSE *common.CacheBlock = new(common.CacheBlock)
 
 type LRUCache struct {
-	devices []BlockDevice
-	devinfo []*DeviceInfo
+	devices []common.BlockDevice
+	devinfo []*common.DeviceInfo
 
 	buf       []*lru_buf // static list of cache blocks
 	buf_hash  []*lru_buf // the buffer hash table
@@ -43,10 +43,10 @@ type LRUCache struct {
 }
 
 // NewLRUCache creates a new LRUCache with the given size
-func NewLRUCache(numdevices int, numslots int, numhash int) BlockCache {
+func NewLRUCache(numdevices int, numslots int, numhash int) common.BlockCache {
 	cache := &LRUCache{
-		devices:  make([]BlockDevice, numdevices),
-		devinfo:  make([]*DeviceInfo, numdevices),
+		devices:  make([]common.BlockDevice, numdevices),
+		devinfo:  make([]*common.DeviceInfo, numdevices),
 		buf:      make([]*lru_buf, numslots),
 		buf_hash: make([]*lru_buf, numhash),
 		in:       make(chan reqBlockCache),
@@ -56,8 +56,8 @@ func NewLRUCache(numdevices int, numslots int, numhash int) BlockCache {
 	// Create all of the entries in buf ahead of time
 	for i := 0; i < numslots; i++ {
 		cache.buf[i] = new(lru_buf)
-		cache.buf[i].CacheBlock = new(CacheBlock)
-		cache.buf[i].Devnum = NO_DEV
+		cache.buf[i].CacheBlock = new(common.CacheBlock)
+		cache.buf[i].Devnum = common.NO_DEV
 		cache.buf[i].m = new(sync.Mutex)
 	}
 
@@ -94,7 +94,7 @@ func (c *LRUCache) loop() {
 		switch req := req.(type) {
 		case req_BlockCache_MountDevice:
 			if c.devices[req.devnum] != nil {
-				c.out <- res_BlockCache_MountDevice{EBUSY}
+				c.out <- res_BlockCache_MountDevice{common.EBUSY}
 				continue
 			}
 			c.devices[req.devnum] = req.dev
@@ -109,7 +109,7 @@ func (c *LRUCache) loop() {
 
 			// search for the desired block in the cache
 			var bp *lru_buf
-			if req.devnum != NO_DEV {
+			if req.devnum != common.NO_DEV {
 				b := req.bnum & c.hash_mask
 				for bp = c.buf_hash[b]; bp != nil; bp = bp.b_hash {
 					if bp.Blocknum == req.bnum && bp.Devnum == req.devnum {
@@ -176,7 +176,7 @@ func (c *LRUCache) loop() {
 		case req_BlockCache_Shutdown:
 			for i := 0; i < len(c.devices); i++ {
 				if c.devices[i] != nil {
-					c.out <- res_BlockCache_Shutdown{EBUSY}
+					c.out <- res_BlockCache_Shutdown{common.EBUSY}
 					continue
 				}
 			}
@@ -218,7 +218,7 @@ func (c *LRUCache) evictBlock() *lru_buf {
 	// If the block taken is dirty, make it clean by writing it to the disk.
 	// Avoid hysterisis by flushing all other dirty blocks for the same
 	// device.
-	if bp.Devnum != NO_DEV && bp.Dirty {
+	if bp.Devnum != common.NO_DEV && bp.Dirty {
 		c.flush(bp.Devnum)
 	}
 
@@ -228,7 +228,7 @@ func (c *LRUCache) evictBlock() *lru_buf {
 // loadBlock loads a specified block from a given device into the buffer slot
 // 'bp'. This function requires that the specified device is a valid device,
 // as no further error checking is performed here.
-func (c *LRUCache) loadBlock(bp *lru_buf, dev, bnum int, btype BlockType, only_search int) error {
+func (c *LRUCache) loadBlock(bp *lru_buf, dev, bnum int, btype common.BlockType, only_search int) error {
 	// We use the garbage collector for the actual block data, so invalidate
 	// what we have here and create a new block of data. This allows us to
 	// avoid lots of runtime checking to see if we already have a useable
@@ -237,18 +237,18 @@ func (c *LRUCache) loadBlock(bp *lru_buf, dev, bnum int, btype BlockType, only_s
 	blocksize := c.devinfo[dev].Blocksize
 
 	switch btype {
-	case INODE_BLOCK:
-		bp.Block = make(InodeBlock, blocksize/V2_INODE_SIZE)
-	case DIRECTORY_BLOCK:
-		bp.Block = make(DirectoryBlock, blocksize/V2_DIRENT_SIZE)
-	case INDIRECT_BLOCK:
-		bp.Block = make(IndirectBlock, blocksize/4)
-	case MAP_BLOCK:
-		bp.Block = make(MapBlock, blocksize/2)
-	case FULL_DATA_BLOCK:
-		bp.Block = make(FullDataBlock, blocksize)
-	case PARTIAL_DATA_BLOCK:
-		bp.Block = make(PartialDataBlock, blocksize)
+	case common.INODE_BLOCK:
+		bp.Block = make(common.InodeBlock, blocksize/common.V2_INODE_SIZE)
+	case common.DIRECTORY_BLOCK:
+		bp.Block = make(common.DirectoryBlock, blocksize/common.V2_DIRENT_SIZE)
+	case common.INDIRECT_BLOCK:
+		bp.Block = make(common.IndirectBlock, blocksize/4)
+	case common.MAP_BLOCK:
+		bp.Block = make(common.MapBlock, blocksize/2)
+	case common.FULL_DATA_BLOCK:
+		bp.Block = make(common.FullDataBlock, blocksize)
+	case common.PARTIAL_DATA_BLOCK:
+		bp.Block = make(common.PartialDataBlock, blocksize)
 	default:
 		panic(fmt.Sprintf("Invalid block type specified: %d", btype))
 	}
@@ -264,11 +264,11 @@ func (c *LRUCache) loadBlock(bp *lru_buf, dev, bnum int, btype BlockType, only_s
 	bp.Buf = bp
 
 	// Go get the requested block unless searching or prefetching
-	if dev != NO_DEV {
-		if only_search == PREFETCH {
-			bp.Devnum = NO_DEV
+	if dev != common.NO_DEV {
+		if only_search == common.PREFETCH {
+			bp.Devnum = common.NO_DEV
 		} else {
-			if only_search == NORMAL {
+			if only_search == common.NORMAL {
 				pos := int64(blocksize) * int64(bnum)
 
 				// This read needs to be performed asynchronously.
@@ -290,7 +290,7 @@ func (c *LRUCache) loadBlock(bp *lru_buf, dev, bnum int, btype BlockType, only_s
 // blocks) go on the front. Blocks whose loss can hurt the integrity of the
 // file system (e.g., inode blocks) are written to the disk immediately if
 // they are dirty.
-func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) error {
+func (c *LRUCache) putBlock(cb *common.CacheBlock, btype common.BlockType) error {
 	if cb == nil {
 		return nil
 	}
@@ -308,7 +308,7 @@ func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) error {
 	// block_type, the block is not likely to be needed again shortly, so put
 	// it on the front of the LRU chain where it will be the first one to be
 	// taken when a free buffer is needed later.
-	if btype&ONE_SHOT > 0 {
+	if btype&common.ONE_SHOT > 0 {
 		// Block probably won't be needed quickly. Put it on the front of the
 		// chain. It will be the next block to be evicted from the cache.
 		bp.prev = nil
@@ -335,7 +335,7 @@ func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) error {
 	// Some blocks are so important (e.g., inodes, indirect blocks) that they
 	// should be written to the disk immediately to avoid messing up the file
 	// system in the event of a crash.
-	if (btype&WRITE_IMMED > 0) && bp.Dirty {
+	if (btype&common.WRITE_IMMED > 0) && bp.Dirty {
 		blocksize := c.devinfo[bp.Devnum].Blocksize
 		pos := int64(blocksize) * int64(bp.Blocknum)
 		err := c.devices[bp.Devnum].Write(bp.Block, pos)
@@ -346,9 +346,9 @@ func (c *LRUCache) putBlock(cb *CacheBlock, btype BlockType) error {
 }
 
 func (c *LRUCache) invalidate(dev int) {
-	for i := 0; i < NR_BUFS; i++ {
+	for i := 0; i < common.NR_BUFS; i++ {
 		if c.buf[i].Devnum == dev {
-			c.buf[i].Devnum = NO_DEV
+			c.buf[i].Devnum = common.NO_DEV
 		}
 	}
 }

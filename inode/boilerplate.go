@@ -1,12 +1,12 @@
 package inode
 
 import (
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 )
 
 type req_InodeTbl_MountDevice struct {
 	devnum int
-	info   *DeviceInfo
+	info   *common.DeviceInfo
 }
 type res_InodeTbl_MountDevice struct{}
 type req_InodeTbl_UnmountDevice struct {
@@ -20,21 +20,21 @@ type req_InodeTbl_GetInode struct {
 	inum   int
 }
 type res_InodeTbl_GetInode struct {
-	Arg0 *Inode
+	Arg0 *common.Inode
 	Arg1 error
 }
 type req_InodeTbl_DupInode struct {
-	inode *Inode
+	inode *common.Inode
 }
 type res_InodeTbl_DupInode struct {
-	Arg0 *Inode
+	Arg0 *common.Inode
 }
 type req_InodeTbl_PutInode struct {
-	inode *Inode
+	inode *common.Inode
 }
 type res_InodeTbl_PutInode struct{}
 type req_InodeTbl_FlushInode struct {
-	inode *Inode
+	inode *common.Inode
 }
 type res_InodeTbl_FlushInode struct{}
 type req_InodeTbl_IsDeviceBusy struct {
@@ -96,7 +96,7 @@ var _ reqInodeTbl = req_InodeTbl_Shutdown{}
 var _ resInodeTbl = res_InodeTbl_Shutdown{}
 var _ resInodeTbl = res_InodeTbl_Async{}
 
-func (s *server_InodeTbl) MountDevice(devnum int, info *DeviceInfo) {
+func (s *server_InodeTbl) MountDevice(devnum int, info *common.DeviceInfo) {
 	s.in <- req_InodeTbl_MountDevice{devnum, info}
 	<-s.out
 	return
@@ -106,23 +106,23 @@ func (s *server_InodeTbl) UnmountDevice(devnum int) error {
 	result := (<-s.out).(res_InodeTbl_UnmountDevice)
 	return result.Arg0
 }
-func (s *server_InodeTbl) GetInode(devnum int, inum int) (*Inode, error) {
+func (s *server_InodeTbl) GetInode(devnum int, inum int) (*common.Inode, error) {
 	s.in <- req_InodeTbl_GetInode{devnum, inum}
 	ares := (<-s.out).(res_InodeTbl_Async)
 	result := (<-ares.ch).(res_InodeTbl_GetInode)
 	return result.Arg0, result.Arg1
 }
-func (s *server_InodeTbl) DupInode(inode *Inode) *Inode {
+func (s *server_InodeTbl) DupInode(inode *common.Inode) *common.Inode {
 	s.in <- req_InodeTbl_DupInode{inode}
 	result := (<-s.out).(res_InodeTbl_DupInode)
 	return result.Arg0
 }
-func (s *server_InodeTbl) PutInode(inode *Inode) {
+func (s *server_InodeTbl) PutInode(inode *common.Inode) {
 	s.in <- req_InodeTbl_PutInode{inode}
 	<-s.out
 	return
 }
-func (s *server_InodeTbl) FlushInode(inode *Inode) {
+func (s *server_InodeTbl) FlushInode(inode *common.Inode) {
 	s.in <- req_InodeTbl_FlushInode{inode}
 	<-s.out
 	return

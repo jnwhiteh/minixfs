@@ -1,13 +1,13 @@
 package bcache
 
 import (
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 )
 
 type req_BlockCache_MountDevice struct {
 	devnum int
-	dev    BlockDevice
-	info   *DeviceInfo
+	dev    common.BlockDevice
+	info   *common.DeviceInfo
 }
 type res_BlockCache_MountDevice struct {
 	Arg0 error
@@ -20,15 +20,15 @@ type res_BlockCache_UnmountDevice struct {
 }
 type req_BlockCache_GetBlock struct {
 	devnum, bnum int
-	btype        BlockType
+	btype        common.BlockType
 	only_search  int
 }
 type res_BlockCache_GetBlock struct {
-	Arg0 *CacheBlock
+	Arg0 *common.CacheBlock
 }
 type req_BlockCache_PutBlock struct {
-	cb    *CacheBlock
-	btype BlockType
+	cb    *common.CacheBlock
+	btype common.BlockType
 }
 type res_BlockCache_PutBlock struct {
 	Arg0 error
@@ -90,7 +90,7 @@ var _ reqBlockCache = req_BlockCache_Shutdown{}
 var _ resBlockCache = res_BlockCache_Shutdown{}
 var _ resBlockCache = res_BlockCache_Async{}
 
-func (c *LRUCache) MountDevice(devnum int, dev BlockDevice, info *DeviceInfo) error {
+func (c *LRUCache) MountDevice(devnum int, dev common.BlockDevice, info *common.DeviceInfo) error {
 	c.in <- req_BlockCache_MountDevice{devnum, dev, info}
 	result := (<-c.out).(res_BlockCache_MountDevice)
 	return result.Arg0
@@ -100,7 +100,7 @@ func (c *LRUCache) UnmountDevice(devnum int) error {
 	result := (<-c.out).(res_BlockCache_UnmountDevice)
 	return result.Arg0
 }
-func (c *LRUCache) GetBlock(devnum, blocknum int, btype BlockType, only_search int) *CacheBlock {
+func (c *LRUCache) GetBlock(devnum, blocknum int, btype common.BlockType, only_search int) *common.CacheBlock {
 	c.in <- req_BlockCache_GetBlock{devnum, blocknum, btype, only_search}
 	ares := (<-c.out).(res_BlockCache_Async)
 	result := (<-ares.ch).(res_BlockCache_GetBlock)
@@ -111,7 +111,7 @@ func (c *LRUCache) GetBlock(devnum, blocknum int, btype BlockType, only_search i
 
 	return result.Arg0
 }
-func (c *LRUCache) PutBlock(cb *CacheBlock, btype BlockType) error {
+func (c *LRUCache) PutBlock(cb *common.CacheBlock, btype common.BlockType) error {
 	c.in <- req_BlockCache_PutBlock{cb, btype}
 	result := (<-c.out).(res_BlockCache_PutBlock)
 	return result.Arg0

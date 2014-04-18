@@ -1,13 +1,13 @@
 package fs
 
 import (
-	. "github.com/jnwhiteh/minixfs/common"
-	. "github.com/jnwhiteh/minixfs/testutils"
+	"github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/testutils"
 	"runtime"
 	"testing"
 )
 
-func checkFileAndCount(proc *Process, file Fd) (bool, int) {
+func checkFileAndCount(proc *Process, file common.Fd) (bool, int) {
 	filp := file.(*filp)
 
 	// Verify open file count and presence of *File entry
@@ -29,18 +29,18 @@ func checkFileAndCount(proc *Process, file Fd) (bool, int) {
 func TestOpenClose(test *testing.T) {
 	fs, proc := OpenMinixImage(test)
 
-	file, err := proc.Open("/sample/europarl-en.txt", O_RDONLY, 0666)
+	file, err := proc.Open("/sample/europarl-en.txt", common.O_RDONLY, 0666)
 	if err != nil {
-		FatalHere(test, "Failed opening file: %s", err)
+		testutils.FatalHere(test, "Failed opening file: %s", err)
 	}
 
 	found, count := checkFileAndCount(proc, file)
 
 	if !found {
-		FatalHere(test, "Did not find open file in proc.files")
+		testutils.FatalHere(test, "Did not find open file in proc.files")
 	}
 	if count != 1 {
-		FatalHere(test, "Open file count incorrect got %d, expected %d", count, 1)
+		testutils.FatalHere(test, "Open file count incorrect got %d, expected %d", count, 1)
 	}
 
 	// Now close the file and make sure things are cleaned up
@@ -49,10 +49,10 @@ func TestOpenClose(test *testing.T) {
 	found, count = checkFileAndCount(proc, file)
 
 	if found {
-		FatalHere(test, "Found file in process table, should not have")
+		testutils.FatalHere(test, "Found file in process table, should not have")
 	}
 	if count != 0 {
-		FatalHere(test, "Open file count mismatch got %d, expected %d", count, 0)
+		testutils.FatalHere(test, "Open file count mismatch got %d, expected %d", count, 0)
 	}
 
 	// How many goroutines are open right now?
@@ -63,7 +63,7 @@ func TestOpenClose(test *testing.T) {
 	fs.Exit(proc)
 	err = fs.Shutdown()
 	if err != nil {
-		FatalHere(test, "Failed when shutting down filesystem: %s", err)
+		testutils.FatalHere(test, "Failed when shutting down filesystem: %s", err)
 	}
 
 	// We expect shutdown to have killed the following goroutines
@@ -80,6 +80,6 @@ func TestOpenClose(test *testing.T) {
 		newstack := make([]byte, 4096)
 		runtime.Stack(newstack, true)
 		test.Logf("Current stack:\n%s\n", newstack)
-		FatalHere(test, "Goroutine count mismatch got %d, expected %d", expected, runtime.NumGoroutine())
+		testutils.FatalHere(test, "Goroutine count mismatch got %d, expected %d", expected, runtime.NumGoroutine())
 	}
 }

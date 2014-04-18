@@ -2,7 +2,7 @@ package device
 
 import (
 	"encoding/binary"
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 	"os"
 )
 
@@ -16,7 +16,7 @@ type fileDevice struct {
 
 // NewFileDevice creates a new file-backed block device, given a filename
 // and specified byte order.
-func NewFileDevice(filename string, byteOrder binary.ByteOrder) (BlockDevice, error) {
+func NewFileDevice(filename string, byteOrder binary.ByteOrder) (common.BlockDevice, error) {
 	file, err := os.OpenFile(filename, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -94,4 +94,4 @@ func (dev *fileDevice) Close() error {
 	return res.err
 }
 
-var _ BlockDevice = &fileDevice{}
+var _ common.BlockDevice = &fileDevice{}

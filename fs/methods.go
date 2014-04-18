@@ -1,10 +1,10 @@
 package fs
 
 import (
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 )
 
-func (s *FileSystem) Mount(proc *Process, dev BlockDevice, path string) error {
+func (s *FileSystem) Mount(proc *Process, dev common.BlockDevice, path string) error {
 	s.in <- req_FS_Mount{proc, dev, path}
 	result := (<-s.out).(res_FS_Mount)
 	return result.Arg0
@@ -34,22 +34,22 @@ func (s *FileSystem) Exit(proc *Process) {
 	<-s.out
 	return
 }
-func (s *FileSystem) Open(proc *Process, path string, flags int, mode uint16) (Fd, error) {
+func (s *FileSystem) Open(proc *Process, path string, flags int, mode uint16) (common.Fd, error) {
 	s.in <- req_FS_OpenCreat{proc, path, flags, mode}
 	result := (<-s.out).(res_FS_OpenCreat)
 	return result.Arg0, result.Arg1
 }
-func (s *FileSystem) Creat(proc *Process, path string, flags int, mode uint16) (Fd, error) {
+func (s *FileSystem) Creat(proc *Process, path string, flags int, mode uint16) (common.Fd, error) {
 	s.in <- req_FS_OpenCreat{proc, path, flags, mode}
 	result := (<-s.out).(res_FS_OpenCreat)
 	return result.Arg0, result.Arg1
 }
-func (s *FileSystem) Close(proc *Process, fd Fd) error {
+func (s *FileSystem) Close(proc *Process, fd common.Fd) error {
 	proc.fs.in <- req_FS_Close{proc, fd}
 	result := (<-proc.fs.out).(res_FS_Close)
 	return result.Arg0
 }
-func (s *FileSystem) Stat(proc *Process, path string) (*StatInfo, error) {
+func (s *FileSystem) Stat(proc *Process, path string) (*common.StatInfo, error) {
 	s.in <- req_FS_Stat{proc, path}
 	result := (<-s.out).(res_FS_Stat)
 	return result.Arg0, result.Arg1

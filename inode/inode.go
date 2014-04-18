@@ -1,14 +1,14 @@
 package inode
 
 import (
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 	"sync"
 )
 
 type server_InodeTbl struct {
-	bcache  BlockCache
-	devices []*DeviceInfo
-	inodes  []*Inode
+	bcache  common.BlockCache
+	devices []*common.DeviceInfo
+	inodes  []*common.Inode
 
 	in  chan reqInodeTbl
 	out chan resInodeTbl
@@ -17,11 +17,11 @@ type server_InodeTbl struct {
 	m_waiting *sync.Mutex
 }
 
-func NewCache(bcache BlockCache, numdevs int, size int) InodeTbl {
+func NewCache(bcache common.BlockCache, numdevs int, size int) common.InodeTbl {
 	cache := &server_InodeTbl{
 		bcache,
-		make([]*DeviceInfo, numdevs),
-		make([]*Inode, size),
+		make([]*common.DeviceInfo, numdevs),
+		make([]*common.Inode, size),
 		make(chan reqInodeTbl),
 		make(chan resInodeTbl),
 		make([][]chan resInodeTbl, size),
@@ -29,7 +29,7 @@ func NewCache(bcache BlockCache, numdevs int, size int) InodeTbl {
 	}
 
 	for i := 0; i < len(cache.inodes); i++ {
-		inode := new(Inode)
+		inode := new(common.Inode)
 		inode.Bcache = bcache
 		inode.Icache = cache
 		cache.inodes[i] = inode
@@ -57,15 +57,15 @@ func (itable *server_InodeTbl) loop() {
 			callback := make(chan resInodeTbl)
 
 			slot := itable.findSlot(req.devnum, req.inum)
-			var xp *Inode
-			if slot != NO_INODE && slot < len(itable.inodes) {
+			var xp *common.Inode
+			if slot != common.NO_INODE && slot < len(itable.inodes) {
 				xp = itable.inodes[slot]
 			}
 
 			if xp == nil {
 				// Inode table is completely full
 				itable.out <- res_InodeTbl_Async{callback}
-				callback <- res_InodeTbl_GetInode{nil, ENFILE}
+				callback <- res_InodeTbl_GetInode{nil, common.ENFILE}
 			} else if xp.Count > 0 {
 				// We found the inode, just need to return it
 				xp.Count++
@@ -112,8 +112,8 @@ func (itable *server_InodeTbl) loop() {
 			rip.Count--
 			if rip.Count == 0 { // means no one is using it now
 				if rip.Nlinks == 0 { // free the inode
-					Truncate(rip, 0, itable.bcache) // return all the disk blocks
-					rip.Mode = I_NOT_ALLOC
+					common.Truncate(rip, 0, itable.bcache) // return all the disk blocks
+					rip.Mode = common.I_NOT_ALLOC
 					rip.Dirty = true
 					rip.Devinfo.AllocTbl.FreeInode(rip.Inum)
 				} else {
@@ -153,7 +153,7 @@ func (itable *server_InodeTbl) loop() {
 		case req_InodeTbl_Shutdown:
 			for i := 0; i < len(itable.devices); i++ {
 				if itable.devices[i] != nil {
-					itable.out <- res_InodeTbl_Shutdown{EBUSY}
+					itable.out <- res_InodeTbl_Shutdown{common.EBUSY}
 					continue
 				}
 			}
@@ -166,7 +166,7 @@ func (itable *server_InodeTbl) loop() {
 // Returns the slot that contains a given inode, an available slot is the
 // given inode is not present, or NO_INODE.
 func (c *server_InodeTbl) findSlot(devnum, inum int) int {
-	var slot int = NO_INODE
+	var slot int = common.NO_INODE
 
 	for i := 0; i < len(c.inodes); i++ {
 		rip := c.inodes[i]
@@ -183,7 +183,7 @@ func (c *server_InodeTbl) findSlot(devnum, inum int) int {
 	return slot
 }
 
-func (c *server_InodeTbl) loadInode(xp *Inode) {
+func (c *server_InodeTbl) loadInode(xp *common.Inode) {
 	// The count at this point is guaranteed to be > 0, so the device cannot
 	// be unmounted until the load has completed and the inode has been 'put'
 
@@ -191,13 +191,13 @@ func (c *server_InodeTbl) loadInode(xp *Inode) {
 
 	info := xp.Devinfo
 
-	inodes_per_block := info.Blocksize / V2_INODE_SIZE
+	inodes_per_block := info.Blocksize / common.V2_INODE_SIZE
 	ioffset := inum % inodes_per_block
 	blocknum := info.MapOffset + (inum / inodes_per_block)
 
 	// Load the inode from the disk and create an in-memory version of it
-	bp := c.bcache.GetBlock(info.Devnum, blocknum, INODE_BLOCK, NORMAL)
-	inodeb := bp.Block.(InodeBlock)
+	bp := c.bcache.GetBlock(info.Devnum, blocknum, common.INODE_BLOCK, common.NORMAL)
+	inodeb := bp.Block.(common.InodeBlock)
 
 	// We have the full block, now get the correct inode entry
 	inode_d := &inodeb[ioffset]
@@ -206,17 +206,17 @@ func (c *server_InodeTbl) loadInode(xp *Inode) {
 	xp.Mounted = nil
 }
 
-func (c *server_InodeTbl) writeInode(xp *Inode) {
+func (c *server_InodeTbl) writeInode(xp *common.Inode) {
 	// Calculate the block number we need
 	inum := xp.Inum - 1
 	info := xp.Devinfo
-	inodes_per_block := info.Blocksize / V2_INODE_SIZE
+	inodes_per_block := info.Blocksize / common.V2_INODE_SIZE
 	ioffset := inum % inodes_per_block
 	block_num := info.MapOffset + (inum / inodes_per_block)
 
 	// Load the inode from the disk
-	bp := c.bcache.GetBlock(info.Devnum, block_num, INODE_BLOCK, NORMAL)
-	inodeb := bp.Block.(InodeBlock)
+	bp := c.bcache.GetBlock(info.Devnum, block_num, common.INODE_BLOCK, common.NORMAL)
+	inodeb := bp.Block.(common.InodeBlock)
 
 	// TODO: Update times, handle read-only filesystems
 	bp.Dirty = true
@@ -224,5 +224,5 @@ func (c *server_InodeTbl) writeInode(xp *Inode) {
 	// Copy the disk_inode from rip into the inode block
 	inodeb[ioffset] = *xp.Disk_Inode
 	xp.Dirty = false
-	c.bcache.PutBlock(bp, INODE_BLOCK)
+	c.bcache.PutBlock(bp, common.INODE_BLOCK)
 }

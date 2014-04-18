@@ -5,17 +5,17 @@ import (
 	"log"
 	"github.com/jnwhiteh/minixfs/alloctbl"
 	"github.com/jnwhiteh/minixfs/bcache"
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 	"github.com/jnwhiteh/minixfs/device"
 	"github.com/jnwhiteh/minixfs/inode"
 )
 
 type FileSystem struct {
-	devices []BlockDevice // the devices attached to the file system
-	devinfo []*DeviceInfo // alloc tables and device parameters
+	devices []common.BlockDevice // the devices attached to the file system
+	devinfo []*common.DeviceInfo // alloc tables and device parameters
 
-	bcache BlockCache // the block cache for all devices
-	itable InodeTbl   // the shared inode table
+	bcache common.BlockCache // the block cache for all devices
+	itable common.InodeTbl   // the shared inode table
 
 	procs      map[int]*Process // the list of user processes
 	pidcounter int              // the next available pid
@@ -36,62 +36,62 @@ func OpenFileSystemFile(filename string) (*FileSystem, *Process, error) {
 }
 
 // Create a new FileSystem from a given file on the filesystem
-func NewFileSystem(dev BlockDevice) (*FileSystem, *Process, error) {
+func NewFileSystem(dev common.BlockDevice) (*FileSystem, *Process, error) {
 	// Check to make sure we have a valid device
-	devinfo, err := GetDeviceInfo(dev)
+	devinfo, err := common.GetDeviceInfo(dev)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	fs := new(FileSystem)
 
-	fs.devices = make([]BlockDevice, NR_DEVICES)
-	fs.devinfo = make([]*DeviceInfo, NR_DEVICES)
+	fs.devices = make([]common.BlockDevice, common.NR_DEVICES)
+	fs.devinfo = make([]*common.DeviceInfo, common.NR_DEVICES)
 
-	fs.bcache = bcache.NewLRUCache(NR_DEVICES, NR_BUFS, NR_BUF_HASH)
-	fs.itable = inode.NewCache(fs.bcache, NR_DEVICES, NR_INODES)
+	fs.bcache = bcache.NewLRUCache(common.NR_DEVICES, common.NR_BUFS, common.NR_BUF_HASH)
+	fs.itable = inode.NewCache(fs.bcache, common.NR_DEVICES, common.NR_INODES)
 
-	devinfo.Devnum = ROOT_DEVICE
+	devinfo.Devnum = common.ROOT_DEVICE
 
-	if err := fs.bcache.MountDevice(ROOT_DEVICE, dev, devinfo); err != nil {
+	if err := fs.bcache.MountDevice(common.ROOT_DEVICE, dev, devinfo); err != nil {
 		log.Printf("Could not mount root device: %s", err)
 		return nil, nil, err
 	}
-	fs.itable.MountDevice(ROOT_DEVICE, devinfo)
+	fs.itable.MountDevice(common.ROOT_DEVICE, devinfo)
 
-	devinfo.AllocTbl = alloctbl.NewAllocTbl(devinfo, fs.bcache, ROOT_DEVICE)
+	devinfo.AllocTbl = alloctbl.NewAllocTbl(devinfo, fs.bcache, common.ROOT_DEVICE)
 
-	fs.devices[ROOT_DEVICE] = dev
-	fs.devinfo[ROOT_DEVICE] = devinfo
+	fs.devices[common.ROOT_DEVICE] = dev
+	fs.devinfo[common.ROOT_DEVICE] = devinfo
 
-	fs.procs = make(map[int]*Process, NR_PROCS)
+	fs.procs = make(map[int]*Process, common.NR_PROCS)
 
 	fs.in = make(chan reqFS)
 	fs.out = make(chan resFS)
 
 	// Fetch the root inode
-	rip, err := fs.itable.GetInode(ROOT_DEVICE, ROOT_INODE)
+	rip, err := fs.itable.GetInode(common.ROOT_DEVICE, common.ROOT_INODE)
 	if err != nil {
 		log.Printf("Failed to fetch root inode: %s", err)
 		return nil, nil, err
 	}
 
 	// Create the root process
-	fs.procs[ROOT_PROCESS] = &Process{
-		ROOT_PROCESS,
+	fs.procs[common.ROOT_PROCESS] = &Process{
+		common.ROOT_PROCESS,
 		022,
 		rip,
 		rip,
-		make([]*filp, OPEN_MAX),
+		make([]*filp, common.OPEN_MAX),
 		fs,
 	}
 
 	// Initialite the pidcounter
-	fs.pidcounter = ROOT_PROCESS + 1
+	fs.pidcounter = common.ROOT_PROCESS + 1
 
 	go fs.loop()
 
-	return fs, fs.procs[ROOT_PROCESS], nil
+	return fs, fs.procs[common.ROOT_PROCESS], nil
 }
 
 func (fs *FileSystem) loop() {

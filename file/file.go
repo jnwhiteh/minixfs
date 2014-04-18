@@ -1,12 +1,12 @@
 package file
 
 import (
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 	"sync"
 )
 
 type server_File struct {
-	rip   *Inode          // the underlying inode
+	rip   *common.Inode          // the underlying inode
 	count int             // the number of clients of this server
 	wg    *sync.WaitGroup // tracking outstanding read requests
 
@@ -14,7 +14,7 @@ type server_File struct {
 	out chan resFile
 }
 
-func NewFile(rip *Inode) File {
+func NewFile(rip *common.Inode) common.File {
 	file := &server_File{
 		rip,
 		1,
@@ -41,17 +41,17 @@ func (file *server_File) loop() {
 			// Launch a new goroutine to perform the read, using the callback
 			// channel to return the result.
 			go func() {
-				n, err := Read(file.rip, req.buf, req.pos)
+				n, err := common.Read(file.rip, req.buf, req.pos)
 				callback <- res_File_Read{n, err}
 				file.wg.Done() // signal completion
 			}()
 		case req_File_Write:
 			file.wg.Wait() // wait for any outstanding reads to complete before proceeding
-			n, err := Write(file.rip, req.buf, req.pos)
+			n, err := common.Write(file.rip, req.buf, req.pos)
 			file.out <- res_File_Write{n, err}
 		case req_File_Truncate:
 			file.wg.Wait() // wait for any outstanding reads to complete before proceeding
-			Truncate(file.rip, req.size, file.rip.Bcache)
+			common.Truncate(file.rip, req.size, file.rip.Bcache)
 			file.out <- res_File_Truncate{}
 		case req_File_Fstat:
 			// Code here
@@ -77,4 +77,4 @@ func (file *server_File) loop() {
 	}
 }
 
-var _ File = &server_File{}
+var _ common.File = &server_File{}

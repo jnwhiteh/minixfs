@@ -5,20 +5,20 @@ import (
 	"log"
 	"math"
 	"github.com/jnwhiteh/minixfs/alloctbl"
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 	"github.com/jnwhiteh/minixfs/file"
 	"sync"
 )
 
-func (fs *FileSystem) do_mount(proc *Process, dev BlockDevice, path string) error {
+func (fs *FileSystem) do_mount(proc *Process, dev common.BlockDevice, path string) error {
 	if dev == nil {
-		return EINVAL
+		return common.EINVAL
 	}
 
 	// scan bitmap block table to see if 'dev' is already mounted
 	found := false
 	freeIndex := -1
-	for i := 0; i < NR_DEVICES; i++ {
+	for i := 0; i < common.NR_DEVICES; i++ {
 		if fs.devices[i] == dev {
 			found = true
 		} else if fs.devices[i] == nil {
@@ -27,18 +27,18 @@ func (fs *FileSystem) do_mount(proc *Process, dev BlockDevice, path string) erro
 	}
 
 	if found {
-		return EBUSY // already mounted
+		return common.EBUSY // already mounted
 	}
 
 	if freeIndex == -1 {
-		return ENFILE // no device slot available
+		return common.ENFILE // no device slot available
 	}
 
 	// Invalidate the cache for this index to be sure
 	fs.bcache.Invalidate(freeIndex)
 
 	// Fill in the device info
-	devinfo, err := GetDeviceInfo(dev)
+	devinfo, err :=common.GetDeviceInfo(dev)
 
 	// If it a recognized Minix filesystem
 	if err != nil {
@@ -59,7 +59,7 @@ func (fs *FileSystem) do_mount(proc *Process, dev BlockDevice, path string) erro
 	fs.devinfo[freeIndex] = devinfo
 
 	// Get the inode of the file to be mounted on
-	rip, err := fs.eatPath(fs.procs[ROOT_PROCESS], path)
+	rip, err := fs.eatPath(fs.procs[common.ROOT_PROCESS], path)
 
 	if err != nil {
 		// Perform lots of cleanup
@@ -74,32 +74,32 @@ func (fs *FileSystem) do_mount(proc *Process, dev BlockDevice, path string) erro
 
 	// It may not be busy
 	if rip.Count > 1 {
-		r = EBUSY
+		r = common.EBUSY
 	}
 
 	// It may not be spacial
 	bits := rip.Type()
-	if bits == I_BLOCK_SPECIAL || bits == I_CHAR_SPECIAL {
-		r = ENOTDIR
+	if bits == common.I_BLOCK_SPECIAL || bits == common.I_CHAR_SPECIAL {
+		r = common.ENOTDIR
 	}
 
 	// Get the root inode of the mounted file system
-	var root_ip *Inode
+	var root_ip *common.Inode
 	if r == nil {
-		root_ip, err = fs.itable.GetInode(freeIndex, ROOT_INODE)
+		root_ip, err = fs.itable.GetInode(freeIndex, common.ROOT_INODE)
 		if err != nil {
 			r = err
 		}
 	}
 
 	if root_ip != nil && root_ip.Mode == 0 {
-		r = EINVAL
+		r = common.EINVAL
 	}
 
 	// File types of 'rip' and 'root_ip' may not conflict
 	if r == nil {
 		if !rip.IsDirectory() && root_ip.IsDirectory() {
-			r = EISDIR
+			r = common.EISDIR
 		}
 	}
 
@@ -115,7 +115,7 @@ func (fs *FileSystem) do_mount(proc *Process, dev BlockDevice, path string) erro
 	}
 
 	// Nothing else can go wrong, so perform the mount
-	minfo := &MountInfo{
+	minfo := &common.MountInfo{
 		MountPoint:  rip,
 		MountTarget: root_ip,
 	}
@@ -143,11 +143,11 @@ func (fs *FileSystem) do_unmount(proc *Process, path string) error {
 	// open, the root inode, and only once.
 
 	if fs.itable.IsDeviceBusy(devIndex) {
-		return EBUSY // can't unmount a busy file system
+		return common.EBUSY // can't unmount a busy file system
 	}
 
 	if rip.Mounted == nil {
-		return EINVAL // not a mounted file system
+		return common.EINVAL // not a mounted file system
 	}
 
 	minfo := rip.Mounted
@@ -192,7 +192,7 @@ func (fs *FileSystem) do_fork(proc *Process) (*Process, error) {
 	child.workdir = fs.itable.DupInode(proc.workdir)
 	child.fs = proc.fs
 
-	child.files = make([]*filp, OPEN_MAX)
+	child.files = make([]*filp, common.OPEN_MAX)
 	for idx, fd := range proc.files {
 		if fd != nil {
 			child.files[idx] = fd
@@ -225,10 +225,10 @@ func (fs *FileSystem) do_exit(proc *Process) {
 // was successful and the main server loop can exit.
 func (fs *FileSystem) do_shutdown() error {
 	// Attempt to unmount each non-root device
-	for i := ROOT_DEVICE + 1; i < NR_DEVICES; i++ {
+	for i := common.ROOT_DEVICE + 1; i < common.NR_DEVICES; i++ {
 		if fs.devices[i] != nil {
 			if fs.itable.IsDeviceBusy(i) {
-				return EBUSY
+				return common.EBUSY
 			}
 
 			minfo := fs.devinfo[i].MountInfo
@@ -259,12 +259,12 @@ func (fs *FileSystem) do_shutdown() error {
 	}
 
 	// Now try to unmount the root device
-	if fs.itable.IsDeviceBusy(ROOT_DEVICE) {
+	if fs.itable.IsDeviceBusy(common.ROOT_DEVICE) {
 		// Cannot unmount this device, so we need to fail
-		return EBUSY
+		return common.EBUSY
 	} else {
 		// Release the inodes for the root process
-		proc := fs.procs[ROOT_PROCESS]
+		proc := fs.procs[common.ROOT_PROCESS]
 		if proc != nil { // if it hasn't been shut down already
 			if proc.rootdir != proc.workdir && proc.workdir != nil {
 				fs.itable.PutInode(proc.workdir)
@@ -272,17 +272,17 @@ func (fs *FileSystem) do_shutdown() error {
 			fs.itable.PutInode(proc.rootdir)
 		}
 
-		fs.bcache.Flush(ROOT_DEVICE)
-		fs.bcache.Invalidate(ROOT_DEVICE)
+		fs.bcache.Flush(common.ROOT_DEVICE)
+		fs.bcache.Invalidate(common.ROOT_DEVICE)
 
-		fs.devinfo[ROOT_DEVICE].AllocTbl.Shutdown()
+		fs.devinfo[common.ROOT_DEVICE].AllocTbl.Shutdown()
 
-		fs.devices[ROOT_DEVICE].Close()
+		fs.devices[common.ROOT_DEVICE].Close()
 
-		fs.devices[ROOT_DEVICE] = nil
-		fs.devinfo[ROOT_DEVICE] = nil
-		fs.bcache.UnmountDevice(ROOT_DEVICE)
-		fs.itable.UnmountDevice(ROOT_DEVICE)
+		fs.devices[common.ROOT_DEVICE] = nil
+		fs.devinfo[common.ROOT_DEVICE] = nil
+		fs.bcache.UnmountDevice(common.ROOT_DEVICE)
+		fs.itable.UnmountDevice(common.ROOT_DEVICE)
 	}
 
 	if err := fs.bcache.Shutdown(); err != nil {
@@ -304,7 +304,7 @@ func (fs *FileSystem) do_chdir(proc *Process, path string) error {
 	var r error
 
 	if !rip.IsDirectory() {
-		r = ENOTDIR
+		r = common.ENOTDIR
 	}
 	// TODO: Check permissions
 
@@ -320,27 +320,31 @@ func (fs *FileSystem) do_chdir(proc *Process, path string) error {
 	return nil
 }
 
-var mode_map = []uint16{R_BIT, W_BIT, R_BIT | W_BIT, 0}
+var mode_map = []uint16{
+	common.R_BIT,
+	common.W_BIT,
+	common.R_BIT | common.W_BIT,
+	0}
 
-func (fs *FileSystem) do_open(proc *Process, path string, oflags int, omode uint16) (Fd, error) {
+func (fs *FileSystem) do_open(proc *Process, path string, oflags int, omode uint16) (common.Fd, error) {
 	// Remap the bottom two bits of oflags
-	bits := mode_map[oflags&O_ACCMODE]
+	bits := mode_map[oflags&common.O_ACCMODE]
 
 	var err error
-	var rip *Inode
+	var rip *common.Inode
 	var exist bool = false
 
 	// If O_CREATE is set, try to make the file
-	if oflags&O_CREAT > 0 {
+	if oflags&common.O_CREAT > 0 {
 		// Create a new node by calling new_node()
-		omode := I_REGULAR | (omode & ALL_MODES & proc.umask)
-		dirp, newrip, _, err := fs.new_node(proc, path, omode, NO_ZONE)
+		omode := common.I_REGULAR | (omode & common.ALL_MODES & proc.umask)
+		dirp, newrip, _, err := fs.new_node(proc, path, omode, common.NO_ZONE)
 		if err == nil {
 			exist = false
-		} else if err != EEXIST {
+		} else if err != common.EEXIST {
 			return nil, err
 		} else {
-			exist = (oflags&O_EXCL == 0)
+			exist = (oflags&common.O_EXCL == 0)
 		}
 
 		// we don't need the parent directory
@@ -364,7 +368,7 @@ func (fs *FileSystem) do_open(proc *Process, path string, oflags int, omode uint
 	}
 
 	if fdindex == -1 {
-		return nil, EMFILE
+		return nil, common.EMFILE
 	}
 
 	err = nil // we'll use this to set error codes
@@ -372,15 +376,15 @@ func (fs *FileSystem) do_open(proc *Process, path string, oflags int, omode uint
 	if exist { // if the file existed already
 		// TODO: Check permissions here
 		switch rip.Type() {
-		case I_REGULAR:
-			if oflags&O_TRUNC > 0 {
-				Truncate(rip, 0, fs.bcache)
+		case common.I_REGULAR:
+			if oflags&common.O_TRUNC > 0 {
+				common.Truncate(rip, 0, fs.bcache)
 				// Flush the inode so it gets written on next block cache
 				fs.itable.FlushInode(rip)
 			}
-		case I_DIRECTORY:
+		case common.I_DIRECTORY:
 			// Directories cannot be opened in this system
-			err = EISDIR
+			err = common.EISDIR
 		default:
 			panic("NYI: Process.Open with non regular/directory")
 		}
@@ -405,10 +409,10 @@ func (fs *FileSystem) do_open(proc *Process, path string, oflags int, omode uint
 	return filp, nil
 }
 
-func (fs *FileSystem) do_close(proc *Process, fd Fd) error {
+func (fs *FileSystem) do_close(proc *Process, fd common.Fd) error {
 	filp, ok := fd.(*filp)
 	if !ok {
-		return EBADF
+		return common.EBADF
 	}
 
 	// Find this entry in the process table
@@ -422,7 +426,7 @@ func (fs *FileSystem) do_close(proc *Process, fd Fd) error {
 	}
 
 	// If we get here, it was not a valid file descriptor
-	return EBADF
+	return common.EBADF
 }
 
 func (fs *FileSystem) do_unlink(proc *Process, path string) error {
@@ -431,12 +435,12 @@ func (fs *FileSystem) do_unlink(proc *Process, path string) error {
 	if err != nil {
 		return err
 	} else if dirp == nil || rip == nil {
-		return ENOENT
+		return common.ENOENT
 	}
 
 	// Now test if the call is allowed (altered from Minix)
-	if rip.Inum == ROOT_INODE {
-		err = EBUSY
+	if rip.Inum == common.ROOT_INODE {
+		err = common.EBUSY
 	}
 
 	if err == nil {
@@ -461,7 +465,7 @@ func (fs *FileSystem) do_link(proc *Process, oldpath, newpath string) error {
 	// Check if the file has too many links
 	if rip.Nlinks >= math.MaxUint16 {
 		fs.itable.PutInode(rip)
-		return EMLINK
+		return common.EMLINK
 	}
 
 	// TODO: only root user can link to directories
@@ -480,12 +484,12 @@ func (fs *FileSystem) do_link(proc *Process, oldpath, newpath string) error {
 	if err == nil {
 		// The target already exists
 		fs.itable.PutInode(newrip)
-		r = EEXIST
+		r = common.EEXIST
 	}
 
 	// Check for links across devices
 	if r == nil && rip.Devinfo.Devnum != dirp.Devinfo.Devnum {
-		r = EXDEV
+		r = common.EXDEV
 	}
 
 	// Perform the link operation
@@ -504,9 +508,9 @@ func (fs *FileSystem) do_link(proc *Process, oldpath, newpath string) error {
 
 func (fs *FileSystem) do_mkdir(proc *Process, path string, mode uint16) error {
 	// Create the new inode. If that fails, return err
-	bits := I_DIRECTORY | (mode & RWX_MODES & proc.umask)
+	bits := common.I_DIRECTORY | (mode & common.RWX_MODES & proc.umask)
 	dirp, rip, rest, err := fs.new_node(proc, path, bits, 0)
-	if rip == nil || err == EEXIST {
+	if rip == nil || err == common.EEXIST {
 		fs.itable.PutInode(rip)  // can't make dir: it already exists
 		fs.itable.PutInode(dirp) // return parent too
 		return err
@@ -557,14 +561,14 @@ func (fs *FileSystem) do_rmdir(proc *Process, path string) error {
 
 	// Check to see if the directory is empty
 	if !IsEmpty(rip) {
-		return ENOTEMPTY
+		return common.ENOTEMPTY
 	}
 
 	if path == "." || path == ".." {
-		return EINVAL
+		return common.EINVAL
 	}
-	if rip.Inum == ROOT_INODE { // can't remove root
-		return EBUSY
+	if rip.Inum == common.ROOT_INODE { // can't remove root
+		return common.EBUSY
 	}
 
 	// Make sure no one else is using this directory. This is a stronger
@@ -572,7 +576,7 @@ func (fs *FileSystem) do_rmdir(proc *Process, path string) error {
 	// root or working directory of a process. Could be relaxed, this is just
 	// for sanity.
 	if rip.Count > 1 {
-		return EBUSY
+		return common.EBUSY
 	}
 
 	// Actually try to unlink from the parent

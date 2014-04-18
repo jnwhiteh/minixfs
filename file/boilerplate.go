@@ -1,7 +1,7 @@
 package file
 
 import (
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 )
 
 type req_File_Read struct {
@@ -29,7 +29,7 @@ type res_File_Truncate struct {
 type req_File_Fstat struct {
 }
 type res_File_Fstat struct {
-	Arg0 *StatInfo
+	Arg0 *common.StatInfo
 	Arg1 error
 }
 type req_File_Sync struct {
@@ -40,7 +40,7 @@ type res_File_Sync struct {
 type req_File_Dup struct {
 }
 type res_File_Dup struct {
-	Arg0 File
+	Arg0 common.File
 }
 type req_File_Close struct {
 }
@@ -108,7 +108,7 @@ func (s *server_File) Truncate(size int) error {
 	result := (<-s.out).(res_File_Truncate)
 	return result.Arg0
 }
-func (s *server_File) Fstat() (*StatInfo, error) {
+func (s *server_File) Fstat() (*common.StatInfo, error) {
 	s.in <- req_File_Fstat{}
 	result := (<-s.out).(res_File_Fstat)
 	return result.Arg0, result.Arg1
@@ -118,7 +118,7 @@ func (s *server_File) Sync() error {
 	result := (<-s.out).(res_File_Sync)
 	return result.Arg0
 }
-func (s *server_File) Dup() File {
+func (s *server_File) Dup() common.File {
 	s.in <- req_File_Dup{}
 	result := (<-s.out).(res_File_Dup)
 	return result.Arg0

@@ -1,12 +1,12 @@
 package fs
 
 import (
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 	"path/filepath"
 	"strings"
 )
 
-func (fs *FileSystem) eatPath(proc *Process, path string) (*Inode, error) {
+func (fs *FileSystem) eatPath(proc *Process, path string) (*common.Inode, error) {
 	ldip, rest, err := fs.lastDir(proc, path)
 	if err != nil {
 		return nil, err // could not open final directory
@@ -23,10 +23,10 @@ func (fs *FileSystem) eatPath(proc *Process, path string) (*Inode, error) {
 	return rip, err
 }
 
-func (fs *FileSystem) lastDir(proc *Process, path string) (*Inode, string, error) {
+func (fs *FileSystem) lastDir(proc *Process, path string) (*common.Inode, string, error) {
 	path = filepath.Clean(path)
 
-	var rip *Inode
+	var rip *common.Inode
 	if filepath.IsAbs(path) {
 		rip = proc.rootdir
 	} else {
@@ -35,7 +35,7 @@ func (fs *FileSystem) lastDir(proc *Process, path string) (*Inode, string, error
 
 	// If directory has been removed or path is empty, return ENOENT
 	if rip.Nlinks == 0 || len(path) == 0 {
-		return nil, "", ENOENT
+		return nil, "", common.ENOENT
 	}
 
 	// We're going to use this inode, so make a copy of it
@@ -54,22 +54,22 @@ func (fs *FileSystem) lastDir(proc *Process, path string) (*Inode, string, error
 		// Current inode obsolete or irrelevant
 		fs.itable.PutInode(rip)
 		if newrip == nil || err != nil {
-			return nil, "", ENOENT
+			return nil, "", common.ENOENT
 		}
 		// Continue to the next component
 		rip = newrip
 	}
 
-	if rip.Type() != I_DIRECTORY {
+	if rip.Type() != common.I_DIRECTORY {
 		// The penultimate path entry was not a directory, so return nil
 		fs.itable.PutInode(rip)
-		return nil, "", ENOTDIR
+		return nil, "", common.ENOTDIR
 	}
 
 	return rip, pathlist[len(pathlist)-1], nil
 }
 
-func (fs *FileSystem) advance(proc *Process, dirp *Inode, path string) (*Inode, error) {
+func (fs *FileSystem) advance(proc *Process, dirp *common.Inode, path string) (*common.Inode, error) {
 	// if there is no path, just return this inode
 	if len(path) == 0 {
 		return fs.itable.DupInode(dirp), nil
@@ -77,7 +77,7 @@ func (fs *FileSystem) advance(proc *Process, dirp *Inode, path string) (*Inode, 
 
 	// check for a nil inode
 	if dirp == nil {
-		return nil, ENOENT
+		return nil, common.ENOENT
 	}
 
 	// don't go beyond the current root directory, ever
@@ -86,21 +86,21 @@ func (fs *FileSystem) advance(proc *Process, dirp *Inode, path string) (*Inode, 
 	}
 
 	// If 'path' is not present in the directory, signal error
-	var rip *Inode
+	var rip *common.Inode
 	var err error
 
 	if ok, dnum, inum := Lookup(dirp, path); ok {
 		rip, err = fs.itable.GetInode(dnum, inum)
 	} else {
-		err = ENOENT
+		err = common.ENOENT
 	}
 
 	if err != nil {
-		return nil, ENOENT
+		return nil, common.ENOENT
 	}
 
-	if rip.Inum == ROOT_INODE {
-		if dirp.Inum == ROOT_INODE {
+	if rip.Inum == common.ROOT_INODE {
+		if dirp.Inum == common.ROOT_INODE {
 			// TODO: What does this do?
 			if path[1] == '.' {
 				panic("weird case in lookup, whata is this?")

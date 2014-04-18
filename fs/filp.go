@@ -1,7 +1,7 @@
 package fs
 
 import (
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 	"sync"
 )
 
@@ -15,8 +15,8 @@ import (
 type filp struct {
 	count int    // the number of clients
 	pos   int    // the current position in the file
-	file  File   // the file server backing the operations
-	inode *Inode // the inode this refers to
+	file  common.File   // the file server backing the operations
+	inode *common.Inode // the inode this refers to
 
 	mode uint16 // the mode under which this file was opened
 
@@ -28,7 +28,7 @@ func (fi *filp) Seek(pos, whence int) (int, error) {
 	defer fi.m.Unlock()
 
 	if fi.file == nil {
-		return -1, EBADF
+		return -1, common.EBADF
 	}
 
 	switch whence {
@@ -48,7 +48,7 @@ func (fi *filp) Read(buf []byte) (int, error) {
 	defer fi.m.Unlock()
 
 	if fi.file == nil {
-		return 0, EBADF
+		return 0, common.EBADF
 	}
 
 	n, err := fi.file.Read(buf, fi.pos)
@@ -62,7 +62,7 @@ func (fi *filp) Write(buf []byte) (int, error) {
 	defer fi.m.Unlock()
 
 	if fi.file == nil {
-		return 0, EBADF
+		return 0, common.EBADF
 	}
 
 	n, err := fi.file.Write(buf, fi.pos)
@@ -76,7 +76,7 @@ func (fi *filp) Truncate(length int) error {
 	defer fi.m.Unlock()
 
 	if fi.file == nil {
-		return EBADF
+		return common.EBADF
 	}
 
 	fi.pos = length
@@ -84,12 +84,12 @@ func (fi *filp) Truncate(length int) error {
 	return fi.file.Truncate(length)
 }
 
-func (fi *filp) Fstat() (*StatInfo, error) {
+func (fi *filp) Fstat() (*common.StatInfo, error) {
 	fi.m.Lock()
 	defer fi.m.Unlock()
 
 	if fi.file == nil {
-		return nil, EBADF
+		return nil, common.EBADF
 	}
 
 	return fi.file.Fstat()

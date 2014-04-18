@@ -1,7 +1,7 @@
 package fs
 
 import (
-	. "github.com/jnwhiteh/minixfs/testutils"
+	"github.com/jnwhiteh/minixfs/testutils"
 	"testing"
 )
 
@@ -42,20 +42,20 @@ func TestEatPath(test *testing.T) {
 	for _, itest := range inodeTests {
 		rip, err := fs.eatPath(proc, itest.path)
 		if err != nil {
-			FatalHere(test, "Failed when fetching inode for %s: %s", itest.path, err)
+			testutils.FatalHere(test, "Failed when fetching inode for %s: %s", itest.path, err)
 		}
 		if itest.inum != -1 && rip.Inum != itest.inum {
-			ErrorHere(test, "[%s] mismatch for inum got %d, expected %d", itest.path, rip.Inum, itest.inum)
+			testutils.ErrorHere(test, "[%s] mismatch for inum got %d, expected %d", itest.path, rip.Inum, itest.inum)
 		}
 		if itest.links != -1 && rip.Nlinks != uint16(itest.links) {
-			ErrorHere(test, "[%s] mismatch for links got %d, expected %d", itest.path, rip.Nlinks, itest.links)
+			testutils.ErrorHere(test, "[%s] mismatch for links got %d, expected %d", itest.path, rip.Nlinks, itest.links)
 		}
 		if itest.size != -1 && rip.Size != int32(itest.size) {
-			ErrorHere(test, "[%s] mismatch for size got %d, expected %d", itest.path, rip.Size, itest.size)
+			testutils.ErrorHere(test, "[%s] mismatch for size got %d, expected %d", itest.path, rip.Size, itest.size)
 		}
 		for i := 0; i < 10; i++ {
 			if i < len(itest.zones) && rip.Zone[i] != uint32(itest.zones[i]) {
-				ErrorHere(test, "[%s] mismatch for zone[%d] got %d, expected %d", i, itest.path, rip.Zone[i], itest.zones[i])
+				testutils.ErrorHere(test, "[%s] mismatch for zone[%d] got %d, expected %d", i, itest.path, rip.Zone[i], itest.zones[i])
 			}
 		}
 
@@ -64,10 +64,10 @@ func TestEatPath(test *testing.T) {
 			relpath := itest.path[1:]
 			relrip, err := fs.eatPath(proc, relpath)
 			if err != nil {
-				ErrorHere(test, "Failed fetching relative path %s", relpath)
+				testutils.ErrorHere(test, "Failed fetching relative path %s", relpath)
 			}
 			if relrip != rip {
-				ErrorHere(test, "Relative inode does not match absolute inode for path %s", itest.path)
+				testutils.ErrorHere(test, "Relative inode does not match absolute inode for path %s", itest.path)
 			}
 			fs.itable.PutInode(relrip)
 		}
@@ -78,6 +78,6 @@ func TestEatPath(test *testing.T) {
 	fs.Exit(proc)
 	err := fs.Shutdown()
 	if err != nil {
-		FatalHere(test, "Failed when shutting down filesystem: %s", err)
+		testutils.FatalHere(test, "Failed when shutting down filesystem: %s", err)
 	}
 }

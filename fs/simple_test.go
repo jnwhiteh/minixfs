@@ -2,7 +2,7 @@ package fs
 
 import (
 	"github.com/jnwhiteh/minixfs/common"
-	. "github.com/jnwhiteh/minixfs/testutils"
+	"github.com/jnwhiteh/minixfs/testutils"
 	"testing"
 )
 
@@ -14,7 +14,7 @@ func TestShutdownNoRootProcExit(test *testing.T) {
 	fs, _ := OpenMinixImage(test)
 	err := fs.Shutdown()
 	if err != nil {
-		FatalHere(test, "Failed shutting down: %s", err)
+		testutils.FatalHere(test, "Failed shutting down: %s", err)
 	}
 }
 
@@ -23,7 +23,7 @@ func TestShutdownWithRootProcExit(test *testing.T) {
 	proc.Exit()
 	err := fs.Shutdown()
 	if err != nil {
-		FatalHere(test, "Failed shutting down: %s", err)
+		testutils.FatalHere(test, "Failed shutting down: %s", err)
 	}
 }
 
@@ -33,13 +33,13 @@ func TestForkWithExit(test *testing.T) {
 
 	child, err := proc.Fork()
 	if err != nil {
-		FatalHere(test, "Failed when spawning new process: %s", err)
+		testutils.FatalHere(test, "Failed when spawning new process: %s", err)
 	}
 
 	child.Exit()
 	err = fs.Shutdown()
 	if err != nil {
-		FatalHere(test, "Failed when shutting down filesystem: %s", err)
+		testutils.FatalHere(test, "Failed when shutting down filesystem: %s", err)
 	}
 }
 
@@ -49,11 +49,11 @@ func TestSpawnNoExit(test *testing.T) {
 
 	_, err := proc.Fork()
 	if err != nil {
-		FatalHere(test, "Failed when spawning new process: %s", err)
+		testutils.FatalHere(test, "Failed when spawning new process: %s", err)
 	}
 
 	err = fs.Shutdown()
 	if err != common.EBUSY {
-		FatalHere(test, "Expected EBUSY error, got: %v", err)
+		testutils.FatalHere(test, "Expected EBUSY error, got: %v", err)
 	}
 }

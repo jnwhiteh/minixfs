@@ -1,19 +1,19 @@
 package fs
 
 import (
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 )
 
 type Process struct {
 	pid     int         // the numeric id of this process
 	umask   uint16      // file creation mask
-	rootdir *Inode      // root directory of the process
-	workdir *Inode      // working directory of the process
+	rootdir *common.Inode      // root directory of the process
+	workdir *common.Inode      // working directory of the process
 	files   []*filp     // list of file descriptors
 	fs      *FileSystem // the file system for this process
 }
 
-func (proc *Process) Mount(dev BlockDevice, path string) error {
+func (proc *Process) Mount(dev common.BlockDevice, path string) error {
 	proc.fs.in <- req_FS_Mount{proc, dev, path}
 	result := (<-proc.fs.out).(res_FS_Mount)
 	return result.Arg0
@@ -43,22 +43,22 @@ func (proc *Process) Exit() {
 	<-proc.fs.out
 	return
 }
-func (proc *Process) Open(path string, flags int, mode uint16) (Fd, error) {
+func (proc *Process) Open(path string, flags int, mode uint16) (common.Fd, error) {
 	proc.fs.in <- req_FS_OpenCreat{proc, path, flags, mode}
 	result := (<-proc.fs.out).(res_FS_OpenCreat)
 	return result.Arg0, result.Arg1
 }
-func (proc *Process) Creat(path string, flags int, mode uint16) (Fd, error) {
-	proc.fs.in <- req_FS_OpenCreat{proc, path, flags | O_CREAT, mode}
+func (proc *Process) Creat(path string, flags int, mode uint16) (common.Fd, error) {
+	proc.fs.in <- req_FS_OpenCreat{proc, path, flags | common.O_CREAT, mode}
 	result := (<-proc.fs.out).(res_FS_OpenCreat)
 	return result.Arg0, result.Arg1
 }
-func (proc *Process) Close(fd Fd) error {
+func (proc *Process) Close(fd common.Fd) error {
 	proc.fs.in <- req_FS_Close{proc, fd}
 	result := (<-proc.fs.out).(res_FS_Close)
 	return result.Arg0
 }
-func (proc *Process) Stat(path string) (*StatInfo, error) {
+func (proc *Process) Stat(path string) (*common.StatInfo, error) {
 	proc.fs.in <- req_FS_Stat{proc, path}
 	result := (<-proc.fs.out).(res_FS_Stat)
 	return result.Arg0, result.Arg1

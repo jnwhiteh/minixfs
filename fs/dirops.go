@@ -1,12 +1,12 @@
 package fs
 
 import (
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 )
 
-func Lookup(rip *Inode, name string) (bool, int, int) {
+func Lookup(rip *common.Inode, name string) (bool, int, int) {
 	if !rip.IsDirectory() {
-		return false, NO_DEV, NO_INODE
+		return false, common.NO_DEV, common.NO_INODE
 	}
 
 	dirp := rip
@@ -14,15 +14,15 @@ func Lookup(rip *Inode, name string) (bool, int, int) {
 	inum := 0
 	err := search_dir(dirp, name, &inum, LOOKUP)
 	if err != nil {
-		return false, NO_DEV, NO_INODE
+		return false, common.NO_DEV, common.NO_INODE
 	}
 
 	return true, dirp.Devinfo.Devnum, inum
 }
 
-func Link(rip *Inode, name string, inum int) error {
+func Link(rip *common.Inode, name string, inum int) error {
 	if !rip.IsDirectory() {
-		return ENOTDIR
+		return common.ENOTDIR
 	}
 
 	dirp := rip
@@ -32,9 +32,9 @@ func Link(rip *Inode, name string, inum int) error {
 	return err
 }
 
-func Unlink(rip *Inode, name string) error {
+func Unlink(rip *common.Inode, name string) error {
 	if !rip.IsDirectory() {
-		return ENOTDIR
+		return common.ENOTDIR
 	}
 
 	dirp := rip
@@ -44,7 +44,7 @@ func Unlink(rip *Inode, name string) error {
 	return err
 }
 
-func IsEmpty(rip *Inode) bool {
+func IsEmpty(rip *common.Inode) bool {
 	if !rip.IsDirectory() {
 		return false
 	}

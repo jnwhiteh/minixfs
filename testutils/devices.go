@@ -1,8 +1,8 @@
 package testutils
 
 import (
-	. "github.com/jnwhiteh/minixfs/common"
-	. "github.com/jnwhiteh/minixfs/device"
+	"github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/device"
 	"testing"
 )
 
@@ -12,14 +12,14 @@ import (
 // the first block contains a 0, the next block contains all 1, etc.
 //////////////////////////////////////////////////////////////////////////////
 
-func NewTestDevice(test *testing.T, bsize, blocks int) BlockDevice {
+func NewTestDevice(test *testing.T, bsize, blocks int) common.BlockDevice {
 	data := make([]byte, bsize*blocks)
 	for i := 0; i < blocks; i++ {
 		for j := 0; j < bsize; j++ {
 			data[(i*bsize)+j] = byte(i)
 		}
 	}
-	dev, err := NewRamdiskDevice(data)
+	dev, err := device.NewRamdiskDevice(data)
 	if err != nil {
 		ErrorLevel(test, 2, "Failed when creating ramdisk device")
 	}
@@ -33,12 +33,12 @@ func NewTestDevice(test *testing.T, bsize, blocks int) BlockDevice {
 //////////////////////////////////////////////////////////////////////////////
 
 type BlockingDevice struct {
-	BlockDevice
+	common.BlockDevice
 	HasBlocked chan bool
 	Unblock    chan bool
 }
 
-func NewBlockingDevice(rdev BlockDevice) *BlockingDevice {
+func NewBlockingDevice(rdev common.BlockDevice) *BlockingDevice {
 	dev := &BlockingDevice{
 		rdev,
 		make(chan bool),

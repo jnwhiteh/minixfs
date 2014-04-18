@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"io"
 	"io/ioutil"
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 	"os"
 	"sync"
 )
@@ -17,7 +17,7 @@ var _ io.Writer = bytestore(nil)
 
 func (b bytestore) Read(p []byte) (n int, err error) {
 	if len(p) > len(b) {
-		err = ENOENT
+		err = common.ENOENT
 	}
 	n = len(b)
 	copy(p, b)
@@ -26,7 +26,7 @@ func (b bytestore) Read(p []byte) (n int, err error) {
 
 func (b bytestore) Write(p []byte) (n int, err error) {
 	if len(p) > len(b) {
-		err = ENOENT
+		err = common.ENOENT
 		n = len(b)
 		copy(b, p)
 	} else {
@@ -43,7 +43,7 @@ type ramdiskDevice struct {
 	rwait *sync.WaitGroup     // a waitgroup used to
 }
 
-func NewRamdiskDevice(data []byte) (BlockDevice, error) {
+func NewRamdiskDevice(data []byte) (common.BlockDevice, error) {
 	dev := &ramdiskDevice{
 		data,
 		make(chan m_dev_req),
@@ -55,7 +55,7 @@ func NewRamdiskDevice(data []byte) (BlockDevice, error) {
 	return dev, nil
 }
 
-func NewRamdiskDeviceFile(filename string) (BlockDevice, error) {
+func NewRamdiskDeviceFile(filename string) (common.BlockDevice, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -147,4 +147,4 @@ func (dev *ramdiskDevice) Close() error {
 	return res.err
 }
 
-var _ BlockDevice = &ramdiskDevice{}
+var _ common.BlockDevice = &ramdiskDevice{}

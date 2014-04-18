@@ -2,10 +2,10 @@ package fs
 
 import (
 	"math"
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 )
 
-func (fs *FileSystem) new_node(proc *Process, path string, bits uint16, z0 uint) (*Inode, *Inode, string, error) {
+func (fs *FileSystem) new_node(proc *Process, path string, bits uint16, z0 uint) (*common.Inode, *common.Inode, string, error) {
 	// Open the parent directory
 	dirp, rlast, err := fs.lastDir(proc, path)
 	if err != nil {
@@ -14,14 +14,14 @@ func (fs *FileSystem) new_node(proc *Process, path string, bits uint16, z0 uint)
 
 	if dirp.Nlinks >= math.MaxUint16 {
 		fs.itable.PutInode(dirp)
-		return nil, nil, "", EMLINK
+		return nil, nil, "", common.EMLINK
 	}
 
 	// Does the new entry already exist?
 	rip, err := fs.advance(proc, dirp, rlast)
 	if rip != nil || err == nil {
 		// Must exist or something is wrong..
-		return nil, nil, "", EEXIST
+		return nil, nil, "", common.EEXIST
 	}
 
 	// The file/directory does not exist, create it
@@ -66,7 +66,7 @@ func (fs *FileSystem) new_node(proc *Process, path string, bits uint16, z0 uint)
 // the inode of the final entry itself. In addition, return the portion of the
 // path that is the filename of the final entry, so it can be removed from the
 // parent directory, and any error that may have occurred.
-func (fs *FileSystem) unlink_prep(proc *Process, path string) (*Inode, *Inode, string, error) {
+func (fs *FileSystem) unlink_prep(proc *Process, path string) (*common.Inode, *common.Inode, string, error) {
 	// Get the last directory in the path
 	dirp, rest, err := fs.lastDir(proc, path)
 	if dirp == nil {
@@ -81,10 +81,10 @@ func (fs *FileSystem) unlink_prep(proc *Process, path string) (*Inode, *Inode, s
 	}
 
 	// Do not remove a mount point
-	if rip.Inum == ROOT_INODE {
+	if rip.Inum == common.ROOT_INODE {
 		fs.itable.PutInode(dirp)
 		fs.itable.PutInode(rip)
-		return nil, nil, "", EBUSY
+		return nil, nil, "", common.EBUSY
 	}
 
 	return dirp, rip, rest, nil

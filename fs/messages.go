@@ -1,12 +1,12 @@
 package fs
 
 import (
-	. "github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/common"
 )
 
 type req_FS_Mount struct {
 	proc *Process
-	dev  BlockDevice
+	dev  common.BlockDevice
 	path string
 }
 type res_FS_Mount struct {
@@ -45,12 +45,12 @@ type req_FS_OpenCreat struct {
 	mode  uint16
 }
 type res_FS_OpenCreat struct {
-	Arg0 Fd
+	Arg0 common.Fd
 	Arg1 error
 }
 type req_FS_Close struct {
 	proc *Process
-	fd   Fd
+	fd   common.Fd
 }
 type res_FS_Close struct {
 	Arg0 error
@@ -60,7 +60,7 @@ type req_FS_Stat struct {
 	path string
 }
 type res_FS_Stat struct {
-	Arg0 *StatInfo
+	Arg0 *common.StatInfo
 	Arg1 error
 }
 type req_FS_Chmod struct {

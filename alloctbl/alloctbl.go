@@ -2,13 +2,13 @@ package alloctbl
 
 import "log"
 import "math"
-import . "github.com/jnwhiteh/minixfs/common"
+import "github.com/jnwhiteh/minixfs/common"
 
 const FS_BITCHUNK_BITS = 16 // the number of bits in a bitchunk_t
 
 type server_AllocTbl struct {
-	devinfo *DeviceInfo
-	cache   BlockCache // so we can read/write the allocTbl blocks
+	devinfo *common.DeviceInfo
+	cache   common.BlockCache // so we can read/write the allocTbl blocks
 	devno   int        // the device number of the device with this allocerblock
 
 	inodes_per_block    int // the number of inodes per block
@@ -21,12 +21,12 @@ type server_AllocTbl struct {
 	out chan resAllocTbl
 }
 
-func NewAllocTbl(devinfo *DeviceInfo, cache BlockCache, devno int) AllocTbl {
+func NewAllocTbl(devinfo *common.DeviceInfo, cache common.BlockCache, devno int) common.AllocTbl {
 	alloc := &server_AllocTbl{
 		devinfo,
 		cache,
 		devno,
-		devinfo.Blocksize / V2_INODE_SIZE,
+		devinfo.Blocksize / common.V2_INODE_SIZE,
 		(devinfo.Blocksize / 2) * 8,
 		0,
 		0,
@@ -43,11 +43,11 @@ func (alloc *server_AllocTbl) loop() {
 		req := <-alloc.in
 		switch req := req.(type) {
 		case req_AllocTbl_AllocInode:
-			b := alloc.alloc_bit(IMAP, alloc.i_search)
+			b := alloc.alloc_bit(common.IMAP, alloc.i_search)
 
-			if b == NO_BIT {
+			if b == common.NO_BIT {
 				log.Printf("Out of i-nodes on device")
-				alloc.out <- res_AllocTbl_AllocInode{NO_INODE, ENFILE}
+				alloc.out <- res_AllocTbl_AllocInode{common.NO_INODE, common.ENFILE}
 				continue
 			}
 
@@ -62,18 +62,18 @@ func (alloc *server_AllocTbl) loop() {
 				bstart = req.zstart - (alloc.devinfo.Firstdatazone - 1)
 			}
 
-			bit := alloc.alloc_bit(ZMAP, bstart)
-			if bit == NO_BIT {
-				if alloc.devno == ROOT_DEVICE {
+			bit := alloc.alloc_bit(common.ZMAP, bstart)
+			if bit == common.NO_BIT {
+				if alloc.devno == common.ROOT_DEVICE {
 					log.Printf("No space on rootdevice %d", alloc.devno)
 				} else {
 					log.Printf("No space on device %d", alloc.devno)
 				}
-				alloc.out <- res_AllocTbl_AllocZone{NO_ZONE, ENOSPC}
+				alloc.out <- res_AllocTbl_AllocZone{common.NO_ZONE, common.ENOSPC}
 				continue
 			}
 
-			if bit < alloc.z_search || alloc.z_search == NO_BIT {
+			if bit < alloc.z_search || alloc.z_search == common.NO_BIT {
 				alloc.z_search = bit
 			}
 			alloc.out <- res_AllocTbl_AllocZone{(alloc.devinfo.Firstdatazone - 1) + bit, nil}
@@ -82,7 +82,7 @@ func (alloc *server_AllocTbl) loop() {
 				alloc.out <- res_AllocTbl_FreeInode{}
 				continue
 			}
-			alloc.free_bit(IMAP, req.inum)
+			alloc.free_bit(common.IMAP, req.inum)
 			if req.inum < alloc.i_search {
 				alloc.i_search = req.inum
 			}
@@ -95,9 +95,9 @@ func (alloc *server_AllocTbl) loop() {
 
 			// Turn this from an absolute zone into a bit number
 			bit := req.znum - (alloc.devinfo.Firstdatazone - 1)
-			alloc.free_bit(ZMAP, bit)
+			alloc.free_bit(common.ZMAP, bit)
 
-			if bit < alloc.z_search || alloc.z_search == NO_BIT {
+			if bit < alloc.z_search || alloc.z_search == common.NO_BIT {
 				alloc.z_search = bit
 			}
 			alloc.out <- res_AllocTbl_FreeZone{}
@@ -115,12 +115,12 @@ func (alloc *server_AllocTbl) alloc_bit(which int, origin int) int {
 	var map_bits int    // how many bits are there in the bit map
 	var bit_blocks int  // how many blocks are there in the bit map
 
-	if which == IMAP {
-		start_block = START_BLOCK
+	if which == common.IMAP {
+		start_block = common.START_BLOCK
 		map_bits = alloc.devinfo.Inodes + 1
 		bit_blocks = alloc.devinfo.ImapBlocks
 	} else {
-		start_block = START_BLOCK + alloc.devinfo.ImapBlocks
+		start_block = common.START_BLOCK + alloc.devinfo.ImapBlocks
 		map_bits = alloc.devinfo.Zones - (alloc.devinfo.Firstdatazone - 1)
 		bit_blocks = alloc.devinfo.ZmapBlocks
 	}
@@ -139,8 +139,8 @@ func (alloc *server_AllocTbl) alloc_bit(which int, origin int) int {
 	//wlim := FS_BITMAP_CHUNKS(fs.Block_size)
 
 	for {
-		bp := alloc.cache.GetBlock(alloc.devno, int(start_block+block), MAP_BLOCK, NORMAL)
-		allocTbls := bp.Block.(MapBlock)
+		bp := alloc.cache.GetBlock(alloc.devno, int(start_block+block), common.MAP_BLOCK, common.NORMAL)
+		allocTbls := bp.Block.(common.MapBlock)
 
 		// Iterate over the words in a block
 		for i := word; i < len(allocTbls); i++ {
@@ -170,11 +170,11 @@ func (alloc *server_AllocTbl) alloc_bit(which int, origin int) int {
 			allocTbls[i] = num
 
 			bp.Dirty = true
-			alloc.cache.PutBlock(bp, MAP_BLOCK)
+			alloc.cache.PutBlock(bp, common.MAP_BLOCK)
 			return b
 		}
 
-		alloc.cache.PutBlock(bp, MAP_BLOCK)
+		alloc.cache.PutBlock(bp, common.MAP_BLOCK)
 		block = block + 1
 		if (block) >= bit_blocks {
 			block = 0
@@ -186,17 +186,17 @@ func (alloc *server_AllocTbl) alloc_bit(which int, origin int) int {
 		}
 	}
 
-	return NO_BIT
+	return common.NO_BIT
 }
 
 // Deallocate an inode/zone in the allocTbl, freeing it up for re-use
 func (alloc *server_AllocTbl) free_bit(which int, bit_returned int) {
 	var start_block int // first bit block
 
-	if which == IMAP {
-		start_block = START_BLOCK
+	if which == common.IMAP {
+		start_block = common.START_BLOCK
 	} else {
-		start_block = START_BLOCK + alloc.devinfo.ImapBlocks
+		start_block = common.START_BLOCK + alloc.devinfo.ImapBlocks
 	}
 
 	block := bit_returned / alloc.bitchunks_per_block
@@ -205,14 +205,14 @@ func (alloc *server_AllocTbl) free_bit(which int, bit_returned int) {
 	bit := bit_returned % FS_BITCHUNK_BITS
 	mask := uint16(1) << uint(bit)
 
-	bp := alloc.cache.GetBlock(alloc.devno, int(start_block+block), MAP_BLOCK, NORMAL)
-	allocTbls := bp.Block.(MapBlock)
+	bp := alloc.cache.GetBlock(alloc.devno, int(start_block+block), common.MAP_BLOCK, common.NORMAL)
+	allocTbls := bp.Block.(common.MapBlock)
 
 	k := allocTbls[word]
 	if (k & mask) == 0 {
-		if which == IMAP {
+		if which == common.IMAP {
 			panic("tried to free unused inode")
-		} else if which == ZMAP {
+		} else if which == common.ZMAP {
 			panic("tried to free unused block")
 		}
 	}
@@ -220,5 +220,5 @@ func (alloc *server_AllocTbl) free_bit(which int, bit_returned int) {
 	k = k & (^mask)
 	allocTbls[word] = k
 	bp.Dirty = true
-	alloc.cache.PutBlock(bp, MAP_BLOCK)
+	alloc.cache.PutBlock(bp, common.MAP_BLOCK)
 }

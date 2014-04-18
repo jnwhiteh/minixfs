@@ -1,8 +1,8 @@
 package fs
 
 import (
-	. "github.com/jnwhiteh/minixfs/common"
-	. "github.com/jnwhiteh/minixfs/testutils"
+	"github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/testutils"
 	"testing"
 )
 
@@ -16,7 +16,7 @@ func TestCreateThenUnlink(test *testing.T) {
 	// Check the state of the bitmap before creating this file
 	inum, err := alloc.AllocInode()
 	if err != nil {
-		FatalHere(test, "Error pre-allocating an inode: %s", err)
+		testutils.FatalHere(test, "Error pre-allocating an inode: %s", err)
 	}
 	alloc.FreeInode(inum)
 
@@ -25,38 +25,38 @@ func TestCreateThenUnlink(test *testing.T) {
 	//debug.PrintBlock(bp, fs.devinfo[ROOT_DEVICE])
 
 	// Create a new file and check allocation tables, etc.
-	file, err := fs.Open(proc, "/tmp/created_file", O_CREAT, 0666)
+	file, err := fs.Open(proc, "/tmp/created_file", common.O_CREAT, 0666)
 	if err != nil {
-		FatalHere(test, "Failed when creating new file: %s", err)
+		testutils.FatalHere(test, "Failed when creating new file: %s", err)
 	}
 	filp := file.(*filp)
 	if filp.inode.Inum != inum {
-		ErrorHere(test, "Inum mismatch expected %d, got %d", inum, filp.inode.Inum)
+		testutils.ErrorHere(test, "Inum mismatch expected %d, got %d", inum, filp.inode.Inum)
 	}
 
 	// Close and unlink the new file
 	err = fs.Close(proc, file)
 	if err != nil {
-		ErrorHere(test, "Failed when closing new file: %s", err)
+		testutils.ErrorHere(test, "Failed when closing new file: %s", err)
 	}
 	err = fs.Unlink(proc, "/tmp/created_file")
 	if err != nil {
-		ErrorHere(test, "Failed when unlinking new file: %s", err)
+		testutils.ErrorHere(test, "Failed when unlinking new file: %s", err)
 	}
 
 	// The bit we just freed should be our next
 	inum2, err := alloc.AllocInode()
 	if err != nil {
-		FatalHere(test, "Failed when checking inode allocation: %s", err)
+		testutils.FatalHere(test, "Failed when checking inode allocation: %s", err)
 	}
 	if inum != inum2 {
-		FatalHere(test, "Inode mismatch expected %d, got %d", inum, inum2)
+		testutils.FatalHere(test, "Inode mismatch expected %d, got %d", inum, inum2)
 	}
 	alloc.FreeInode(inum2)
 
 	fs.Exit(proc)
 	err = fs.Shutdown()
 	if err != nil {
-		FatalHere(test, "Failed when shutting down filesystem: %s", err)
+		testutils.FatalHere(test, "Failed when shutting down filesystem: %s", err)
 	}
 }

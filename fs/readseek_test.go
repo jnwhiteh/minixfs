@@ -3,8 +3,8 @@ package fs
 import (
 	"bytes"
 	"io"
-	. "github.com/jnwhiteh/minixfs/common"
-	. "github.com/jnwhiteh/minixfs/testutils"
+	"github.com/jnwhiteh/minixfs/common"
+	"github.com/jnwhiteh/minixfs/testutils"
 	"testing"
 )
 
@@ -14,15 +14,15 @@ import (
 // system to ensure that we hit all codepaths.
 func TestRead(test *testing.T) {
 	fs, proc := OpenMinixImage(test)
-	file, err := fs.Open(proc, "/sample/europarl-en.txt", O_RDONLY, 0666)
+	file, err := fs.Open(proc, "/sample/europarl-en.txt", common.O_RDONLY, 0666)
 	if err != nil {
-		FatalHere(test, "Failed when opening file: %s", err)
+		testutils.FatalHere(test, "Failed when opening file: %s", err)
 	}
 
 	ofile := OpenEuroparl(test)
 
 	// Read and compare the two files
-	blocksize := fs.devinfo[ROOT_DEVICE].Blocksize
+	blocksize := fs.devinfo[common.ROOT_DEVICE].Blocksize
 	numbytes := blocksize + (blocksize / 3)
 
 	data := make([]byte, numbytes)
@@ -34,13 +34,13 @@ func TestRead(test *testing.T) {
 		od, oerr := ofile.Read(odata)
 
 		if n != od {
-			FatalHere(test, "Bytes read mismatch at offset %d: expected %d, got %d", offset, od, n)
+			testutils.FatalHere(test, "Bytes read mismatch at offset %d: expected %d, got %d", offset, od, n)
 		}
 		if err != oerr {
-			FatalHere(test, "Error mismatch at offset %d: expected '%s', got '%s'", offset, oerr, err)
+			testutils.FatalHere(test, "Error mismatch at offset %d: expected '%s', got '%s'", offset, oerr, err)
 		}
 		if bytes.Compare(data, odata) != 0 {
-			FatalHere(test, "Data mismatch at offset %d\n==Expected\n%s\n==Got\n%s", offset, odata, data)
+			testutils.FatalHere(test, "Data mismatch at offset %d\n==Expected\n%s\n==Got\n%s", offset, odata, data)
 		}
 
 		if err == io.EOF && oerr == io.EOF {
@@ -53,7 +53,7 @@ func TestRead(test *testing.T) {
 	fs.Exit(proc)
 	err = fs.Shutdown()
 	if err != nil {
-		FatalHere(test, "Failed when shutting down filesystem: %s", err)
+		testutils.FatalHere(test, "Failed when shutting down filesystem: %s", err)
 	}
 }
 
@@ -63,9 +63,9 @@ func TestRead(test *testing.T) {
 func TestSeek(test *testing.T) {
 	fs, proc := OpenMinixImage(test)
 
-	file, err := fs.Open(proc, "/sample/europarl-en.txt", O_RDONLY, 0666)
+	file, err := fs.Open(proc, "/sample/europarl-en.txt", common.O_RDONLY, 0666)
 	if err != nil {
-		FatalHere(test, "Failed when opening file: %s", err)
+		testutils.FatalHere(test, "Failed when opening file: %s", err)
 	}
 
 	ofile := OpenEuroparl(test)
@@ -83,7 +83,7 @@ func TestSeek(test *testing.T) {
 
 	// Read and compare several blocks of the file, seeking between each read.
 	// This ensures that our seek behaviour is the same as POSIX.
-	blocksize := fs.devinfo[ROOT_DEVICE].Blocksize
+	blocksize := fs.devinfo[common.ROOT_DEVICE].Blocksize
 	numbytes := blocksize + (blocksize / 3)
 
 	data := make([]byte, numbytes)
@@ -94,26 +94,26 @@ func TestSeek(test *testing.T) {
 		opos, err := ofile.Seek(int64(testData.pos), testData.whence)
 
 		if int64(pos) != opos {
-			FatalHere(test, "Seek position mismatch in test %d: exected %d, got %d", idx, opos, pos)
+			testutils.FatalHere(test, "Seek position mismatch in test %d: exected %d, got %d", idx, opos, pos)
 		}
 
 		n, err := file.Read(data)
 		od, oerr := ofile.Read(odata)
 
 		if n != od {
-			FatalHere(test, "Bytes read mismatch at offset %d: expected %d, got %d", idx, od, n)
+			testutils.FatalHere(test, "Bytes read mismatch at offset %d: expected %d, got %d", idx, od, n)
 		}
 		if err != oerr {
-			FatalHere(test, "Error mismatch at offset %d: expected '%s', got '%s'", idx, oerr, err)
+			testutils.FatalHere(test, "Error mismatch at offset %d: expected '%s', got '%s'", idx, oerr, err)
 		}
 		if bytes.Compare(data, odata) != 0 {
-			FatalHere(test, "Data mismatch at offset %d\n==Expected\n%s\n==Got\n%s", idx, odata, data)
+			testutils.FatalHere(test, "Data mismatch at offset %d\n==Expected\n%s\n==Got\n%s", idx, odata, data)
 		}
 	}
 
 	fs.Exit(proc)
 	err = fs.Shutdown()
 	if err != nil {
-		FatalHere(test, "Failed when shutting down filesystem: %s", err)
+		testutils.FatalHere(test, "Failed when shutting down filesystem: %s", err)
 	}
 }
