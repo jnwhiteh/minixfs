@@ -2,11 +2,11 @@ package fs
 
 import (
 	"fmt"
-	"log"
-	"math"
 	"github.com/jnwhiteh/minixfs/alloctbl"
 	"github.com/jnwhiteh/minixfs/common"
 	"github.com/jnwhiteh/minixfs/file"
+	"log"
+	"math"
 	"sync"
 )
 
@@ -38,7 +38,7 @@ func (fs *FileSystem) do_mount(proc *Process, dev common.BlockDevice, path strin
 	fs.bcache.Invalidate(freeIndex)
 
 	// Fill in the device info
-	devinfo, err :=common.GetDeviceInfo(dev)
+	devinfo, err := common.GetDeviceInfo(dev)
 
 	// If it a recognized Minix filesystem
 	if err != nil {

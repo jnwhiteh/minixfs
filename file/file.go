@@ -6,7 +6,7 @@ import (
 )
 
 type server_File struct {
-	rip   *common.Inode          // the underlying inode
+	rip   *common.Inode   // the underlying inode
 	count int             // the number of clients of this server
 	wg    *sync.WaitGroup // tracking outstanding read requests
 

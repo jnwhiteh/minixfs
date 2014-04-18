@@ -2,9 +2,9 @@ package device
 
 import (
 	"encoding/binary"
+	"github.com/jnwhiteh/minixfs/common"
 	"io"
 	"io/ioutil"
-	"github.com/jnwhiteh/minixfs/common"
 	"os"
 	"sync"
 )

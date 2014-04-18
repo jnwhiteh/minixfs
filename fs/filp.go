@@ -13,8 +13,8 @@ import (
 // This is implemented using a mutex because all operations require exclusive
 // access to the resource.
 type filp struct {
-	count int    // the number of clients
-	pos   int    // the current position in the file
+	count int           // the number of clients
+	pos   int           // the current position in the file
 	file  common.File   // the file server backing the operations
 	inode *common.Inode // the inode this refers to
 

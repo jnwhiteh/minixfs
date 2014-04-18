@@ -2,9 +2,9 @@ package bcache
 
 import (
 	"fmt"
-	"log"
 	"github.com/jnwhiteh/minixfs/common"
 	"github.com/jnwhiteh/minixfs/debug"
+	"log"
 	"sync"
 )
 

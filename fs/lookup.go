@@ -99,25 +99,25 @@ func (fs *FileSystem) advance(proc *Process, dirp *common.Inode, path string) (*
 		return nil, common.ENOENT
 	}
 
-	if rip.Inum == common.ROOT_INODE {
-		if dirp.Inum == common.ROOT_INODE {
-			// TODO: What does this do?
-			if path[1] == '.' {
-				panic("weird case in lookup, whata is this?")
-//				if fs.devices[devnum] != nil {
-//					// we can skip the superblock search here since we know
-//					// that 'i' is the device that we're looking at.
-//					mountinfo := fs.mountinfo[devnum]
-//					fs.itable.PutInode(rip)
-//					mnt_dev := mountinfo.imount.Devnum()
-//					inumb := mountinfo.imount.Inum()
-//					rip2, _ := fs.itable.GetInode(mnt_dev, inumb) // TODO: ignore error
-//					rip, _ = fs.advance(proc, rip2, path)
-//					fs.itable.PutInode(rip2)
-//				}
-			}
-		}
-	}
+	//	if rip.Inum == common.ROOT_INODE {
+	//		if dirp.Inum == common.ROOT_INODE {
+	//			// TODO: What does this do?
+	//			if path[1] == '.' {
+	//				panic("weird case in lookup, what is this?")
+	//				if fs.devices[devnum] != nil {
+	//					// we can skip the superblock search here since we know
+	//					// that 'i' is the device that we're looking at.
+	//					mountinfo := fs.mountinfo[devnum]
+	//					fs.itable.PutInode(rip)
+	//					mnt_dev := mountinfo.imount.Devnum()
+	//					inumb := mountinfo.imount.Inum()
+	//					rip2, _ := fs.itable.GetInode(mnt_dev, inumb) // TODO: ignore error
+	//					rip, _ = fs.advance(proc, rip2, path)
+	//					fs.itable.PutInode(rip2)
+	//				}
+	//			}
+	//		}
+	//	}
 
 	if rip == nil {
 		return nil, nil // TODO: Error here?

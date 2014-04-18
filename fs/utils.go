@@ -1,8 +1,8 @@
 package fs
 
 import (
-	"math"
 	"github.com/jnwhiteh/minixfs/common"
+	"math"
 )
 
 func (fs *FileSystem) new_node(proc *Process, path string, bits uint16, z0 uint) (*common.Inode, *common.Inode, string, error) {
@@ -52,8 +52,8 @@ func (fs *FileSystem) new_node(proc *Process, path string, bits uint16, z0 uint)
 	err = Link(dirp, rlast, inum)
 	if err != nil {
 		fs.itable.PutInode(dirp)
-		rip.Nlinks-- // pity, have to free disk inode
-		rip.Dirty = true // dirty inodes are written out
+		rip.Nlinks--            // pity, have to free disk inode
+		rip.Dirty = true        // dirty inodes are written out
 		fs.itable.PutInode(rip) // this call will free the inode
 		return nil, nil, "", err
 	}

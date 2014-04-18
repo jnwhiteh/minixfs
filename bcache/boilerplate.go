@@ -69,8 +69,8 @@ func (r req_BlockCache_Invalidate) is_reqBlockCache()    {}
 func (r res_BlockCache_Invalidate) is_resBlockCache()    {}
 func (r req_BlockCache_Flush) is_reqBlockCache()         {}
 func (r res_BlockCache_Flush) is_resBlockCache()         {}
-func (r req_BlockCache_Shutdown) is_reqBlockCache()         {}
-func (r res_BlockCache_Shutdown) is_resBlockCache()         {}
+func (r req_BlockCache_Shutdown) is_reqBlockCache()      {}
+func (r res_BlockCache_Shutdown) is_resBlockCache()      {}
 func (r res_BlockCache_Async) is_resBlockCache()         {}
 
 // Type check request/response types

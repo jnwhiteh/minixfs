@@ -5,12 +5,12 @@ import (
 )
 
 type Process struct {
-	pid     int         // the numeric id of this process
-	umask   uint16      // file creation mask
-	rootdir *common.Inode      // root directory of the process
-	workdir *common.Inode      // working directory of the process
-	files   []*filp     // list of file descriptors
-	fs      *FileSystem // the file system for this process
+	pid     int           // the numeric id of this process
+	umask   uint16        // file creation mask
+	rootdir *common.Inode // root directory of the process
+	workdir *common.Inode // working directory of the process
+	files   []*filp       // list of file descriptors
+	fs      *FileSystem   // the file system for this process
 }
 
 func (proc *Process) Mount(dev common.BlockDevice, path string) error {

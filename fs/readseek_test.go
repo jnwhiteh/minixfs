@@ -2,9 +2,9 @@ package fs
 
 import (
 	"bytes"
-	"io"
 	"github.com/jnwhiteh/minixfs/common"
 	"github.com/jnwhiteh/minixfs/testutils"
+	"io"
 	"testing"
 )
 

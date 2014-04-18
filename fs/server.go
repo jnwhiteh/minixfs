@@ -2,12 +2,12 @@ package fs
 
 import (
 	"encoding/binary"
-	"log"
 	"github.com/jnwhiteh/minixfs/alloctbl"
 	"github.com/jnwhiteh/minixfs/bcache"
 	"github.com/jnwhiteh/minixfs/common"
 	"github.com/jnwhiteh/minixfs/device"
 	"github.com/jnwhiteh/minixfs/inode"
+	"log"
 )
 
 type FileSystem struct {

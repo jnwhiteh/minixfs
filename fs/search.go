@@ -2,8 +2,8 @@ package fs
 
 import (
 	"fmt"
-	"log"
 	"github.com/jnwhiteh/minixfs/common"
+	"log"
 )
 
 type dirop int

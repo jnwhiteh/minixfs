@@ -3,8 +3,8 @@ package debug
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"github.com/jnwhiteh/minixfs/common"
+	"log"
 )
 
 func PrintBlock(bp *common.CacheBlock, devinfo *common.DeviceInfo) {

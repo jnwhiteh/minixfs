@@ -43,7 +43,7 @@ type req_InodeTbl_IsDeviceBusy struct {
 type res_InodeTbl_IsDeviceBusy struct {
 	Arg0 bool
 }
-type req_InodeTbl_Shutdown struct {}
+type req_InodeTbl_Shutdown struct{}
 type res_InodeTbl_Shutdown struct {
 	Arg0 error
 }
@@ -73,8 +73,8 @@ func (r req_InodeTbl_FlushInode) is_reqInodeTbl()    {}
 func (r res_InodeTbl_FlushInode) is_resInodeTbl()    {}
 func (r req_InodeTbl_IsDeviceBusy) is_reqInodeTbl()  {}
 func (r res_InodeTbl_IsDeviceBusy) is_resInodeTbl()  {}
-func (r req_InodeTbl_Shutdown) is_reqInodeTbl()  {}
-func (r res_InodeTbl_Shutdown) is_resInodeTbl()  {}
+func (r req_InodeTbl_Shutdown) is_reqInodeTbl()      {}
+func (r res_InodeTbl_Shutdown) is_resInodeTbl()      {}
 func (r res_InodeTbl_Async) is_resInodeTbl()         {}
 
 // Type check request/response types

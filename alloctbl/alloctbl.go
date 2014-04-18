@@ -9,7 +9,7 @@ const FS_BITCHUNK_BITS = 16 // the number of bits in a bitchunk_t
 type server_AllocTbl struct {
 	devinfo *common.DeviceInfo
 	cache   common.BlockCache // so we can read/write the allocTbl blocks
-	devno   int        // the device number of the device with this allocerblock
+	devno   int               // the device number of the device with this allocerblock
 
 	inodes_per_block    int // the number of inodes per block
 	bitchunks_per_block int // the number of bitchunks (16-bit seqments) per block

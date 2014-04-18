@@ -25,7 +25,7 @@ type req_AllocTbl_FreeZone struct {
 type res_AllocTbl_FreeZone struct {
 	Arg0 error
 }
-type req_AllocTbl_Shutdown struct {}
+type req_AllocTbl_Shutdown struct{}
 type res_AllocTbl_Shutdown struct {
 	Arg0 error
 }
