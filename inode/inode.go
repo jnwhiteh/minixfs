@@ -5,34 +5,65 @@ import (
 	"sync"
 )
 
+type cacheSlot struct {
+	inode *common.Inode // the inode itself
+
+	waiting []chan resInodeTbl // a list of waiting goroutines
+	m       sync.Mutex         // mutex for waitlist
+}
+
+func (cs *cacheSlot) ReturnOrQueue(ch chan resInodeTbl) {
+	cs.m.Lock()
+	defer cs.m.Unlock()
+
+	if len(cs.waiting) > 0 {
+		cs.waiting = append(cs.waiting, ch)
+	} else {
+		ch <- res_InodeTbl_GetInode{cs.inode, nil}
+	}
+}
+
+func (cs *cacheSlot) Queue(ch chan resInodeTbl) {
+	cs.m.Lock()
+	defer cs.m.Unlock()
+
+	cs.waiting = append(cs.waiting, ch)
+}
+
+func (cs *cacheSlot) FinishedLoading(rip *common.Inode) {
+	cs.m.Lock()
+	defer cs.m.Unlock()
+
+	for _, ch := range cs.waiting {
+		ch <- res_InodeTbl_GetInode{cs.inode, nil}
+	}
+	cs.waiting = nil
+}
+
 type server_InodeTbl struct {
 	bcache  common.BlockCache
 	devices []*common.DeviceInfo
-	inodes  []*common.Inode
+	slots   []*cacheSlot
 
 	in  chan reqInodeTbl
 	out chan resInodeTbl
-
-	waiting   [][]chan resInodeTbl
-	m_waiting *sync.Mutex
 }
 
 func NewCache(bcache common.BlockCache, numdevs int, size int) common.InodeTbl {
 	cache := &server_InodeTbl{
 		bcache,
 		make([]*common.DeviceInfo, numdevs),
-		make([]*common.Inode, size),
+		make([]*cacheSlot, size),
 		make(chan reqInodeTbl),
 		make(chan resInodeTbl),
-		make([][]chan resInodeTbl, size),
-		new(sync.Mutex),
 	}
 
-	for i := 0; i < len(cache.inodes); i++ {
-		inode := new(common.Inode)
-		inode.Bcache = bcache
-		inode.Icache = cache
-		cache.inodes[i] = inode
+	for i := 0; i < len(cache.slots); i++ {
+		slot := new(cacheSlot)
+		slot.inode = new(common.Inode)
+		slot.inode.Bcache = bcache
+		slot.inode.Icache = cache
+		cache.slots[i] = slot
 	}
 
 	go cache.loop()
@@ -56,10 +87,11 @@ func (itable *server_InodeTbl) loop() {
 		case req_InodeTbl_GetInode:
 			callback := make(chan resInodeTbl)
 
-			slot := itable.findSlot(req.devnum, req.inum)
+			slotIndex := itable.findSlot(req.devnum, req.inum)
 			var xp *common.Inode
-			if slot != common.NO_INODE && slot < len(itable.inodes) {
-				xp = itable.inodes[slot]
+
+			if slotIndex != common.NO_INODE && slotIndex < len(itable.slots) {
+				xp = itable.slots[slotIndex].inode
 			}
 
 			if xp == nil {
@@ -67,31 +99,26 @@ func (itable *server_InodeTbl) loop() {
 				itable.out <- res_InodeTbl_Async{callback}
 				callback <- res_InodeTbl_GetInode{nil, common.ENFILE}
 			} else if xp.Count > 0 {
-				// We found the inode, just need to return it
+				// We found the inode, so return it
+				slot := itable.slots[slotIndex]
 				xp.Count++
 				itable.out <- res_InodeTbl_Async{callback}
-				callback <- res_InodeTbl_GetInode{xp, nil}
+				slot.ReturnOrQueue(callback)
 			} else {
 				// Need to load the inode asynchronously, so make sure the
 				// cache slot isn't claimed by someone else in the meantime
+				slot := itable.slots[slotIndex]
 				xp.Devinfo = itable.devices[req.devnum]
 				xp.Inum = req.inum
 				xp.Count++
 
-				// Aquire the waiting lock and add us to the wait list
-				itable.m_waiting.Lock()
-				itable.waiting[slot] = append(itable.waiting[slot], callback)
-				itable.m_waiting.Unlock()
+				slot.Queue(callback)
 
 				go func() {
 					// Load the inode into the Inode
 					itable.loadInode(xp)
-					itable.m_waiting.Lock()
-					for _, callback := range itable.waiting[slot] {
-						callback <- res_InodeTbl_GetInode{xp, nil}
-					}
-					itable.waiting[slot] = nil
-					itable.m_waiting.Unlock()
+					// Notify anyone waiting for this slot
+					slot.FinishedLoading(xp)
 				}()
 
 				itable.out <- res_InodeTbl_Async{callback}
@@ -143,8 +170,8 @@ func (itable *server_InodeTbl) loop() {
 			itable.out <- res_InodeTbl_FlushInode{}
 		case req_InodeTbl_IsDeviceBusy:
 			count := 0
-			for i := 0; i < len(itable.inodes); i++ {
-				rip := itable.inodes[i]
+			for i := 0; i < len(itable.slots); i++ {
+				rip := itable.slots[i].inode
 				if rip.Count > 0 && rip.Devinfo.Devnum == req.devnum {
 					count += rip.Count
 				}
@@ -166,21 +193,21 @@ func (itable *server_InodeTbl) loop() {
 // Returns the slot that contains a given inode, an available slot is the
 // given inode is not present, or NO_INODE.
 func (c *server_InodeTbl) findSlot(devnum, inum int) int {
-	var slot int = common.NO_INODE
+	var slotIndex int = common.NO_INODE
 
-	for i := 0; i < len(c.inodes); i++ {
-		rip := c.inodes[i]
+	for i := 0; i < len(c.slots); i++ {
+		rip := c.slots[i].inode
 		if rip.Count > 0 {
 			if rip.Devinfo.Devnum == devnum && rip.Inum == inum {
 				// this is the inode we're looking for
 				return i
 			}
 		} else {
-			slot = i // unused slot, will use if not found
+			slotIndex = i // unused slot, will use if not found
 		}
 	}
 
-	return slot
+	return slotIndex
 }
 
 func (c *server_InodeTbl) loadInode(xp *common.Inode) {
