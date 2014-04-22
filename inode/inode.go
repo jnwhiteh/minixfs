@@ -12,6 +12,8 @@ type cacheSlot struct {
 	m       sync.Mutex         // mutex for waitlist
 }
 
+// Either return an inode result if it is immediatley available, or queue
+// the return when the inode finishes loading.
 func (cs *cacheSlot) ReturnOrQueue(ch chan resInodeTbl) {
 	cs.m.Lock()
 	defer cs.m.Unlock()
@@ -23,6 +25,7 @@ func (cs *cacheSlot) ReturnOrQueue(ch chan resInodeTbl) {
 	}
 }
 
+// Queue a channel to receive the inode result when it finishes loading.
 func (cs *cacheSlot) Queue(ch chan resInodeTbl) {
 	cs.m.Lock()
 	defer cs.m.Unlock()
@@ -30,6 +33,8 @@ func (cs *cacheSlot) Queue(ch chan resInodeTbl) {
 	cs.waiting = append(cs.waiting, ch)
 }
 
+// An inode has finished loading (triggered from main server loop), so deliver
+// the inode result to all queued goroutines.
 func (cs *cacheSlot) FinishedLoading(rip *common.Inode) {
 	cs.m.Lock()
 	defer cs.m.Unlock()
@@ -79,49 +84,47 @@ func (itable *server_InodeTbl) loop() {
 		case req_InodeTbl_MountDevice:
 			itable.devices[req.devnum] = req.info
 			itable.out <- res_InodeTbl_MountDevice{}
-			// Code here
 		case req_InodeTbl_UnmountDevice:
-			// TODO: Do something more here?
 			itable.devices[req.devnum] = nil
 			itable.out <- res_InodeTbl_UnmountDevice{}
 		case req_InodeTbl_GetInode:
+			// Create an channel on which the inode result will be delivered
 			callback := make(chan resInodeTbl)
 
+			// Find the cache slot for an inode, or a candidate slot in which
+			// the inode can be loaded.`
 			slotIndex := itable.findSlot(req.devnum, req.inum)
-			var xp *common.Inode
-
-			if slotIndex != common.NO_INODE && slotIndex < len(itable.slots) {
-				xp = itable.slots[slotIndex].inode
-			}
-
-			if xp == nil {
-				// Inode table is completely full
+			if slotIndex == common.NO_INODE || slotIndex >= len(itable.slots) {
+				// Inode table is completely full!
 				itable.out <- res_InodeTbl_Async{callback}
 				callback <- res_InodeTbl_GetInode{nil, common.ENFILE}
-			} else if xp.Count > 0 {
-				// We found the inode, so return it
-				slot := itable.slots[slotIndex]
-				xp.Count++
-				itable.out <- res_InodeTbl_Async{callback}
-				slot.ReturnOrQueue(callback)
 			} else {
-				// Need to load the inode asynchronously, so make sure the
-				// cache slot isn't claimed by someone else in the meantime
-				slot := itable.slots[slotIndex]
-				xp.Devinfo = itable.devices[req.devnum]
-				xp.Inum = req.inum
-				xp.Count++
+				xp := itable.slots[slotIndex].inode
+				if xp.Count > 0 {
+					// We found the inode, so return it
+					slot := itable.slots[slotIndex]
+					xp.Count++
+					itable.out <- res_InodeTbl_Async{callback}
+					slot.ReturnOrQueue(callback)
+				} else {
+					// Need to load the inode asynchronously, so make sure the
+					// cache slot isn't claimed by someone else in the meantime
+					slot := itable.slots[slotIndex]
+					xp.Devinfo = itable.devices[req.devnum]
+					xp.Inum = req.inum
+					xp.Count++
 
-				slot.Queue(callback)
+					slot.Queue(callback)
 
-				go func() {
-					// Load the inode into the Inode
-					itable.loadInode(xp)
-					// Notify anyone waiting for this slot
-					slot.FinishedLoading(xp)
-				}()
+					go func() {
+						// Load the inode into the Inode
+						itable.loadInode(xp)
+						// Notify anyone waiting for this slot
+						slot.FinishedLoading(xp)
+					}()
 
-				itable.out <- res_InodeTbl_Async{callback}
+					itable.out <- res_InodeTbl_Async{callback}
+				}
 			}
 		case req_InodeTbl_DupInode:
 			// Given an inode, duplicate it by incrementing its count
