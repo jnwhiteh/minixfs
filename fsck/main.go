@@ -51,6 +51,10 @@ const (
 	OFFSET_SUPER_BLOCK = 1024
 )
 
+func WORDS_PER_BLOCK() int {
+	return block_size / int(Sizeof_bitchunk_t)
+}
+
 func devopen(filename string) {
 	var err error
 
@@ -882,16 +886,21 @@ func strcmp(b []byte, s string) bool {
 func chkmap(cmap, dmap []bitchunk_t, bit, blkno, nblk int, mtype string) {
 	var nerr int
 	var report bool
+	var w int = nblk * WORDS_PER_BLOCK()
 	var phys int = 0
 
 	fmt.Printf("Checking %s map\n", mtype)
 	loadbitmap(dmap, blkno, nblk)
 
 	// the size of bitmaps should be the same
-	for i := 0; i < len(cmap); i++ {
-		if cmap[i] != dmap[i] {
-			chkword(uint32(cmap[i]), uint32(dmap[i]), bit, mtype, &nerr, &report, phys)
+	index := 0
+	for i := w; i > 0; i-- {
+		if cmap[index] != dmap[index] {
+			cword := uint32(cmap[index])
+			dword := uint32(dmap[index])
+			chkword(cword, dword, bit, mtype, &nerr, &report, phys)
 		}
+		index++
 		bit += int(8 * Sizeof_bitchunk_t)
 		phys += int(8 * Sizeof_bitchunk_t)
 	}
