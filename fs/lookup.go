@@ -24,8 +24,6 @@ func (fs *FileSystem) eatPath(proc *Process, path string) (*common.Inode, error)
 }
 
 func (fs *FileSystem) lastDir(proc *Process, path string) (*common.Inode, string, error) {
-	path = filepath.Clean(path)
-
 	var rip *common.Inode
 	if filepath.IsAbs(path) {
 		rip = proc.rootdir
