@@ -102,3 +102,9 @@ func SCALE() int {
 func NR_DIR_ENTRIES(b int) int {
 	return b / DIR_ENTRY_SIZE
 }
+
+func WORDS_PER_BLOCK() int {
+	return block_size / int(Sizeof_bitchunk_t)
+}
+
+

@@ -51,10 +51,6 @@ const (
 	OFFSET_SUPER_BLOCK = 1024
 )
 
-func WORDS_PER_BLOCK() int {
-	return block_size / int(Sizeof_bitchunk_t)
-}
-
 func devopen(filename string) {
 	var err error
 
